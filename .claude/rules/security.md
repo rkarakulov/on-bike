@@ -2,7 +2,8 @@
 paths:
   - "apps/api/src/modules/identity/**"
   - "apps/api/src/modules/media/**"
-  - "apps/api/src/infra/**"
+  - "apps/api/src/{app.module,worker.module,main,worker,error-messages}.ts"
+  - "apps/api/src/config/**"
   - "apps/landing/src/pages/account/**"
   - "infra/**"
 ---

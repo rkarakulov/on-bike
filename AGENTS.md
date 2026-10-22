@@ -39,8 +39,8 @@ packages/
   contracts/     zod-схемы — источник правды API (DTO, enum-ы, коды ошибок)
   api-client/    клиент + TanStack Query hooks поверх contracts
   tracks/        парсинг GPX/TCX/FIT/KML, геометрия
-  design-tokens/ Jersey Aura / Night Ride / «Протокол»
-  i18n/          русские строки
+  design-tokens/ бренд: Jersey Aura / Night Ride / «Протокол» поверх @rkarakulov/design-tokens
+  i18n/          русские строки поверх словарей @rkarakulov/i18n-core
   config/        пресеты tsconfig (eslint и prettier — общие, в корне)
 infra/        docker-compose (dev/stage/prod), Caddy, бэкапы
 docs/         product, architecture, adr, tasks, runbooks
@@ -48,6 +48,12 @@ tools/ai_review/  контракт независимого ревью + Codex-�
 ```
 
 Имена пакетов — `@on-bike/<name>`. Node 24 (`.nvmrc`), pnpm 11, Turborepo.
+
+Общий код — пакеты базы `@rkarakulov/*` (репозиторий `rkarakulov/app-foundation`, ADR-0004, GitHub Packages):
+компоненты дизайн-системы `@rkarakulov/ui`, инфраструктура API `@rkarakulov/api-kit` (env, БД, outbox, очереди,
+лимитер, почта, HTTP, ошибки), тестовый стенд `@rkarakulov/test-kit`, ядра `design-tokens`, `i18n-core`,
+`contracts-core`, `api-client-core`. В on-bike — бренд, домен, тексты и композиция. Изменение общего кода — задача
+и релиз в app-foundation, не копия в on-bike.
 
 ## 3. Команды
 
@@ -92,9 +98,9 @@ tools/ai_review/  контракт независимого ревью + Codex-�
 10. **Нет «на вырост».** Не добавляй push, WebSocket, GPS-запись, внешние IdP и т.п. без ADR.
 11. **Всё UI — из дизайн-системы.** Любой экран, страница и элемент собирается из `@on-bike/design-tokens`
     (семантические роли, `.t-*` / `textStyle`, `space` / `inset` / `size` / `stroke` / `density`) и готовых
-    компонентов (`apps/mobile/src/components/ui`; веб — классы и переменные пакета). Нужного нет —
-    **расширяй систему**: токен или роль в пакете, компонент в `components/ui` с тестом и примером на
-    витрине `/ui-kit`. Запрещено: hex и примитивы `color.*` в приложениях (ловит ESLint), px-литералы
+    компонентов (`@rkarakulov/ui`; веб — классы и переменные пакета). Нужного нет — **расширяй систему**:
+    общий компонент или токен — задачей и релизом в app-foundation (с тестом и примером на витрине `UiKit`);
+    продуктовый компонент — в `apps/mobile/src/components` только из токенов и компонентов системы, с тестом. Запрещено: hex и примитивы `color.*` в приложениях (ловит ESLint), px-литералы
     оформления (размеры, отступы, шрифты, толщины), свои шрифты и цвета «по месту». Разрешено без токенов
     только раскладка: flex/grid, порядок, выравнивание, проценты, `0`. Значения берутся из прототипов;
     расходятся с ними — вопрос человеку.

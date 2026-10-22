@@ -208,6 +208,12 @@ on-bike на пакетах `@rkarakulov/*` 0.1.0 (ADR-0004, F4).
   5. Правила и `AGENTS.md` с путями удаляемого кода (`.claude/rules/*` `paths:`, §2, §4.11) — обновляются в F4
      (находка HIGH architect), переключение на плагин — F3.
   6. EAS Build: секрет `NODE_AUTH_TOKEN` — действие человека перед первой сборкой EAS (follow-up, не блокирует F4).
+- S3: `apps/api/tsconfig.json` — `module: ESNext`, `moduleResolution: Bundler` (только проверка типов; сборка — SWC в CJS).
+  С NodeNext CJS-код api и ESM-декларации api-kit видели разные декларации drizzle-orm (`.d.cts`/`.d.ts`, ~140 ошибок).
+  В рантайме две сборки drizzle совместимы через `entityKind` (`Symbol.for`) — подтверждено смоуком `dist`.
+  Принято автором; перевод api на ESM — follow-up (вместе с шаблоном F3).
+- S3: базовые коды ошибок для словаря сообщений api — реэкспортом из `@on-bike/contracts`, без прямой зависимости api от
+  `contracts-core`.
 - Предусловия выполнены: пакеты 0.1.0 опубликованы; доступ Actions on-bike к пакетам открыт человеком; локальный токен
   `read:packages` и строка авторизации в `~/.npmrc` — есть.
 
@@ -503,3 +509,29 @@ grep `@/components/ui|@/theme/theme|@/lib/text` пуст. `expo export --platfor
 NOT VERIFIED: AC4 — смоук на Android в Expo Go (человек); iOS-пикер с `locale="ru"`.
 Пробелы базы (follow-up app-foundation): `t()` с отсутствующим ключом бросает «требует числовой params.count» вместо
 явной ошибки; `UiKit` без слота для компонентов проекта.
+
+### S3 (коммит 518bd50)
+
+`apps/api/src/infra/**` (21 файл), `src/common/**` (5), `config/config.module.ts`, `http-app.ts` удалены (сверены с api-kit).
+env — `defineEnv({ ...mailEnvShape, JWT_SECRET, EMAIL_TOKEN_SECRET, APP_LINK_BASE, AGREEMENT_VERSION })`. `AppModule`/
+`WorkerModule` — модули api-kit, `DatabaseModule.forRoot({ schema })`; `ApiExceptionFilter` + `API_ERROR_MESSAGES` =
+`ON_BIKE_ERROR_MESSAGES`. В корне `src` — `db/{schema,index}.ts` (реэкспорт `outbox`, типы), `queues.ts`, `error-messages.ts`
+(тексты кодов on-bike, `domainError(code: ErrorCode, …)` — опечатка в коде ловится при компиляции). `ZodValidationPipe(…,
+FieldErrorCode)` во всех 4 местах. Тестовый стенд — обёртка `createApiHarness`, `recreateTestDatabase`, `truncateAll` из
+test-kit; `http-app.int.test.ts` → `trust-proxy.int.test.ts`. `nodemailer` убран из зависимостей api (`@types/nodemailer`
+остаётся до api-kit 0.1.1).
+Тесты api: 62 (16 файлов) = 74 − 18 дублей базы (filter 4, pipe 3, mailer 1, outbox publisher 4, rate-limiter 5, env
+TRUST_PROXY 1) + 6 новых (`error-messages.test.ts` 3, `test/harness.int.test.ts` 3); точные тексты `EMAIL_TAKEN`/
+`EMAIL_UNAVAILABLE`/`LINK_EXPIRED` в int-тестах (без провайдера словаря падают 3 теста — проверено мутацией).
+`db:generate` — «No schema changes», `drizzle/` без диффа. `build` → `node dist/main.js` + `dist/worker.js`: `/v1/health`
+200, регистрация 201 → письмо в Mailpit → confirm 200 `verified`; повтор — 409 «E-mail уже зарегистрирован».
+
+### S6
+
+Правила и документы на новых путях: `AGENTS.md` §2 (общий код — `@rkarakulov/*`), §4.11 (компоненты `@rkarakulov/ui`,
+расширение — задачей в app-foundation); `.claude/rules/{security,db}.md` `paths:` — композиция API и `src/db/**` вместо
+удалённого `src/infra/**`; `.claude/rules/{backend,mobile}.md`, скилы `backend-nest`/`mobile-expo`,
+`tools/ai_review/review_contract.md`, `docs/architecture/README.md`; `design.md` §4 — F4 до F3. CI — `setup-node` с
+`registry-url` и `packages: read` (сделано до S0).
+`pnpm check` (полный, после S3–S5) — зелёный: `arch:check` 156 модулей без нарушений, typecheck 9/9, test 14/14
+(api 62, mobile 74, design-tokens 114, contracts 21, api-client 11, i18n 5, admin 6, tracks 2).

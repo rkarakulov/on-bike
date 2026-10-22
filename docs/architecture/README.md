@@ -74,7 +74,7 @@ worker: identity-maintenance, 03:00 Europe/Minsk ─► удаление неп�
 
 | Клиент | Как подключает |
 |---|---|
-| mobile | `useTheme()` → семантика; `textStyle(name)`; компоненты `apps/mobile/src/components/ui`; данные — `AsyncContent` + `Skeleton*`; витрина `/ui-kit` (dev) |
+| mobile | `configureDesignSystem` (`src/theme/design-system.ts`); `useTheme()` → семантика; `textStyle(name)`; компоненты `@rkarakulov/ui`; данные — `AsyncContent` + `Skeleton*`; витрина `/ui-kit` = `UiKit` базы (dev) |
 | admin | `installDesignSystem()` → `designSystemCss({ theme: 'protocol' })` в `<head>`; классы `.t-*`, `.skeleton`; шрифты `src/fonts.ts` |
 | landing | `designSystemCss({ theme: 'light', darkTheme: 'dark' })` и шрифты в `Base.astro`; классы `.t-*`, `.skeleton` |
 
