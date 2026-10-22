@@ -170,6 +170,10 @@ Architect, 2026-10-23. Блокеров нет; решения ниже — ре
     из стандартного шаблона Expo, нейтральные строки.
 
 ## 8.2 Deviations from spec
+- S5 (0b32597..3631945): доменный grep и проверка changeset — только в ветке матрицы `use_postgis=false`, проверка changeset
+  пропускает PR `changeset-release/main`; `template-update` сверяет проект со свежим рендером HEAD и сохранность правок
+  README/AGENTS.md; `template-release` — вариант по умолчанию, токен записи только в шаге push тега; смоук API — на
+  свободном порту. Приняты автором.
 - B1–B4 (12551e8..fc2e0fb): `tsconfig.json` пакетов и приложений — `.jinja` (нужен `customConditions:
   ["@<scope>/source"]`, его нет в пресете базы); строки подключения в `drizzle.config.ts`/`test-env.ts` собираются из
   `const DB = '[[ db_name ]]'` (длина строки не зависит от slug); `project_name` экранируется по месту (JSON, HTML, ru.ts);
@@ -456,4 +460,21 @@ F3b (принятие шаблона в on-bike, `.copier-answers.yml` там, �
 (проверяются запуском и негативными проверками).
 
 ## 12. Outcome
-Заполняет coder.
+
+Ветка app-foundation `feature/f3-template`: S0 `5246077`, A1 `b8d7e1c`, A2 `248dd63`, B1–B4 `12551e8`..`fc2e0fb`,
+`.gitignore` `c50284d`, S5 `0b32597`, `12fa8aa`, `3631945`.
+
+- **copier.yml + template/**: вопросы (`project_slug`, `project_name`, `npm_scope`, `app_scheme`, `bundle_id`, `author`,
+  `use_postgis`), вычисляемые `foundation_version`/`db_name`, разделители `[[ ]]`; корень, infra, CI проекта, AI-часть
+  (AGENTS.md §0–§10, rules, deny-лист, плагин app-dev-kit; Codex — `.ai/dev-kit` + 16 адаптеров и 4 роли из `plugin/`),
+  `apps/{api,app,admin}`, `packages/{contracts,api-client,i18n,design-tokens}` — тонкие слои, нейтральный бренд, Inter.
+- **Скрипты базы**: `template:check` (рендер → install → check → build + dist → migrate + health + worker → expo export),
+  `template:sync` (+ `--check` в `pnpm check`), `sync-template-version` (+ `--check`, `version-packages`).
+- **CI/release базы**: `template` (матрица `use_postgis`, доменный grep, changeset), `template-update` (после первого тега
+  `v*`), `template-release` (после публикации: `template:check --strict` → тег `vX.Y.Z`). Плагин 0.1.1.
+- **Проверено**: `template:check` 1–7 — зелёный для `use_postgis=false/true` (по 2 прогона); рендер с именем
+  `Acme's "Field" Service`; AC4 — `copier update` между коммитами сохраняет правки проекта, применяет изменения шаблона,
+  совпадает со свежим рендером, конфликт ловится; `pnpm check`, `build && smoke`, `claude plugin validate --strict .`
+  базы; Codex видит адаптеры скилов.
+- **NOT VERIFIED**: workflows на GitHub (до push); iOS; `infra:up` рендера на стандартных портах (заняты dev on-bike);
+  роли `.codex/agents` в живом Codex.
