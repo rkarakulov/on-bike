@@ -1,0 +1,26 @@
+/* Токены синхронизированы с @on-bike/design-tokens (palette.jerseyAura) */
+:root {
+  --color-bg: #ffffff;
+  --color-ink: #111111;
+  --color-ink2: #5c5c5c;
+  --color-accent: #c2410c;
+  --color-border: #e2e2df;
+  color-scheme: light;
+  font-family: Inter, system-ui, sans-serif;
+  color: var(--color-ink);
+  background: var(--color-bg);
+}
+
+body {
+  margin: 0;
+}
+
+.shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.muted {
+  color: var(--color-ink2);
+}

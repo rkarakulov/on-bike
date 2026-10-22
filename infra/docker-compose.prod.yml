@@ -1,0 +1,45 @@
+# Прод: одна VPS (hoster.by), Docker Compose, без Kubernetes.
+# Секреты — в infra/.env на сервере (не в git). Миграции — отдельным шагом деплоя:
+#   docker compose run --rm api node node_modules/drizzle-kit/bin.cjs migrate
+name: on-bike
+services:
+  caddy:
+    image: caddy:2
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - admin-dist:/srv/admin:ro
+      - caddy-data:/data
+    depends_on: [api, landing]
+    restart: unless-stopped
+  api:
+    image: ghcr.io/rkarakulov/on-bike-api:${APP_VERSION:-latest}
+    command: ['node', 'apps/api/dist/main.js']
+    env_file: .env
+    depends_on: [postgres, redis]
+    restart: unless-stopped
+  worker:
+    image: ghcr.io/rkarakulov/on-bike-api:${APP_VERSION:-latest}
+    command: ['node', 'apps/api/dist/worker.js']
+    env_file: .env
+    depends_on: [postgres, redis]
+    restart: unless-stopped
+  landing:
+    image: ghcr.io/rkarakulov/on-bike-landing:${APP_VERSION:-latest}
+    environment: { HOST: 0.0.0.0, PORT: '4321' }
+    restart: unless-stopped
+  postgres:
+    image: postgis/postgis:18-3.6
+    env_file: .env
+    volumes: [pgdata:/var/lib/postgresql]
+    restart: unless-stopped
+  redis:
+    image: redis:8.8
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes: [redisdata:/data]
+    restart: unless-stopped
+volumes:
+  pgdata:
+  redisdata:
+  caddy-data:
+  admin-dist:

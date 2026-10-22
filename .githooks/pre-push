@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Полный гейт перед push. Обход: git push --no-verify (только осознанно).
+set -euo pipefail
+pnpm check

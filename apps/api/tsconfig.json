@@ -1,0 +1,13 @@
+{
+  "extends": "@on-bike/config/tsconfig.library.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
+    "outDir": "dist"
+  },
+  "include": ["src", "drizzle.config.ts", "vitest.config.mts"]
+}

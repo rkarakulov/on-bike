@@ -1,0 +1,23 @@
+# Локальная разработка: только stateful-зависимости. Приложения запускаются через pnpm dev.
+name: on-bike-dev
+services:
+  postgres:
+    image: postgis/postgis:18-3.6
+    environment:
+      POSTGRES_USER: onbike
+      POSTGRES_PASSWORD: onbike
+      POSTGRES_DB: onbike
+    ports: ['5432:5432']
+    volumes: [pgdata:/var/lib/postgresql]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U onbike']
+      interval: 5s
+      retries: 10
+  redis:
+    image: redis:8.8
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports: ['6379:6379']
+    volumes: [redisdata:/data]
+volumes:
+  pgdata:
+  redisdata:

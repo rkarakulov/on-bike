@@ -1,0 +1,32 @@
+{
+  "name": "@on-bike/admin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Веб-панель организаторов и модерации (стиль «Протокол», только светлая тема)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@on-bike/api-client": "workspace:*",
+    "@on-bike/design-tokens": "workspace:*",
+    "@on-bike/i18n": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@on-bike/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "~19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "catalog:",
+    "vite": "^8.3.4",
+    "vitest": "catalog:"
+  }
+}

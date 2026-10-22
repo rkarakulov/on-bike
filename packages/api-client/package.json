@@ -1,0 +1,31 @@
+{
+  "name": "@on-bike/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Типизированный HTTP-клиент API поверх @on-bike/contracts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@on-bike/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@on-bike/contracts": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@on-bike/config": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

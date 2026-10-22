@@ -1,0 +1,22 @@
+# Домены — заглушки, пока не зарегистрирован .by (см. смету)
+{$PUBLIC_HOST:on-bike.localhost} {
+	encode zstd gzip
+	handle /v1/* {
+		reverse_proxy api:3000
+	}
+	handle {
+		reverse_proxy landing:4321
+	}
+}
+
+{$ADMIN_HOST:admin.on-bike.localhost} {
+	encode zstd gzip
+	handle /v1/* {
+		reverse_proxy api:3000
+	}
+	handle {
+		root * /srv/admin
+		try_files {path} /index.html
+		file_server
+	}
+}

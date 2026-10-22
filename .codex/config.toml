@@ -1,0 +1,10 @@
+# Codex: проектные настройки on-bike.
+# Модель не закреплена — берётся из пользовательского конфига или `codex -m`.
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+[features]
+multi_agent = true
+
+# Роли architect / coder / reviewer автообнаруживаются из .codex/agents/*.toml.
+# MCP-серверы проекта не заданы; секреты сюда не кладём.

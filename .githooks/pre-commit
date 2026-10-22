@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Быстрый гейт: секреты и формат только по staged-файлам.
+set -euo pipefail
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --no-banner
+else
+  echo "pre-commit: gitleaks не установлен (brew install gitleaks) — проверка секретов пропущена" >&2
+fi
+
+# совместимо с bash 3.2 (macOS): без mapfile
+if [ -n "$(git diff --cached --name-only --diff-filter=ACMR)" ]; then
+  git diff --cached --name-only --diff-filter=ACMR -z | xargs -0 pnpm exec prettier --check --ignore-unknown
+fi

@@ -1,0 +1,6 @@
+{
+  "extends": "@on-bike/config/tsconfig.library.json",
+  // fetch есть во всех средах-потребителях: браузер, React Native, Node 24
+  "compilerOptions": { "lib": ["ES2023", "DOM"] },
+  "include": ["src"]
+}

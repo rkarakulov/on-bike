@@ -1,0 +1,31 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+*.tsbuildinfo
+.DS_Store
+*.log
+
+# env и секреты — никогда в git
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+key.json
+
+# Expo
+.expo/
+apps/mobile/ios/
+apps/mobile/android/
+expo-env.d.ts
+
+# Astro
+.astro/
+
+# AI: локальные настройки и временные артефакты (сам AI-конфиг коммитится)
+.claude/settings.local.json
+.claude/worktrees/
+.codex/*.local.toml

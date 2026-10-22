@@ -1,0 +1,4 @@
+{
+  "extends": "@on-bike/config/tsconfig.library.json",
+  "include": ["src"]
+}
