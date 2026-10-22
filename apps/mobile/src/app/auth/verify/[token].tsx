@@ -1,11 +1,18 @@
 import { normalizeEmail, type VerificationLinkState } from '@on-bike/contracts';
 import { size } from '@on-bike/design-tokens';
 import { t } from '@on-bike/i18n';
+import {
+  AsyncContent,
+  Banner,
+  Button,
+  keepTogether,
+  Skeleton,
+  SkeletonText,
+  TextAction,
+} from '@rkarakulov/ui';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 
-import { AsyncContent } from '@/components/async-content';
-import { Banner, Button, Skeleton, SkeletonText, TextAction } from '@/components/ui';
 import {
   AuthActions,
   AuthMeta,
@@ -37,7 +44,6 @@ import {
   VerifiedSigningIn,
 } from '@/features/auth/verification-states';
 import { formatCountdown, useSecondsLeft } from '@/lib/countdown';
-import { keepTogether } from '@/lib/text';
 
 type LinkView = { state: VerificationLinkState | 'gone'; email: string };
 

@@ -1,9 +1,7 @@
 import { size, space, stroke } from '@on-bike/design-tokens';
+import { textStyle, useTheme } from '@rkarakulov/ui';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-
-import { textStyle } from '@/theme/fonts';
-import { useTheme } from '@/theme/theme';
 
 /**
  * Панель вкладок по прототипу: активная — метка 600 и 2 px полоса text.primary по верхнему краю,

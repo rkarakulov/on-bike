@@ -1,11 +1,9 @@
 import { space } from '@on-bike/design-tokens';
 import { t, type MessageKey } from '@on-bike/i18n';
+import { textStyle, useTheme } from '@rkarakulov/ui';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { textStyle } from '@/theme/fonts';
-import { useTheme } from '@/theme/theme';
 
 interface ScreenPlaceholderProps {
   title: MessageKey;

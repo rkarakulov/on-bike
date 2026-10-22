@@ -39,7 +39,7 @@ describe('витрина компонентов', () => {
       text: '14 марта 1991',
     });
     expect(screen.getByText('Регистрация доступна с 18 лет.')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Класс велосипеда' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Категория' })).toBeDisabled();
     expect(screen.getByRole('button', { busy: true })).toBeDisabled();
     // disabled-состояния тоже показаны на витрине
     expect(screen.getByRole('checkbox', { name: 'Недоступно' })).toBeDisabled();

@@ -1,8 +1,8 @@
 import { t } from '@on-bike/i18n';
+import { TextAction } from '@rkarakulov/ui';
 import { useRouter } from 'expo-router';
 
 import { ScreenPlaceholder } from '@/components/screen-placeholder';
-import { TextAction } from '@/components/ui';
 
 export default function HomeScreen() {
   const router = useRouter();

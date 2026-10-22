@@ -1,8 +1,8 @@
 import { t } from '@on-bike/i18n';
+import { Banner, Button, keepTogether, TextAction } from '@rkarakulov/ui';
 import { Redirect, useRouter } from 'expo-router';
 import { useState } from 'react';
 
-import { Banner, Button, TextAction } from '@/components/ui';
 import {
   AuthActions,
   AuthInline,
@@ -24,7 +24,6 @@ import {
 } from '@/features/auth/verification-states';
 import { useSignInWhenVerified } from '@/features/auth/use-sign-in-when-verified';
 import { formatCountdown, useSecondsLeft } from '@/lib/countdown';
-import { keepTogether } from '@/lib/text';
 
 export default function CheckEmailScreen() {
   const pending = useRegistrationStore((state) => state.pending);

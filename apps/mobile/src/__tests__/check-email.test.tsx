@@ -1,10 +1,10 @@
 /// <reference types="jest" />
 import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
+import { keepTogether } from '@rkarakulov/ui';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
 
 import { api } from '@/lib/api';
-import { keepTogether } from '@/lib/text';
 
 import {
   EMAIL,

@@ -24,9 +24,7 @@ describe('словарь on-bike', () => {
     const base: Record<string, unknown> = baseMessages.ru;
     const duplicates = Object.entries(ru)
       .filter(([key, text]) => base[key] === text)
-      .map(([key]) => key)
-      // витрина: ключи uiKit.* уходят вместе со старой витриной (F4, S4)
-      .filter((key) => !key.startsWith('uiKit.'));
+      .map(([key]) => key);
     expect(duplicates).toEqual([]);
   });
 

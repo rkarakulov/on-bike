@@ -1,11 +1,8 @@
 import { size, space } from '@on-bike/design-tokens';
+import { Kicker, textStyle, useTheme } from '@rkarakulov/ui';
 import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { Kicker } from '@/components/ui';
-import { textStyle } from '@/theme/fonts';
-import { useTheme } from '@/theme/theme';
 
 interface AuthScreenProps {
   /** постоянная шапка сценария («Регистрация») — видна сразу, даже пока данные экрана грузятся (§4.12) */
