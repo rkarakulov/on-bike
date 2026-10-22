@@ -46,6 +46,7 @@ catalog:
   '@swc/core': ^1.16.18
 
 allowBuilds:
+  '@parcel/watcher': false
   '@swc/core': true
   esbuild: true
   msgpackr-extract: true
