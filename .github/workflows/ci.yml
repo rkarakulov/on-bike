@@ -67,3 +67,11 @@ jobs:
             FILTER="--filter=...[origin/${{ github.base_ref }}]"
           fi
           pnpm turbo run typecheck test build $FILTER
+      # dist API — CommonJS поверх ESM-пакетов базы (require(esm), две сборки drizzle): typecheck и vitest
+      # этого не видят, поэтому модули dist загружаются отдельно (если API собирался в этом прогоне)
+      - name: api dist loads
+        working-directory: apps/api
+        run: |
+          if [ -d dist ]; then
+            node -e "require('reflect-metadata');require('./dist/app.module');require('./dist/worker.module')"
+          fi

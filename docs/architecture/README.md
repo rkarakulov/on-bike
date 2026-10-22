@@ -53,9 +53,9 @@ worker: identity-maintenance, 03:00 Europe/Minsk ─► удаление неп�
 
 - Модуль пишет событие через `OutboxWriter.append(tx, …)` в той же транзакции, что и данные; в payload —
   только id.
-- Публикатор (`infra/outbox`, только worker) раз в ~1 с берёт пачку `FOR UPDATE SKIP LOCKED`,
+- Публикатор (`OutboxPublisherModule` из `@rkarakulov/api-kit`, только worker) раз в ~1 с берёт пачку `FOR UPDATE SKIP LOCKED`,
   ставит задачу `queue.add(type, { outboxEventId }, { jobId: id })` и отмечает `published_at`.
-  Маршруты тип → очередь задаёт composition root (`worker.module.ts`); `infra` о модулях не знает.
+  Маршруты тип → очередь задаёт composition root (`worker.module.ts`); инфраструктура базы о модулях не знает.
 - Задачи идемпотентны: повторная публикация не дублирует задачу (тот же `jobId`), обработчик
   перечитывает состояние из БД. Очистка опубликованных событий outbox — отдельная задача (позже).
 
