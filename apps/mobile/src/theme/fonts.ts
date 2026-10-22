@@ -42,7 +42,15 @@ export function fontFamilyFor(face: FontFace): FontFamily {
   return face.role === 'display' ? families.display[face.weight] : families.text[face.weight];
 }
 
+/** Стиль текста из токена: em → px, uppercase и табличные цифры — как в CSS прототипов. */
 export function textStyle(name: TextStyleName): TextStyle {
   const token: TextStyleToken = typography[name];
-  return { fontFamily: fontFamilyFor(token), fontSize: token.size, lineHeight: token.lineHeight };
+  return {
+    fontFamily: fontFamilyFor(token),
+    fontSize: token.size,
+    lineHeight: token.lineHeight,
+    ...(token.letterSpacing ? { letterSpacing: token.letterSpacing * token.size } : {}),
+    ...(token.uppercase ? { textTransform: 'uppercase' as const } : {}),
+    ...(token.tabularNums ? { fontVariant: ['lining-nums', 'tabular-nums'] as const } : {}),
+  };
 }

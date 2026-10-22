@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@astrojs/node": "^11.1.9",
+    "@fontsource/inter": "catalog:",
+    "@fontsource/playfair-display": "catalog:",
     "@on-bike/design-tokens": "workspace:*",
     "@on-bike/i18n": "workspace:*",
     "astro": "^7.4.0"

@@ -29,7 +29,8 @@ correctness · регрессии / call sites · безопасность · pl
 contracts-first и совместимость со старыми клиентами · серверный авторитет результатов ·
 append-only аудит · миграции (expand/contract, не при старте) · идемпотентность задач BullMQ ·
 обработка ошибок · edge cases · тесты (есть, честные, без тавтологий) · соответствие acceptance ·
-лишняя сложность · i18n и токены в UI · Documentation Sync (раздел 10 task.md vs diff).
+лишняя сложность · i18n · Documentation Sync (раздел 10 task.md vs diff) · дизайн-система (§4.11) ·
+состояния данных (§4.12). Определения измерений и severity — в `tools/ai_review/review_contract.md`.
 
 ## Выход
 

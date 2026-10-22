@@ -16,6 +16,17 @@ export class ApiHttpError extends Error {
   }
 }
 
+/** Запрос не дошёл до сервера (нет сети, DNS, обрыв). Всё остальное — ответ сервера или его форма. */
+export class ApiNetworkError extends Error {
+  constructor(override readonly cause: unknown) {
+    super('Network request failed');
+  }
+}
+
+/** Единственный признак «нет соединения» для UI (AGENTS.md §4.12); прочие ошибки — «Не удалось загрузить». */
+export const isNetworkError = (error: unknown): error is ApiNetworkError =>
+  error instanceof ApiNetworkError;
+
 /** Тонкий клиент: каждый ответ валидируется той же zod-схемой, что и на сервере. */
 export function createApiClient({ baseUrl, getAccessToken, fetchImpl = fetch }: ApiClientOptions) {
   async function request<S extends z.ZodType>(path: string, schema: S, init?: RequestInit) {
@@ -27,6 +38,8 @@ export function createApiClient({ baseUrl, getAccessToken, fetchImpl = fetch }: 
         ...(token ? { authorization: `Bearer ${token}` } : {}),
         ...init?.headers,
       },
+    }).catch((error: unknown) => {
+      throw new ApiNetworkError(error);
     });
     const body: unknown = await response.json().catch(() => undefined);
     if (!response.ok) throw new ApiHttpError(response.status, body);
