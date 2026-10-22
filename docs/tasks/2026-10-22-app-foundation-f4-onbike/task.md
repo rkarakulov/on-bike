@@ -535,3 +535,12 @@ TRUST_PROXY 1) + 6 новых (`error-messages.test.ts` 3, `test/harness.int.tes
 `registry-url` и `packages: read` (сделано до S0).
 `pnpm check` (полный, после S3–S5) — зелёный: `arch:check` 156 модулей без нарушений, typecheck 9/9, test 14/14
 (api 62, mobile 74, design-tokens 114, contracts 21, api-client 11, i18n 5, admin 6, tracks 2).
+
+### Итог
+
+- AC4 — ручной смоук автора на Android (Expo Go) после F4: splash → Главная, регистрация → письмо в Mailpit →
+  подтверждение → вход без пароля — OK (2026-10-22).
+- Ревью: Codex pass 1 APPROVE, Claude pass 1 APPROVE; MEDIUM 4 / LOW 3 — исправлены (`findings.md`).
+- AC5 (CI на GitHub, пакеты через `GITHUB_TOKEN`) — проверяется на PR.
+- Follow-ups: EAS-секрет `NODE_AUTH_TOKEN` и хук `eas-build-pre-install`; перевод api на ESM; `@on-bike/config`, ESLint-пресет
+  и переключение AI-инфраструктуры на плагин — с F3; app-foundation 0.1.1 (README, `@types/nodemailer`, ошибка ключа i18n).
