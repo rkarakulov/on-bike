@@ -51,6 +51,9 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+          # пользовательский .npmrc с токеном из NODE_AUTH_TOKEN для @rkarakulov/*
+          registry-url: https://npm.pkg.github.com
+          scope: '@rkarakulov'
       - run: pnpm install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
