@@ -170,6 +170,9 @@ Architect, 2026-10-23. Блокеров нет; решения ниже — ре
     из стандартного шаблона Expo, нейтральные строки.
 
 ## 8.2 Deviations from spec
+- A1/A2 (b8d7e1c, 248dd63): `.claude/rules/{contracts,tests,security}.md` без `.jinja` (нет переменных); CI проекта —
+  полный `pnpm check` без PR-фильтра turbo; нумерация инвариантов AGENTS.md шаблона §4.11–§4.13 сохранена под контракт
+  ревью, §4.13 — iOS/Android (web — F5). Приняты автором.
 - S0 (исполнитель A, коммит 5246077 app-foundation): `.githooks` и `scripts/install-git-hooks.mjs` перенесены из A1 в S0 —
   без них падает `prepare` при `pnpm install`; валидатор у `npm_scope` (как у slug); регулярка `bundle_id` с `[.]` вместо
   `\.`; `check-template.mjs` — временный каталог удаляется только после успеха без `--keep`, `--out` не удаляется; copier —
