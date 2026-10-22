@@ -480,3 +480,26 @@ api-client 11, i18n 5, tracks 2. Сборка пакетов и admin/landing (`
 падают по таймауту 5 с — так же и до F4 (проверено на коммите S1); оба файла удаляются в S4 (дубли базы).
 `@types/nodemailer` нужен api и после S3: `.d.ts` api-kit импортируют типы `nodemailer`, а api-kit не объявляет
 `@types/nodemailer` (пробел базы); удаление `nodemailer` из `apps/api/package.json` в S3 потребует обновить lockfile.
+
+### S4–S5 (коммит 23ff9a5)
+
+**S4 — mobile на `@rkarakulov/ui`.** `src/theme/design-system.ts` — `configureDesignSystem({ themes, fonts: fontFamilies, i18n })`
+с брендом on-bike, первый импорт в `src/app/_layout.tsx` и `jest.setup.ts`; в `fonts.ts` — `fontAssets` и `fontFamilies`.
+Импорты экранов, features и тестов → `@rkarakulov/ui`; витрина `/ui-kit` = `SafeAreaView` + `UiKit` базы (`photo`).
+Удалены копии: `components/ui/**` (20 файлов), `components/{async-content,async-content.test,ui-kit}.tsx`,
+`theme/{theme,motion,theme.test}.ts`, `lib/{calendar-date,text}(+test).ts` — перед удалением сверены с базой
+(отличия: импорты, `useT()`, комментарии; `DateField` отдаёт iOS-пикеру `locale` из `useLocale()` — `ru` вместо `ru-RU`).
+`useTheme<OnBikeTheme>()` не понадобился: `map`/`surfaceBar` в mobile не используются. В `@on-bike/i18n` удалены 42 ключа
+`uiKit.*` (§8.2 п. 2), сторож дублей без фильтра.
+Тесты mobile: 74 (13 наборов) = 130 − 58 дублей базы (`async-content` 8, `date-field` 8, `skeleton` 6, `ui` 26,
+`calendar-date` 3, `text` 1, `theme` 6) + 2 новых (`theme/fonts.test.ts`: семейства бренда через `textStyle` базы);
+`--no-cache` — 74/74 (таймауты S2 ушли вместе с дублями). i18n 5. typecheck, eslint, prettier, `arch:check` — зелёные;
+grep `@/components/ui|@/theme/theme|@/lib/text` пуст. `expo export --platform android` — бандл (1571 модуль) без ошибок
+резолва `@rkarakulov/*`. Golden-словарь: 111 ключей вне `uiKit.*` равны S0; из 25 `uiKit.*` 9 удалены, 16 — тексты базы.
+
+**S5 — admin и landing** (без кода): build/test/typecheck — зелёные (admin 6 тестов, landing 0); golden-CSS admin
+(`protocol`) и landing (`light` + `dark`) побайтно равны S0.
+
+NOT VERIFIED: AC4 — смоук на Android в Expo Go (человек); iOS-пикер с `locale="ru"`.
+Пробелы базы (follow-up app-foundation): `t()` с отсутствующим ключом бросает «требует числовой params.count» вместо
+явной ошибки; `UiKit` без слота для компонентов проекта.
