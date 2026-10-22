@@ -5,6 +5,13 @@
   "engines": {
     "node": ">=24"
   },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "^24.22.0",
+      "onFail": "download"
+    }
+  },
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
