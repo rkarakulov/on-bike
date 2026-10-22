@@ -170,6 +170,11 @@ Architect, 2026-10-23. Блокеров нет; решения ниже — ре
     из стандартного шаблона Expo, нейтральные строки.
 
 ## 8.2 Deviations from spec
+- B1–B4 (12551e8..fc2e0fb): `tsconfig.json` пакетов и приложений — `.jinja` (нужен `customConditions:
+  ["@<scope>/source"]`, его нет в пресете базы); строки подключения в `drizzle.config.ts`/`test-env.ts` собираются из
+  `const DB = '[[ db_name ]]'` (длина строки не зависит от slug); `project_name` экранируется по месту (JSON, HTML, ru.ts);
+  ассеты приложения — из `expo-template-default@58.0.26`; миграция 0000 с индексом outbox из api-kit 0.1.1.
+  Приняты автором. `.env.example.jinja` скрывался `.gitignore` шаблона — исправлено автором (c50284d).
 - A1/A2 (b8d7e1c, 248dd63): `.claude/rules/{contracts,tests,security}.md` без `.jinja` (нет переменных); CI проекта —
   полный `pnpm check` без PR-фильтра turbo; нумерация инвариантов AGENTS.md шаблона §4.11–§4.13 сохранена под контракт
   ревью, §4.13 — iOS/Android (web — F5). Приняты автором.
