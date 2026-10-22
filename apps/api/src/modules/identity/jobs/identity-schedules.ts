@@ -2,7 +2,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 
-import { QUEUE } from '../../../infra/queue/queues';
+import { QUEUE } from '../../../queues';
 import { CLEANUP_UNVERIFIED_JOB } from './cleanup-unverified.processor';
 
 /** Расписание задач identity; upsert идемпотентен — несколько worker не плодят дубли. */

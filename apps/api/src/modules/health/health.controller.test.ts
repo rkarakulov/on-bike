@@ -2,9 +2,9 @@ import 'reflect-metadata';
 
 import { Test } from '@nestjs/testing';
 import { HealthResponse } from '@on-bike/contracts';
+import { PG_POOL } from '@rkarakulov/api-kit';
 import { describe, expect, it } from 'vitest';
 
-import { PG_POOL } from '../../infra/database/database.module';
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 

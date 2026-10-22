@@ -1,13 +1,18 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
+import {
+  CLOCK,
+  type Clock,
+  ENV,
+  MAILER,
+  type Mailer,
+  type OutboxJobData,
+  OutboxReader,
+} from '@rkarakulov/api-kit';
 import type { Job } from 'bullmq';
 
-import { ENV, type Env } from '../../../config/env';
-import { CLOCK, type Clock } from '../../../infra/clock/clock.module';
-import { MAILER, type Mailer } from '../../../infra/mail/mailer';
-import type { OutboxJobData } from '../../../infra/outbox/outbox.publisher';
-import { OutboxReader } from '../../../infra/outbox/outbox.reader';
-import { QUEUE } from '../../../infra/queue/queues';
+import type { Env } from '../../../config/env';
+import { QUEUE } from '../../../queues';
 import { VERIFICATION_EMAIL_REQUESTED, VerificationEmailRequested } from '../identity.events';
 import { IdentityRepository } from '../identity.repository';
 import { IDENTITY_POLICY } from '../identity.policy';

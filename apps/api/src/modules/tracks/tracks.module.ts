@@ -1,7 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
-import { QUEUE } from '../../infra/queue/queues';
+import { QUEUE } from '../../queues';
 import { TrackProcessingProcessor } from './track-processing.processor';
 
 /** HTTP-часть (загрузка, статусы) — в TracksModule; обработчики очередей — только в воркере. */

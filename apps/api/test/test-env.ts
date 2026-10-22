@@ -1,4 +1,4 @@
-import { loadEnv, type Env } from '../src/config/env';
+import { env, type Env } from '../src/config/env';
 
 // тестовые адреса задаются только переменными *_TEST — dev-базу тесты не трогают
 export const DATABASE_URL_TEST =
@@ -7,7 +7,8 @@ export const REDIS_URL_TEST = process.env.REDIS_URL_TEST ?? 'redis://127.0.0.1:6
 
 /** Окружение API для тестов: несекретные фиктивные значения, SMTP не используется (fake MAILER). */
 export function testEnv(overrides: Partial<Record<keyof Env, string>> = {}): Env {
-  return loadEnv({
+  // явный источник: .env разработчика не читается
+  return env.load({
     NODE_ENV: 'test',
     DATABASE_URL: DATABASE_URL_TEST,
     REDIS_URL: REDIS_URL_TEST,

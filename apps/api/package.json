@@ -28,7 +28,6 @@
     "drizzle-orm": "catalog:",
     "ioredis": "catalog:",
     "jose": "^6.2.13",
-    "nodemailer": "10.1.7",
     "pg": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",

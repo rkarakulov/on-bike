@@ -1,7 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
-import { QUEUE } from '../../infra/queue/queues';
+import { QUEUE } from '../../queues';
 import { AuthController } from './auth.controller';
 import { IdentityRepository } from './identity.repository';
 import { CleanupUnverifiedProcessor } from './jobs/cleanup-unverified.processor';

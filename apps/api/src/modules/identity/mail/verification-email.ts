@@ -1,4 +1,4 @@
-import type { MailMessage } from '../../../infra/mail/mailer';
+import type { MailMessage } from '@rkarakulov/api-kit';
 
 const escapeHtml = (value: string) =>
   value

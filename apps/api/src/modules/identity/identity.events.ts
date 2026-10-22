@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { QUEUE } from '../../infra/queue/queues';
+import { QUEUE } from '../../queues';
 
 /** Нужно отправить письмо со ссылкой подтверждения. В payload — только id строки ссылки. */
 export const VERIFICATION_EMAIL_REQUESTED = 'identity.verification-email-requested';

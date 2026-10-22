@@ -7,13 +7,11 @@ import type {
   ResendVerificationResponse,
   VerificationLinkInfo,
 } from '@on-bike/contracts';
+import { CLOCK, type Clock, ENV, OutboxWriter, RateLimiter } from '@rkarakulov/api-kit';
 
-import { DomainError } from '../../common/domain-error';
-import { ENV, type Env } from '../../config/env';
-import { CLOCK, type Clock } from '../../infra/clock/clock.module';
-import type { DbExecutor } from '../../infra/database/executor';
-import { OutboxWriter } from '../../infra/outbox/outbox.writer';
-import { RateLimiter } from '../../infra/redis/rate-limiter';
+import type { Env } from '../../config/env';
+import type { DbExecutor } from '../../db';
+import { domainError } from '../../error-messages';
 import { VERIFICATION_EMAIL_REQUESTED, type VerificationEmailRequested } from './identity.events';
 import { IDENTITY_POLICY } from './identity.policy';
 import {
@@ -23,8 +21,8 @@ import {
 } from './identity.repository';
 import { deriveVerificationToken, sha256 } from './tokens';
 
-const notFound = () => new DomainError('NOT_FOUND', 404);
-const unauthorized = () => new DomainError('UNAUTHORIZED', 401);
+const notFound = () => domainError('NOT_FOUND', 404);
+const unauthorized = () => domainError('UNAUTHORIZED', 401);
 
 /** Ссылка больше не активирует: истекла, заменена новой или уже использована. */
 function isStale(token: VerificationTokenState, now: Date): boolean {
@@ -68,7 +66,7 @@ export class VerificationService {
     );
     if (!result.allowed) {
       const details: RateLimitedDetails = { retryAfterSec: result.retryAfterSec };
-      throw new DomainError('RATE_LIMITED', 429, details);
+      throw domainError('RATE_LIMITED', 429, details);
     }
   }
 
@@ -97,7 +95,7 @@ export class VerificationService {
       const current = await this.repository.findVerificationByHash(tx, tokenHash);
       if (!current || isStale(current.token, now)) {
         const details: LinkExpiredDetails = { email: user.email };
-        throw new DomainError('LINK_EXPIRED', 410, details);
+        throw domainError('LINK_EXPIRED', 410, details);
       }
       await this.repository.markEmailVerified(tx, user.id, now);
       await this.repository.markVerificationUsed(tx, current.token.id, now);

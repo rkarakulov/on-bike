@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createHarness, type Harness } from '../../../test/harness';
 import { call, register, validRegistration } from '../../../test/identity';
-import { outbox } from '../../infra/database/schema';
+import { outbox } from '../../db';
 import {
   emailVerificationTokens,
   registrationTokens,
@@ -101,7 +101,10 @@ describe('POST /v1/auth/register', () => {
     expect((await register(h)).status).toBe(201);
     const res = await register(h, { email: 'RIDER@example.com' });
     expect(res.status).toBe(409);
-    expect(ApiError.parse(res.body).code).toBe('EMAIL_TAKEN');
+    expect(ApiError.parse(res.body)).toEqual({
+      code: 'EMAIL_TAKEN',
+      message: 'E-mail уже зарегистрирован',
+    });
   });
 
   it('409 EMAIL_UNAVAILABLE — адрес удалённого аккаунта, без раскрытия причины', async () => {
@@ -114,7 +117,10 @@ describe('POST /v1/auth/register', () => {
     const res = await register(h);
 
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ code: 'EMAIL_UNAVAILABLE', message: expect.any(String) });
+    expect(res.body).toEqual({
+      code: 'EMAIL_UNAVAILABLE',
+      message: 'E-mail недоступен для регистрации',
+    });
   });
 
   it('параллельная регистрация одного адреса: один 201, остальные 409 EMAIL_TAKEN', async () => {

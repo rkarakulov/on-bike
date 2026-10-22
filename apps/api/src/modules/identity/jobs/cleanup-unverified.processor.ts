@@ -1,9 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
+import { CLOCK, type Clock } from '@rkarakulov/api-kit';
 import type { Job } from 'bullmq';
 
-import { CLOCK, type Clock } from '../../../infra/clock/clock.module';
-import { QUEUE } from '../../../infra/queue/queues';
+import { QUEUE } from '../../../queues';
 import { IDENTITY_POLICY } from '../identity.policy';
 import { IdentityRepository } from '../identity.repository';
 

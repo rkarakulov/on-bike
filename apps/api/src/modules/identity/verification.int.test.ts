@@ -100,7 +100,7 @@ describe('POST /v1/auth/verification/confirm', () => {
     expect(res.status).toBe(410);
     expect(res.body).toEqual({
       code: 'LINK_EXPIRED',
-      message: expect.any(String),
+      message: 'Ссылка устарела',
       details: { email: 'rider@example.com' },
     });
     const [user] = await h.db.select().from(users);

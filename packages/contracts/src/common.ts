@@ -6,6 +6,9 @@ export const API_VERSION = 'v1' as const;
 
 export { PageQuery, RateLimitedDetails, Uuid } from '@rkarakulov/contracts-core';
 
+/** Коды базы: их тексты и обработку даёт инфраструктура базы (фильтр ошибок api-kit, клиент). */
+export { BASE_ERROR_CODES, type BaseErrorCode } from '@rkarakulov/contracts-core';
+
 /** Коды ошибок API: коды базы + коды on-bike (регистрация). Порядок — база первой. */
 export const { ErrorCode, ApiError } = defineErrorCodes([
   'EMAIL_TAKEN',

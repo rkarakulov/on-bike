@@ -2,6 +2,7 @@ import { Body, Controller, Get, Header, HttpCode, Ip, Param, Post } from '@nestj
 import {
   ConfirmVerificationRequest,
   type ConfirmVerificationResponse,
+  FieldErrorCode,
   RegisterRequest,
   type RegisterResponse,
   RegistrationPollRequest,
@@ -11,9 +12,9 @@ import {
   type VerificationLinkInfo,
   VerificationToken,
 } from '@on-bike/contracts';
+import { ZodValidationPipe } from '@rkarakulov/api-kit';
 
-import { DomainError } from '../../common/domain-error';
-import { ZodValidationPipe } from '../../common/zod-validation.pipe';
+import { domainError } from '../../error-messages';
 import { RegistrationService } from './registration.service';
 import { VerificationService } from './verification.service';
 
@@ -29,7 +30,7 @@ export class AuthController {
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')
   register(
-    @Body(new ZodValidationPipe(RegisterRequest)) body: RegisterRequest,
+    @Body(new ZodValidationPipe(RegisterRequest, FieldErrorCode)) body: RegisterRequest,
     @Ip() ip: string,
   ): Promise<RegisterResponse> {
     return this.registration.register(body, ip);
@@ -39,7 +40,7 @@ export class AuthController {
   @Get('verification/:token')
   @Header('Cache-Control', 'no-store')
   describeLink(@Param('token') token: string): Promise<VerificationLinkInfo> {
-    if (!VerificationToken.safeParse(token).success) throw new DomainError('NOT_FOUND', 404);
+    if (!VerificationToken.safeParse(token).success) throw domainError('NOT_FOUND', 404);
     return this.verification.describeLink(token);
   }
 
@@ -47,7 +48,8 @@ export class AuthController {
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
   confirm(
-    @Body(new ZodValidationPipe(ConfirmVerificationRequest)) body: ConfirmVerificationRequest,
+    @Body(new ZodValidationPipe(ConfirmVerificationRequest, FieldErrorCode))
+    body: ConfirmVerificationRequest,
   ): Promise<ConfirmVerificationResponse> {
     return this.verification.confirm(body.token);
   }
@@ -56,7 +58,8 @@ export class AuthController {
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
   resend(
-    @Body(new ZodValidationPipe(ResendVerificationRequest)) body: ResendVerificationRequest,
+    @Body(new ZodValidationPipe(ResendVerificationRequest, FieldErrorCode))
+    body: ResendVerificationRequest,
   ): Promise<ResendVerificationResponse> {
     return this.verification.resend(body);
   }
@@ -65,7 +68,8 @@ export class AuthController {
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
   poll(
-    @Body(new ZodValidationPipe(RegistrationPollRequest)) body: RegistrationPollRequest,
+    @Body(new ZodValidationPipe(RegistrationPollRequest, FieldErrorCode))
+    body: RegistrationPollRequest,
   ): Promise<RegistrationPollResponse> {
     return this.registration.poll(body.registrationToken);
   }

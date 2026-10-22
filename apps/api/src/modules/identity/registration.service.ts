@@ -6,12 +6,10 @@ import {
   type RegisterResponse,
   type RegistrationPollResponse,
 } from '@on-bike/contracts';
+import { CLOCK, type Clock, ENV, isUniqueViolation, RateLimiter } from '@rkarakulov/api-kit';
 
-import { DomainError } from '../../common/domain-error';
-import { ENV, type Env } from '../../config/env';
-import { CLOCK, type Clock } from '../../infra/clock/clock.module';
-import { isUniqueViolation } from '../../infra/database/errors';
-import { RateLimiter } from '../../infra/redis/rate-limiter';
+import type { Env } from '../../config/env';
+import { domainError } from '../../error-messages';
 import { IDENTITY_POLICY } from './identity.policy';
 import { IdentityRepository } from './identity.repository';
 import { PasswordHasher } from './password-hasher';
@@ -19,7 +17,7 @@ import { SessionService } from './session.service';
 import { randomToken, rateLimitKeyForIp, sha256 } from './tokens';
 import { VerificationService } from './verification.service';
 
-const emailTaken = () => new DomainError('EMAIL_TAKEN', 409);
+const emailTaken = () => domainError('EMAIL_TAKEN', 409);
 
 /** Регистрация по e-mail и обмен токена регистрации на сессию после подтверждения (V-09, ADR-0002). */
 @Injectable()
@@ -45,7 +43,7 @@ export class RegistrationService {
     );
     if (!ipLimit.allowed) {
       const details: RateLimitedDetails = { retryAfterSec: ipLimit.retryAfterSec };
-      throw new DomainError('RATE_LIMITED', 429, details);
+      throw domainError('RATE_LIMITED', 429, details);
     }
 
     const passwordHash = await this.hasher.hash(input.password);
@@ -55,7 +53,7 @@ export class RegistrationService {
         const existing = await this.repository.findUserByEmail(tx, email);
         if (existing) {
           // D-07: адрес удалённого аккаунта — нейтральный отказ без причины
-          throw existing.deletedAt ? new DomainError('EMAIL_UNAVAILABLE', 409) : emailTaken();
+          throw existing.deletedAt ? domainError('EMAIL_UNAVAILABLE', 409) : emailTaken();
         }
         const userId = await this.repository.insertUser(tx, {
           email,
@@ -101,14 +99,14 @@ export class RegistrationService {
     const now = this.clock.now();
     const found = await this.repository.findRegistrationByHash(this.repository.db, tokenHash);
     if (!found || found.user.deletedAt || found.token.consumedAt || found.token.expiresAt <= now) {
-      throw new DomainError('UNAUTHORIZED', 401);
+      throw domainError('UNAUTHORIZED', 401);
     }
     if (!found.user.emailVerifiedAt) return { state: 'pending' };
 
     return this.repository.db.transaction(async (tx) => {
       await this.repository.lockUser(tx, found.user.id);
       const userId = await this.repository.consumeRegistrationToken(tx, tokenHash, now);
-      if (!userId) throw new DomainError('UNAUTHORIZED', 401);
+      if (!userId) throw domainError('UNAUTHORIZED', 401);
       const session = await this.sessions.issue(tx, userId);
       return { state: 'verified' as const, session };
     });

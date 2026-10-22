@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Session } from '@on-bike/contracts';
+import { CLOCK, type Clock, ENV } from '@rkarakulov/api-kit';
 import { SignJWT } from 'jose';
 
-import { ENV, type Env } from '../../config/env';
-import { CLOCK, type Clock } from '../../infra/clock/clock.module';
-import type { DbExecutor } from '../../infra/database/executor';
+import type { Env } from '../../config/env';
+import type { DbExecutor } from '../../db';
 import { IDENTITY_POLICY, JWT_AUDIENCE, JWT_ISSUER } from './identity.policy';
 import { IdentityRepository } from './identity.repository';
 import { randomToken, sha256 } from './tokens';

@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 
-import { QUEUE } from '../../infra/queue/queues';
+import { QUEUE } from '../../queues';
 
 export interface TrackProcessingJob {
   trackUploadId: string;
