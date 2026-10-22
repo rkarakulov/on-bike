@@ -1,28 +1,34 @@
 /**
- * Дизайн-система on-bike. Слой 1 — примитивы (`primitives.ts`), слой 2 — семантика (`themes.ts`).
- * Приложения используют семантику, типографику и размеры; примитивы — только внутри пакета и в тестах.
+ * Дизайн-система on-bike поверх базы `@rkarakulov/design-tokens`: бренд (палитра, гарнитуры, темы
+ * Jersey Aura / Night Ride / «Протокол», группы ролей `map` и `surfaceBar`) + структурные токены базы.
+ * Приложения используют семантику, типографику и размеры; палитра `color` — только внутри пакета и в тестах.
+ * Реэкспорт базы — только явный: у базы `contrastPairs`/`designSystemCss` с другими сигнатурами.
  */
 export {
-  color,
   density,
-  font,
-  fontStack,
+  fontWeights,
   inset,
   motion,
   radius,
   size,
   space,
   stroke,
-} from './primitives.ts';
-export { themes, type ColorRoles, type NavRoles, type Theme, type ThemeName } from './themes.ts';
-export {
-  fontWeights,
   typography,
   type FontFace,
   type FontRole,
   type FontWeight,
   type TextStyleName,
   type TextStyleToken,
-} from './typography.ts';
+} from '@rkarakulov/design-tokens';
+export { color, font, fontStack } from './primitives.ts';
+export {
+  themes,
+  type ColorRoles,
+  type NavRoles,
+  type OnBikeRoleGroups,
+  type OnBikeTheme,
+  type Theme,
+  type ThemeName,
+} from './themes.ts';
 export { contrastPairs, contrastRatio, WCAG, type ContrastPair } from './contrast.ts';
-export { cssVariables, designSystemCss, skeletonCss, typographyCss } from './css.ts';
+export { designSystemCss, skeletonCss, typographyCss, type DesignSystemCssOptions } from './css.ts';

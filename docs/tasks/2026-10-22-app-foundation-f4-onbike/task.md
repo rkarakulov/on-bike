@@ -430,3 +430,53 @@ on-bike на пакетах `@rkarakulov/*` 0.1.0 (ADR-0004, F4).
 
 ## 12. Outcome
 Заполняет coder.
+
+### S0–S2
+
+**S0 — эталоны.** `pnpm check` до изменений — зелёный. Тесты: api 74 (19 файлов), mobile 130 (19 наборов),
+design-tokens 117, contracts 19, api-client 10, admin 6, i18n 2, tracks 2, landing 0. Golden-файлы (вне git,
+scratchpad сессии): `f4-golden/{admin.css,landing.css,dictionary.json}` — `designSystemCss({ theme: 'protocol' })`,
+`designSystemCss({ theme: 'light', darkTheme: 'dark' })`, `{ key: t(key) }` по 136 ключам.
+
+**S1 — зависимости** (коммит «F4 S1»). Catalog `@rkarakulov/{api-kit,test-kit,contracts-core,api-client-core,
+i18n-core,design-tokens,ui}: 0.1.0`; contracts → contracts-core, api-client → api-client-core, i18n → i18n-core,
+design-tokens → design-tokens базы, api → api-kit (+ test-kit в devDependencies), mobile → ui. `.npmrc` и
+`minimumReleaseAgeExclude` — уже были (коммиты d9add62, 173b528). `pnpm why`: `@nestjs/core` 12.2.0,
+`drizzle-orm` 0.45.4, `react` 19.3.0, `zod` 4.6.7 (+ 3.25.76 — собственная вложенная зависимость `@expo/cli`,
+была и до F4, пакеты базы и приложения её не видят). `pnpm check` зелёный без изменений кода.
+
+**S2 — пакеты on-bike** (коммит «F4 S2»).
+- contracts: `common.ts` на `defineErrorCodes`/`defineFieldErrorCodes`, `PageQuery`/`Uuid`/`RateLimitedDetails` —
+  реэкспорт contracts-core; depcruise `contracts-pure` пропускает `@rkarakulov/contracts-core`.
+- api-client: `createHttpClient` базы с `errorSchema: ApiError`; `ApiHttpError`/`ApiNetworkError`/`isNetworkError`/
+  `parseApiError` — реэкспорт; `apiErrorOf(error)` (§8.1 п. 5); `apps/mobile/src/features/auth/error-messages.ts` — на
+  `apiErrorOf`.
+- i18n: `messages = mergeDictionaries(baseMessages.ru, ru)`, `i18n = createI18n(...)`, `t` = `i18n.t`; из словаря
+  удалены 24 ключа базы (`field.errorPrefix|datePlaceholder|datePickerDone`, `state.*` ×8, `date.*` ×13); `uiKit.*`
+  остаются до S4. Экспорт `ru` убран (вне пакета не использовался).
+- design-tokens: бренд (`color`, `font`, `fontStack`), `themes = defineThemes(...)`, `ColorRoles = база & { map,
+  surfaceBar }`, `OnBikeTheme = ThemeOf<typeof themes>`, `Theme = Theme<OnBikeRoleGroups>` базы (с `nav?`, как было);
+  `contrastPairs(themeName)` = пары базы + `map.route`/`map.corridor`; `designSystemCss({ theme, darkTheme })` —
+  базовый с брендом и `dense: theme === 'protocol'`; `typography.ts` удалён, `cssVariables` убран из API пакета.
+- apps/mobile/jest.config.js: `transformIgnorePatterns` — три записи пресета jest-expo 58 + `@rkarakulov` (§7, §8.1
+  п. 6). Сделано в S2, а не в S4: без него все 19 наборов mobile падают («Must use import to load ES Module»).
+
+Сверка: golden-CSS admin и landing — побайтно равны (`cmp`); golden-словарь — равен по всем 136 ключам.
+`pnpm check` — зелёный (`no dependency violations found (210 modules, 492 dependencies cruised)`, 14/14 задач).
+Тесты после S2: api 74, mobile 130, admin 6 (тесты приложений не менялись), design-tokens 114, contracts 21,
+api-client 11, i18n 5, tracks 2. Сборка пакетов и admin/landing (`turbo run build`) — зелёная.
+
+Тесты пакетов, удалённые как дубли тестов базы: design-tokens −5 (`contrastRatio` чёрный/белый, пороги WCAG,
+типографика, формат `.t-*`, скелетон), +2 (пары карты в наборе, пары `nav.*` только у protocol); i18n −1
+(`interpolate`), +4 (строки базы через `t`, плейсхолдеры, сторож дублей, слияние словарей); api-client −2 (форма
+2xx; сеть и HTTP объединены в один тест-сторож реэкспорта классов базы), +3 (`apiErrorOf`), кейс «известный код» —
+на `LINK_EXPIRED` с `details.email`; contracts +2 (состав и порядок кодов, `fieldError` с кодами on-bike).
+
+Отклонения: (1) jest-конфиг mobile — в S2 (см. выше); (2) в api-client оставлен один тест классов ошибок (сторож
+того, что клиент бросает реэкспортированные классы — на этом стоит `apiErrorOf`); (3) сторож дублей i18n временно
+пропускает `uiKit.*` — фильтр снять в S4 вместе с ключами.
+
+Наблюдения: на холодном кэше jest (`--no-cache`) 2 теста mobile (`skeleton.test.tsx`, `async-content.test.tsx`)
+падают по таймауту 5 с — так же и до F4 (проверено на коммите S1); оба файла удаляются в S4 (дубли базы).
+`@types/nodemailer` нужен api и после S3: `.d.ts` api-kit импортируют типы `nodemailer`, а api-kit не объявляет
+`@types/nodemailer` (пробел базы); удаление `nodemailer` из `apps/api/package.json` в S3 потребует обновить lockfile.
