@@ -33,3 +33,5 @@ ADR нужен, когда решение: меняет инвариант `AGEN
 | № | Решение | Статус |
 |---|---|---|
 | [0001](0001-stack-and-monorepo.md) | Стек и монорепо | Accepted |
+| [0002](0002-registration-token.md) | Токен регистрации для входа после подтверждения e-mail | Accepted |
+| [0003](0003-universal-rider-app.md) | Универсальное приложение райдера: iOS + Android + web/PWA + SSR | Accepted |

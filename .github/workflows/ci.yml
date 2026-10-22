@@ -21,6 +21,23 @@ jobs:
 
   check:
     runs-on: ubuntu-latest
+    # интеграционные тесты API — на реальных PostgreSQL + PostGIS и Redis (.claude/rules/tests.md)
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
+        env:
+          POSTGRES_USER: onbike
+          POSTGRES_PASSWORD: onbike
+          POSTGRES_DB: onbike
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U onbike" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:8.8
+        ports: ['6379:6379']
+    env:
+      DATABASE_URL_TEST: postgres://onbike:onbike@127.0.0.1:5432/onbike_test
+      REDIS_URL_TEST: redis://127.0.0.1:6379/1
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }

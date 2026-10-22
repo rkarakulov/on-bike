@@ -1,3 +1,5 @@
 export * from './common.ts';
 export * from './health.ts';
-export * from './auth.ts';
+export * from './auth/registration.schema.ts';
+export * from './auth/verification.schema.ts';
+export * from './auth/session.schema.ts';

@@ -1,10 +1,11 @@
 /// <reference types="jest" />
 import { useFonts } from 'expo-font';
 import { renderRouter, screen } from 'expo-router/testing-library';
+import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
 
-import RootLayout from '../app/_layout';
-import { tabRoutes } from './app-routes';
+import { storeSession } from './auth-fixtures';
+import { appRoutes } from './app-routes';
 
 jest.mock('expo-font', () => ({ useFonts: jest.fn() }));
 jest.mock('expo-splash-screen', () => ({
@@ -12,9 +13,13 @@ jest.mock('expo-splash-screen', () => ({
   hideAsync: jest.fn(() => Promise.resolve()),
 }));
 
-const mockedUseFonts = jest.mocked(useFonts);
-const app = { _layout: RootLayout, ...tabRoutes };
+jest.mock('@/lib/api');
 
+const mockedUseFonts = jest.mocked(useFonts);
+const app = appRoutes;
+
+// вошедший пользователь: проверяем splash и шрифты на Главной (гард — в auth-guard.test)
+beforeEach(() => storeSession());
 afterEach(() => jest.clearAllMocks());
 
 describe('корневой layout: splash и шрифты', () => {
@@ -28,6 +33,15 @@ describe('корневой layout: splash и шрифты', () => {
     await renderRouter(app);
 
     expect(screen.queryByRole('tab', { name: 'Главная' })).toBeNull();
+    expect(SplashScreen.hideAsync).not.toHaveBeenCalled();
+  });
+
+  it('пока сессия не прочитана из SecureStore — splash не скрыт и экран не рендерится', async () => {
+    mockedUseFonts.mockReturnValue([true, null]);
+    jest.mocked(SecureStore.getItemAsync).mockReturnValueOnce(new Promise(() => undefined));
+    await renderRouter(app);
+
+    expect(screen.queryByRole('header')).toBeNull();
     expect(SplashScreen.hideAsync).not.toHaveBeenCalled();
   });
 

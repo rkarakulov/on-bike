@@ -19,7 +19,8 @@
 - **apps/api** — NestJS, модульный монолит; два процесса из одного кода: `main.ts` (HTTP) и `worker.ts` (BullMQ).
 - **apps/mobile** — Expo SDK 58 + Expo Router (deep / universal links, CNG без коммита `ios/`/`android/`).
 - **apps/admin** — Vite + React; TanStack Query / Table, react-hook-form.
-- **apps/landing** — Astro SSR (гостевые страницы, OG-мета, публичное удаление аккаунта).
+- **apps/landing** — Astro SSR (гостевые страницы, OG-мета, публичное удаление аккаунта). *Заменено ADR-0003:
+  гостевой веб — из универсального Expo-приложения.*
 - **Данные** — PostgreSQL 18 + PostGIS через Drizzle; миграции drizzle-kit отдельным шагом деплоя.
 - **Очереди** — Redis + BullMQ. **RabbitMQ не используем**; события между модулями — transactional outbox.
 - **Контракты** — zod-схемы в `packages/contracts`; клиенты — через `packages/api-client`.

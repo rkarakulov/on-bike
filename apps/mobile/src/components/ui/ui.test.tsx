@@ -64,6 +64,24 @@ describe('Button', () => {
     });
   });
 
+  it('loading: нажатие выключено, busy для скринридера, индикатор внутри, подпись остаётся', async () => {
+    const onPress = jest.fn();
+    await render(<Button label="Зарегистрироваться" onPress={onPress} loading />);
+
+    const button = screen.getByRole('button', { name: 'Зарегистрироваться' });
+    expect(button).toBeDisabled();
+    expect(button).toBeBusy();
+    expect(screen.getByTestId('button-indicator')).toBeOnTheScreen();
+    await fireEvent.press(button);
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('без loading индикатора нет и состояние не busy', async () => {
+    await render(<Button label="Участвовать" />);
+    expect(screen.getByRole('button', { name: 'Участвовать' })).not.toBeBusy();
+    expect(screen.queryByTestId('button-indicator')).toBeNull();
+  });
+
   it('secondary на фото — text.onPhoto', async () => {
     await render(<Button label="Участвовать" variant="secondary" onPhoto />);
     expect(screen.getByText('Участвовать')).toHaveStyle({ color: light.text.onPhoto });
@@ -177,6 +195,25 @@ describe('TextField', () => {
   it('disabled: поле не редактируется', async () => {
     await render(<TextField label="Класс" disabled value="Гравийный" />);
     expect(screen.getByLabelText('Класс')).toHaveProp('editable', false);
+  });
+
+  it('подсказка под полем text.secondary; при ошибке её заменяет ошибка', async () => {
+    const helper = 'Не короче 8 символов.';
+    await render(<TextField label="Пароль" helper={helper} />);
+    expect(screen.getByText(helper, { includeHiddenElements: true })).toHaveStyle({
+      color: light.text.secondary,
+    });
+    expect(screen.getByLabelText('Пароль')).toHaveProp('accessibilityHint', helper);
+
+    await render(<TextField label="Пароль" helper={helper} error="Заполните поле." />);
+    expect(screen.queryByText(helper, { includeHiddenElements: true })).toBeNull();
+    expect(screen.getByText('Заполните поле.')).toBeOnTheScreen();
+  });
+
+  it('e-mail: автозаглавные и автокоррекция отключаются пропсами', async () => {
+    await render(<TextField label="E-mail" autoCapitalize="none" autoCorrect={false} />);
+    expect(screen.getByLabelText('E-mail')).toHaveProp('autoCapitalize', 'none');
+    expect(screen.getByLabelText('E-mail')).toHaveProp('autoCorrect', false);
   });
 });
 
