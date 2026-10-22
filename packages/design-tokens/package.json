@@ -19,7 +19,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@rkarakulov/design-tokens": "catalog:"
+  },
   "devDependencies": {
     "@on-bike/config": "workspace:*",
     "typescript": "catalog:",

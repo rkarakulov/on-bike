@@ -19,7 +19,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@rkarakulov/i18n-core": "catalog:"
+  },
   "devDependencies": {
     "@on-bike/config": "workspace:*",
     "typescript": "catalog:",

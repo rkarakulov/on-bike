@@ -30,6 +30,27 @@ catalogs:
     '@nestjs/testing':
       specifier: ^12.2.0
       version: 12.2.0
+    '@rkarakulov/api-client-core':
+      specifier: 0.1.0
+      version: 0.1.0
+    '@rkarakulov/api-kit':
+      specifier: 0.1.0
+      version: 0.1.0
+    '@rkarakulov/contracts-core':
+      specifier: 0.1.0
+      version: 0.1.0
+    '@rkarakulov/design-tokens':
+      specifier: 0.1.0
+      version: 0.1.0
+    '@rkarakulov/i18n-core':
+      specifier: 0.1.0
+      version: 0.1.0
+    '@rkarakulov/test-kit':
+      specifier: 0.1.0
+      version: 0.1.0
+    '@rkarakulov/ui':
+      specifier: 0.1.0
+      version: 0.1.0
     '@swc/core':
       specifier: ^1.16.18
       version: 1.16.18
@@ -237,6 +258,9 @@ importers:
       '@on-bike/tracks':
         specifier: workspace:*
         version: link:../../packages/tracks
+      '@rkarakulov/api-kit':
+        specifier: 'catalog:'
+        version: 0.1.0(@nestjs/bullmq@12.0.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(bullmq@6.4.0(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1)))(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-fastify@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2)))(bullmq@6.4.0(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1))(drizzle-orm@0.45.4(@types/pg@8.23.1)(pg@8.23.1))(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(zod@4.6.7)
       bullmq:
         specifier: 'catalog:'
         version: 6.4.0(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1)
@@ -274,6 +298,9 @@ importers:
       '@on-bike/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@rkarakulov/test-kit':
+        specifier: 'catalog:'
+        version: 0.1.0(1ed27d96c39d254ca2c0941758d9a9d4)
       '@swc/cli':
         specifier: ^0.8.0
         version: 0.8.1(@swc/core@1.16.18)(chokidar@5.0.0)(supports-color@8.1.1)
@@ -368,6 +395,9 @@ importers:
       '@react-native-community/netinfo':
         specifier: 12.0.1
         version: 12.0.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
+      '@rkarakulov/ui':
+        specifier: 'catalog:'
+        version: 0.1.0(@react-native-community/datetimepicker@9.2.1(expo@58.0.16)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(zod@4.6.7)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.104.5(@types/react@19.3.0)(react@19.3.0)
@@ -483,6 +513,9 @@ importers:
       '@on-bike/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@rkarakulov/api-client-core':
+        specifier: 'catalog:'
+        version: 0.1.0(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -501,6 +534,9 @@ importers:
 
   packages/contracts:
     dependencies:
+      '@rkarakulov/contracts-core':
+        specifier: 'catalog:'
+        version: 0.1.0(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -516,6 +552,10 @@ importers:
         version: 5.0.5(@types/node@26.6.5)(jsdom@30.1.3)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/design-tokens:
+    dependencies:
+      '@rkarakulov/design-tokens':
+        specifier: 'catalog:'
+        version: 0.1.0
     devDependencies:
       '@on-bike/config':
         specifier: workspace:*
@@ -528,6 +568,10 @@ importers:
         version: 5.0.5(@types/node@26.6.5)(jsdom@30.1.3)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/i18n:
+    dependencies:
+      '@rkarakulov/i18n-core':
+        specifier: 'catalog:'
+        version: 0.1.0
     devDependencies:
       '@on-bike/config':
         specifier: workspace:*
@@ -3533,6 +3577,61 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
+
+  '@rkarakulov/api-client-core@0.1.0':
+    resolution: {integrity: sha512-cELlUUq8z7i51/CCZ5Qsq3vtmn5GIdIUtCZUglmiZUnzxLZYcRszgN1WcZ3pgjOpm/AaUfpSUGBVrHuLMaYXUQ==, tarball: https://npm.pkg.github.com/download/@rkarakulov/api-client-core/0.1.0/f98b3692056e92ffb00e5de465b41946fa835211}
+    peerDependencies:
+      zod: ^4.6.7
+
+  '@rkarakulov/api-kit@0.1.0':
+    resolution: {integrity: sha512-vVu+sVR8FyxyUusRnKO13AkYB0MoMN9VwLriQIG9hYhUNQeK9RVptwe7BTIDaFGZYRoYHTnVKYcQg+fqLxfA7A==, tarball: https://npm.pkg.github.com/download/@rkarakulov/api-kit/0.1.0/ff07e62a89ba8b3da526080a7144117d34bf699f}
+    peerDependencies:
+      '@nestjs/bullmq': ^12.0.0
+      '@nestjs/common': ^12.2.0
+      '@nestjs/core': ^12.2.0
+      '@nestjs/platform-fastify': ^12.2.0
+      bullmq: ^6.4.0
+      drizzle-orm: ^0.45.4
+      ioredis: ^6.0.0
+      pg: ^8.23.1
+      reflect-metadata: ^0.2.2
+      rxjs: ^7.8.2
+      zod: ^4.6.7
+
+  '@rkarakulov/contracts-core@0.1.0':
+    resolution: {integrity: sha512-KAlyY6EVExBBlaJMckkRDSn2+8C1hyEmqS9BWtfY56Qr+sWxOjDa5klSM+qXcZApn1Rubodc/NaibrKBAUuyBg==, tarball: https://npm.pkg.github.com/download/@rkarakulov/contracts-core/0.1.0/82b1e6bb0f08c4adb69ca5bc2957fab61adc5bad}
+    peerDependencies:
+      zod: ^4.6.7
+
+  '@rkarakulov/design-tokens@0.1.0':
+    resolution: {integrity: sha512-jRRAUeQrHQXqGE8mzc5h7BNOxCV+d9u584IQRqBpbtDdz+3NVYHTxGgH0ZD5zyYmaGKjc0YjAoBRYI1SBXzawQ==, tarball: https://npm.pkg.github.com/download/@rkarakulov/design-tokens/0.1.0/ea04db4106e118465d43d52f92947858d6dd397c}
+
+  '@rkarakulov/i18n-core@0.1.0':
+    resolution: {integrity: sha512-NDu3CqlLV4R2cLRLYAQpzcatLQWrRfz+tzhB93tHZEx+V5Jy2e6sNpejDmszDJjUb53oj6ZbPTlg04R+O/pbIg==, tarball: https://npm.pkg.github.com/download/@rkarakulov/i18n-core/0.1.0/027b5427f3ace1e9e8b38b5a3a4049ebb75ed84e}
+
+  '@rkarakulov/test-kit@0.1.0':
+    resolution: {integrity: sha512-ytjyGVKx2rk20pwP7G1gdCPd++pBNHGNY6pK4Gdk1U0F1mJkNFpGknYCVznCEb+NSlLrs/pfa1AZ3OnNtYRGQA==, tarball: https://npm.pkg.github.com/download/@rkarakulov/test-kit/0.1.0/e9027f8eae6f750c31625109219a5276811d8955}
+    peerDependencies:
+      '@nestjs/bullmq': ^12.0.0
+      '@nestjs/common': ^12.2.0
+      '@nestjs/core': ^12.2.0
+      '@nestjs/platform-fastify': ^12.2.0
+      '@nestjs/testing': ^12.2.0
+      '@rkarakulov/api-kit': ^0
+      bullmq: ^6.4.0
+      drizzle-orm: ^0.45.4
+      ioredis: ^6.0.0
+      pg: ^8.23.1
+      reflect-metadata: ^0.2.2
+      rxjs: ^7.8.2
+
+  '@rkarakulov/ui@0.1.0':
+    resolution: {integrity: sha512-Mb4+JQHyKf0NHHvLrc6j5+yrjoqqaIxge2jdtViBA0QhY8E8UP4/f0EwanLIM7tKt9TpznXsrBs8D9eLsNLYmQ==, tarball: https://npm.pkg.github.com/download/@rkarakulov/ui/0.1.0/158587424c658efe31373b5eb54c08355d931db5}
+    peerDependencies:
+      '@react-native-community/datetimepicker': '>=9.2.1'
+      react: ^19.3.0
+      react-native: '>=0.88.0'
+      zod: ^4.6.7
 
   '@rolldown/binding-android-arm-eabi@1.2.14':
     resolution: {integrity: sha512-aWR+XKH9+rW7m5fWq/5360J3mHycrx/o6xZM2DQFdJnTMdyP7/WzxPjhtLbVWdKo2y612/4U1bWqb3HQhiF7vg==}
@@ -12368,6 +12467,60 @@ snapshots:
       react-native: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
     optionalDependencies:
       '@types/react': 19.3.0
+
+  '@rkarakulov/api-client-core@0.1.0(zod@4.6.7)':
+    dependencies:
+      '@rkarakulov/contracts-core': 0.1.0(zod@4.6.7)
+      zod: 4.6.7
+
+  '@rkarakulov/api-kit@0.1.0(@nestjs/bullmq@12.0.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(bullmq@6.4.0(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1)))(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-fastify@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2)))(bullmq@6.4.0(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1))(drizzle-orm@0.45.4(@types/pg@8.23.1)(pg@8.23.1))(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(zod@4.6.7)':
+    dependencies:
+      '@nestjs/bullmq': 12.0.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(bullmq@6.4.0(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1))
+      '@nestjs/common': 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
+      '@nestjs/core': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-fastify': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))
+      '@rkarakulov/contracts-core': 0.1.0(zod@4.6.7)
+      bullmq: 6.4.0(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1)
+      drizzle-orm: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)
+      ioredis: 6.0.0(supports-color@8.1.1)
+      nodemailer: 10.1.7
+      pg: 8.23.1
+      reflect-metadata: 0.2.2
+      rxjs: 7.8.2
+      zod: 4.6.7
+
+  '@rkarakulov/contracts-core@0.1.0(zod@4.6.7)':
+    dependencies:
+      zod: 4.6.7
+
+  '@rkarakulov/design-tokens@0.1.0': {}
+
+  '@rkarakulov/i18n-core@0.1.0': {}
+
+  '@rkarakulov/test-kit@0.1.0(1ed27d96c39d254ca2c0941758d9a9d4)':
+    dependencies:
+      '@nestjs/bullmq': 12.0.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(bullmq@6.4.0(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1))
+      '@nestjs/common': 12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
+      '@nestjs/core': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-fastify': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))
+      '@nestjs/testing': 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))
+      '@rkarakulov/api-kit': 0.1.0(@nestjs/bullmq@12.0.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(bullmq@6.4.0(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1)))(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-fastify@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(reflect-metadata@0.2.2)(rxjs@7.8.2)))(bullmq@6.4.0(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1))(drizzle-orm@0.45.4(@types/pg@8.23.1)(pg@8.23.1))(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(zod@4.6.7)
+      bullmq: 6.4.0(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.1)
+      drizzle-orm: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)
+      ioredis: 6.0.0(supports-color@8.1.1)
+      pg: 8.23.1
+      reflect-metadata: 0.2.2
+      rxjs: 7.8.2
+
+  '@rkarakulov/ui@0.1.0(@react-native-community/datetimepicker@9.2.1(expo@58.0.16)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(zod@4.6.7)':
+    dependencies:
+      '@react-native-community/datetimepicker': 9.2.1(expo@58.0.16)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
+      '@rkarakulov/api-client-core': 0.1.0(zod@4.6.7)
+      '@rkarakulov/design-tokens': 0.1.0
+      '@rkarakulov/i18n-core': 0.1.0
+      react: 19.3.0
+      react-native: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
+      zod: 4.6.7
 
   '@rolldown/binding-android-arm-eabi@1.2.14':
     optional: true
