@@ -170,6 +170,10 @@ Architect, 2026-10-23. Блокеров нет; решения ниже — ре
     из стандартного шаблона Expo, нейтральные строки.
 
 ## 8.2 Deviations from spec
+- S0 (исполнитель A, коммит 5246077 app-foundation): `.githooks` и `scripts/install-git-hooks.mjs` перенесены из A1 в S0 —
+  без них падает `prepare` при `pnpm install`; валидатор у `npm_scope` (как у slug); регулярка `bundle_id` с `[.]` вместо
+  `\.`; `check-template.mjs` — временный каталог удаляется только после успеха без `--keep`, `--out` не удаляется; copier —
+  uvx → pipx → PATH. Приняты автором.
 
 ## 8.3 Security checklist
 Затронуты инфраструктура и секреты (CI шаблона, `.claude/settings.json` deny-лист, `.npmrc`).
