@@ -56,6 +56,7 @@ tools/ai_review/  контракт независимого ревью + Codex-�
 | `pnpm install` | установка зависимостей |
 | `pnpm dev` | все приложения в dev через turbo (сначала собирает `packages/*`) |
 | `pnpm dev --filter=@on-bike/<app>` | одно приложение в dev (api / admin / landing / mobile) |
+| `pnpm dev:worker` | воркер очередей BullMQ в dev |
 | `pnpm build` | production-сборка всех приложений |
 | `pnpm --filter @on-bike/mobile build:preview` | EAS: APK + iOS ad-hoc для внутренних тестеров |
 | `pnpm infra:up` | docker compose: PostgreSQL 18 + PostGIS, Redis |

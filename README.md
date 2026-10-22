@@ -8,7 +8,8 @@
 
 ## Быстрый старт
 
-Нужны Node 24 (`nvm use`), pnpm 11 (`corepack enable pnpm`), Docker.
+Нужны pnpm 11 и Docker. Node 24 pnpm скачает сам (`devEngines.runtime`), системная версия не важна.
+Dev-образ PostGIS мультиархитектурный — работает и на Apple Silicon.
 
 ```bash
 pnpm install
@@ -25,7 +26,8 @@ pnpm dev                                # все приложения
 | Лендинг    | `pnpm dev --filter=@on-bike/landing`    | http://localhost:4321           |
 | Мобилка    | `pnpm --filter @on-bike/mobile dev`     | QR → Expo Go, `i` / `a` — симуляторы |
 
-Воркер очередей: `pnpm --filter @on-bike/api dev:worker`.
+Воркер очередей: `pnpm dev:worker`. Запускайте приложения через `pnpm dev` / `pnpm dev:worker` (turbo):
+они сначала собирают `packages/*`, которые API берёт из `dist`.
 
 ## Проверки
 

@@ -2,7 +2,9 @@
 name: on-bike-dev
 services:
   postgres:
-    image: postgis/postgis:18-3.6
+    # postgis/postgis собирается только под amd64; imresamu/postgis — мультиарх-сборка
+    # мейнтейнера docker-postgis (arm64 для Apple Silicon). В проде (amd64 VPS) — официальный образ.
+    image: imresamu/postgis:18-3.6
     environment:
       POSTGRES_USER: onbike
       POSTGRES_PASSWORD: onbike
