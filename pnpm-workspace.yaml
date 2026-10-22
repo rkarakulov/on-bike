@@ -51,13 +51,13 @@ catalog:
   unplugin-swc: ^2.0.0
   '@swc/core': ^1.16.18
   # база app-foundation (ADR-0004): точная версия, обновление — осознанно
-  '@rkarakulov/api-kit': 0.1.0
-  '@rkarakulov/test-kit': 0.1.0
-  '@rkarakulov/contracts-core': 0.1.0
-  '@rkarakulov/api-client-core': 0.1.0
-  '@rkarakulov/i18n-core': 0.1.0
-  '@rkarakulov/design-tokens': 0.1.0
-  '@rkarakulov/ui': 0.1.0
+  '@rkarakulov/api-kit': 0.1.1
+  '@rkarakulov/test-kit': 0.1.1
+  '@rkarakulov/contracts-core': 0.1.1
+  '@rkarakulov/api-client-core': 0.1.1
+  '@rkarakulov/i18n-core': 0.1.1
+  '@rkarakulov/design-tokens': 0.1.1
+  '@rkarakulov/ui': 0.1.1
 
 allowBuilds:
   '@parcel/watcher': false

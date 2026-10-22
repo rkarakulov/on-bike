@@ -41,7 +41,6 @@
     "@swc/cli": "^0.8.0",
     "@swc/core": "catalog:",
     "@types/node": "catalog:",
-    "@types/nodemailer": "^8.0.2",
     "@types/pg": "catalog:",
     "drizzle-kit": "catalog:",
     "typescript": "catalog:",
