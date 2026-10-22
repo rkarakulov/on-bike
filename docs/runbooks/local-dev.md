@@ -4,6 +4,10 @@
 
 ## Шаги
 
+0. Доступ к пакетам базы `@rkarakulov/*` (GitHub Packages, ADR-0004): токену `gh` нужен scope
+   `read:packages` — один раз `gh auth refresh -s read:packages`; перед `pnpm install` —
+   `export NODE_AUTH_TOKEN=$(gh auth token)`. Токен — только в окружении: `.npmrc` ссылается на
+   `${NODE_AUTH_TOKEN}`, в git его нет.
 1. Инфраструктура: `pnpm infra:up` — PostgreSQL 18 + PostGIS (`:5432`), Redis (`:6379`),
    Mailpit (SMTP `:1025`, веб `http://127.0.0.1:8025`).
 2. Окружение API: `cp apps/api/.env.example apps/api/.env` и заполнить секреты:

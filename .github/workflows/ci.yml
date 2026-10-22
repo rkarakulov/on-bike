@@ -9,6 +9,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# пакеты @rkarakulov/* читаются из GitHub Packages токеном GITHUB_TOKEN (доступ on-bike открыт в настройках пакетов)
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   secrets:
     runs-on: ubuntu-latest
@@ -47,6 +52,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm arch:check

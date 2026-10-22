@@ -5,6 +5,10 @@ packages:
 # Expo/Metro надёжнее работает с плоским node_modules
 nodeLinker: hoisted
 
+# пакеты базы публикует автор (app-foundation, ADR-0004): свежие по определению; чужие — без исключений
+minimumReleaseAgeExclude:
+  - '@rkarakulov/*'
+
 catalog:
   # tooling
   typescript: ~6.0.3
