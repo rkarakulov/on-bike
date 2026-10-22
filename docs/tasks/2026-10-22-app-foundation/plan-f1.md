@@ -140,7 +140,7 @@ export type BaseMessages = typeof baseMessages.ru;
 
 - [ ] Перенести компоненты `apps/mobile/src/components/ui/*`, `async-content.tsx`, `ui-kit.tsx` (витрина как
       компонент `UiKit`), `theme/{fonts,motion,theme}.ts`, `lib/{calendar-date,text}.ts` с тестами.
-- [ ] `configureDesignSystem({ themes, fonts: FontFamilies, i18n: I18n<BaseMessages> })`, где
+- [ ] `configureDesignSystem({ themes, fonts: FontFamilies, i18n: I18n<UiMessages> })` (факт: `UiMessages` — ключи `BaseMessages` с обычными строками, иначе проект с переопределёнными строками базы не проходит typecheck), где
       `FontFamilies = { [R in FontRole]: Record<FontWeight<R>, string> }`; без вызова — понятная ошибка.
       `useTheme<T extends Theme = Theme>()`, `textStyle(name)`, `useReducedMotion()`, `useLocale()`.
 - [ ] Тесты jest-expo: настройка в `jest.setup.ts` с `neutralThemes` и `baseMessages`; все перенесённые тесты PASS;

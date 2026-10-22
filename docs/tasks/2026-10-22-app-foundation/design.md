@@ -10,9 +10,9 @@ app-foundation/
   packages/                  пакеты @rkarakulov/* (GitHub Packages)
     config/                  tsconfig, пресеты eslint, prettier, vitest
     design-tokens/           примитивы → семантика → темы; типографика; контраст; генератор CSS;
-                             createThemes(brand) и нейтральный бренд по умолчанию
+                             defineThemes и нейтральный бренд по умолчанию (neutralThemes)
     ui/                      компоненты RN (Button, TextField, DateField, Banner, Skeleton, AsyncContent…),
-                             ThemeProvider/useTheme; в web — через react-native-web
+                             configureDesignSystem({ themes, fonts, i18n }), useTheme; в web — через react-native-web
     i18n-core/               механизм локализации + словари базы (ru, en)
     contracts-core/          конверт ошибок, общие коды ошибок и полей, утилиты схем
     api-client-core/         fetch-обёртка, толерантный разбор ошибок
@@ -29,7 +29,7 @@ app-foundation/
 В базу не входит: доменные модули и пакеты (`tracks`), identity (позже), тексты и бренд продукта.
 
 **Бренд.** Проект передаёт примитивы (палитра, шрифты) и, при необходимости, дополнительные темы;
-`createThemes(brand)` строит семантику. Компоненты `ui` знают только семантические роли.
+`defineThemes` фиксирует их тип, `configureDesignSystem` передаёт темы, шрифты и i18n в `ui`. Компоненты `ui` знают только семантические роли.
 
 ## 2. Локализация (`i18n-core`)
 
