@@ -42,6 +42,18 @@ paths:
   установки; SSR + OG-мета (`generateMetadata`) без персональных данных; состояния: недоступно, карточка
   отозвана, гонка отменена.
 - Публичное удаление аккаунта: только e-mail, нейтральный ответ, подтверждение по ссылке, действие — POST по кнопке.
+- Мета — `publicPageMetadata` (`src/lib/page-metadata.ts`) в `generateMetadata`: без e-mail и других ПДн; путь с
+  токеном (ссылки писем) — без `og:url`; `loader` — только для публичных данных (e-mail в HTML не попадает).
+  Образцы — `register`, `auth/verify/[token]`. Новый публичный экран — шаг смоука `e2e/web.spec.ts`.
+
+## Сессия в вебе (ADR-0003 п. 4, правила сервера — `onbike-security.md`)
+
+- Развилка платформ — файлами: `features/auth/session-persistence(.web).ts`, `secure-storage(.web).ts`,
+  `lib/api-platform(.web).ts`. Web: access — только в памяти стора, refresh — httpOnly cookie (JS его не видит и не
+  хранит), восстановление — `api.refreshSession()` под Web Lock `onbike.session-refresh`; токен регистрации —
+  `sessionStorage` вкладки. Native — SecureStore, как было.
+- Сторы и `api` не вызываются в рендере и на уровне модуля (на SSR-сервере сторы — общие синглтоны); гидрация — в
+  эффектах. Гарды допускают `unknown`: вкладки — скелетон оболочки, не редирект (SSR отдаёт HTML).
 
 ## Проверка
 

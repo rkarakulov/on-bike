@@ -49,6 +49,30 @@ worker: identity-maintenance, 03:00 Europe/Minsk ─► удаление неп�
 - Ошибки — единый `ApiError` из contracts (глобальный фильтр), в ответах и логах нет SQL, стеков,
   e-mail и токенов.
 
+### Сессия: native и web (модуль `identity`, ADR-0003 п. 4)
+
+```
+native: poll / refresh ─ тело { refreshToken } ─► Session в теле ─► SecureStore
+web:    poll { sessionTransport: 'cookie' } ─► CookieSession в теле (без refresh)
+        + Set-Cookie __Secure-onbike_rt (HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session)
+web, загрузка страницы: POST /v1/auth/session/refresh (cookie, Web Lock между вкладками)
+        ─► ротация refresh (срок сессии не продлевается) ─► новый access в память | 401 → не вошли
+выход: POST /v1/auth/session/sign-out ─► revoked_at, 204, cookie сброшена
+```
+
+- Ротация — один условный `UPDATE … RETURNING` (жива, не отозвана, пользователь не удалён): из двух одновременных
+  refresh одним токеном выигрывает один. Лимит refresh — 60/мин на IP (Redis).
+- HTTP API (`apps/api/src/http-app.ts`): CSRF — `enableCsrfProtection` (Fetch Metadata + `Origin`), доверенные
+  origin-ы и CORS с credentials — `CORS_ORIGINS` (dev: web на другом порту); прод — один origin за Caddy, список пуст.
+- App: развилки файлами — `features/auth/session-persistence(.web).ts`, `secure-storage(.web).ts`,
+  `lib/api-platform(.web).ts`; гарды допускают «сессия неизвестна» — SSR отдаёт HTML, вкладки — скелетон.
+
+### Web (SSR, PWA)
+
+`apps/app` собирается `expo export --platform web` (`web.output: 'server'`) и обслуживается `apps/app/server`
+(Express + `expo-server`) за Caddy: HTML каждого маршрута — с сервера, OG — `generateMetadata`, данные — API
+после гидрации (`loader` — только посев). PWA — manifest-маршрут из темы бренда, service worker — только статика.
+
 ## Outbox и очереди
 
 - Модуль пишет событие через `OutboxWriter.append(tx, …)` в той же транзакции, что и данные; в payload —

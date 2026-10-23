@@ -58,13 +58,33 @@ Expo Go не открывает схему `onbike://`. Для проверки 
 - **Dev:** `pnpm --filter @on-bike/app dev` и `w`; открывайте `http://127.0.0.1:8081` при
   `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000` — тот же хост, что у API: `localhost` и `127.0.0.1` — разные
   сайты, cookie сессии web (`SameSite=Strict`) между ними не ходит. Браузер ходит в API на другом порту — origin
-  должен быть в `CORS_ORIGINS` API (`.env.example` — значения для dev).
+  должен быть в `CORS_ORIGINS` API (`.env.example` — значения для dev): он же доверенный для CSRF-защиты, иначе
+  POST из браузера получит 403. Ссылки из писем в браузер — `APP_LINK_BASE=http://127.0.0.1:8081/`.
+- **Сессия web:** refresh — httpOnly cookie `__Secure-onbike_rt` (`Path=/v1/auth/session`), access — в памяти
+  вкладки; после перезагрузки приложение восстанавливает вход запросом `POST /v1/auth/session/refresh` по cookie.
+  Без входа этот запрос отвечает 401 — в консоли браузера «Failed to load resource … 401», это ожидаемо.
+  Регистрация «Подтвердите e-mail» — в `sessionStorage` вкладки. Chrome и Firefox считают `http://127.0.0.1`
+  безопасным контекстом и хранят `Secure`-cookie; **Safari по `http` её не хранит** — вход не переживёт
+  перезагрузку. Проверка в Safari — только по https (Caddy `infra/Caddyfile` локально) или принять ограничение dev.
 - **Production-сборка:** `pnpm build:web` (`apps/app/dist`: `client/` — статика и `sw.js`, `server/` — рендер и
   API-маршруты), затем `cp apps/app/.env.example apps/app/.env` и `pnpm --filter @on-bike/app start:web`
-  (`http://127.0.0.1:8080`). Кеш, сжатие и TLS — на обратном прокси перед сервером.
+  (`http://127.0.0.1:8080`). Кеш, сжатие и TLS — на обратном прокси перед сервером. Прод (`infra/`): Caddy
+  `PUBLIC_HOST` отдаёт `/v1/*` → `api:3000`, остальное → `web:8080` — один origin, CORS выключен.
 - **Смоук в браузере:** `pnpm e2e:web` (Playwright, `apps/app/e2e/`): production- и dev-сборка (`dist-dev`, там
   витрина `/ui-kit`). Браузер — установленный Google Chrome; без него — `PW_CHANNEL=chromium` и один раз
   `pnpm --filter @on-bike/app exec playwright install chromium` (~150 МБ).
+- **Смоук с API** (регистрация → письмо → подтверждение → вход → перезагрузка): Playwright сам поднимает API и worker
+  из `apps/api/dist` с `APP_LINK_BASE` и `CORS_ORIGINS` смоука (`:8090`, `:8091`), остальное окружение — из
+  `apps/api/.env`. Нужны `pnpm infra:up` (PostgreSQL, Redis, Mailpit), миграции и остановленный dev-API на `:3000`:
+
+  ```bash
+  pnpm turbo run build --filter=@on-bike/api
+  pnpm --filter @on-bike/api db:migrate
+  EXPO_PUBLIC_API_URL=http://127.0.0.1:3000 E2E_API=1 pnpm e2e:web
+  ```
+
+  Каждый прогон регистрирует подтверждённый аккаунт `e2e-<время>@on-bike.test` в dev-БД (очисткой неподтверждённых
+  не удаляется). Без `E2E_API=1` сценарий регистрации пропускается (`skipped`), остальные шаги — без API.
 - **PWA:** устанавливается только с https или `localhost`/`127.0.0.1`. Service worker регистрируется только в
   production-сборке; после смены сборки страница берёт новый `sw.js` (он `no-cache`). Сбросить —
   DevTools → Application → Service workers → Unregister.
@@ -86,6 +106,8 @@ Expo Go не открывает схему `onbike://`. Для проверки 
 - `curl http://127.0.0.1:3000/v1/health` → `{"status":"ok",…}`.
 - Письма — в Mailpit: `http://127.0.0.1:8025` (API: `GET http://127.0.0.1:8025/api/v1/messages`).
 - Регистрация: `POST /v1/auth/register` → письмо в Mailpit со ссылкой `…auth/verify/<token>`.
+- Регистрация в браузере: `http://127.0.0.1:8081` → форма → письмо в Mailpit → ссылка → «Подтвердить e-mail» →
+  первая вкладка входит; перезагрузка — вход сохранён (cookie, раздел «Web»).
 
 ## Тесты
 
@@ -103,8 +125,10 @@ Expo Go не открывает схему `onbike://`. Для проверки 
   откроет доступ репозиторию проекта: в настройках **каждого** из 8 пакетов (`config`, `design-tokens`, `ui`,
   `i18n-core`, `contracts-core`, `api-client-core`, `api-kit`, `test-kit`) → Manage Actions access → репозиторий
   проекта, роль Read. Без этого `pnpm install` в CI падает с 403.
-- **Web в CI:** job `web` — `pnpm e2e:web` (web-сборка и Playwright-смоук на Google Chrome раннера, без API:
-  экраны с данными показывают «Нет соединения»). Отчёт при падении — артефакт `playwright-report`.
+- **Web в CI:** job `web` — services PostgreSQL, Redis и Mailpit, сборка API и миграции, `pnpm build:web`, затем
+  Playwright-смоук с `E2E_API=1` на Google Chrome раннера (`pnpm --filter @on-bike/app e2e:web` — не через turbo:
+  turbo не передал бы задаче окружение API). Секреты API в job — фиктивные значения. Отчёт при падении — артефакт
+  `playwright-report`.
 - **EAS Build** (облачная сборка) не видит ваш `~/.npmrc`: перед первой сборкой создайте в EAS секрет
   `NODE_AUTH_TOKEN` (токен с `read:packages`, видимость — secret) и хук `eas-build-pre-install` в
   `apps/app/package.json`, который дописывает строку авторизации в `~/.npmrc` сборщика — тот же вид, что

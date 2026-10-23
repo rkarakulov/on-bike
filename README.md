@@ -8,29 +8,35 @@
 
 ## Быстрый старт
 
-Нужны pnpm 11 и Docker. Node 24 pnpm скачает сам (`devEngines.runtime`), системная версия не важна.
-Dev-образ PostGIS мультиархитектурный — работает и на Apple Silicon.
+Нужны pnpm 11, Docker и доступ к пакетам `@rkarakulov/*` (runbook, шаг 0). Node 24 pnpm скачает сам
+(`devEngines.runtime`). Dev-образ PostGIS мультиархитектурный — работает и на Apple Silicon.
 
 ```bash
+export NODE_AUTH_TOKEN=$(gh auth token)
 pnpm install
-pnpm infra:up                           # PostgreSQL 18 + PostGIS, Redis
-cp apps/api/.env.example apps/api/.env
+pnpm infra:up                           # PostgreSQL 18 + PostGIS, Redis, Mailpit
+cp apps/api/.env.example apps/api/.env  # и заполнить секреты (runbook, шаг 2)
 pnpm --filter @on-bike/api db:migrate
 pnpm dev                                # все приложения
 ```
 
-| Приложение       | Команда                              | Адрес                                |
-| ---------------- | ------------------------------------ | ------------------------------------ |
-| API              | `pnpm dev --filter=@on-bike/api`     | http://localhost:3000/v1/health      |
-| Панель           | `pnpm dev --filter=@on-bike/admin`   | http://localhost:5173                |
-| Приложение (app) | `pnpm --filter @on-bike/app dev`     | QR → Expo Go, `i` / `a` — симуляторы |
+| Приложение | Команда | Адрес |
+| --- | --- | --- |
+| API | `pnpm dev --filter=@on-bike/api` | http://127.0.0.1:3000/v1/health |
+| Воркер (письма, очереди) | `pnpm dev:worker` | — |
+| Панель «Протокол» | `pnpm dev --filter=@on-bike/admin` | http://127.0.0.1:5173 |
+| Приложение | `pnpm --filter @on-bike/app dev` | QR → Expo Go, `i` / `a` — симуляторы, `w` — браузер (http://127.0.0.1:8081) |
+| Web (production) | `pnpm build:web` → `pnpm --filter @on-bike/app start:web` | http://127.0.0.1:8080 |
 
-Воркер очередей: `pnpm dev:worker`. Запускайте приложения через `pnpm dev` / `pnpm dev:worker` (turbo):
-они сначала собирают `packages/*`, которые API берёт из `dist`.
+Запускайте API и воркер через `pnpm dev` / `pnpm dev:worker` (turbo): они сначала собирают `packages/*`, которые
+API берёт из `dist`. Web открывайте на `127.0.0.1`, не `localhost`: cookie сессии web привязана к сайту API
+(runbook, «Web»).
 
 ## Проверки
 
 `pnpm check` — формат, lint, границы архитектуры, typecheck, тесты. Запускается в pre-push и в CI.
+`pnpm e2e:web` — смоук web в браузере (Playwright); `E2E_API=1 pnpm e2e:web` — с регистрацией через API и Mailpit
+(runbook, «Web»).
 
 ## Шаблон app-foundation
 

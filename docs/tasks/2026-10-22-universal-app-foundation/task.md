@@ -2,7 +2,10 @@
 
 Универсальное приложение — основа: web/PWA + SSR из одного Expo-проекта, удаление Astro-лендинга
 
-Статус: **запланировано после онбординга, слайс 1** (`feature/onboarding-signup`). Решение — ADR-0003.
+Статус: **сделано — F5a + F5b** (2026-10-23). Решение — ADR-0003. Каркас web/PWA/SSR — шаблон app-foundation
+`v0.2.0` (F5a); on-bike — `copier update` до `v0.2.0`, web-сессия (cookie + CSRF), PWA бренда, e2e регистрации,
+удаление `apps/landing` (F5b, `docs/tasks/2026-10-23-onbike-web/task.md`). Отличия от плана ниже: приложение —
+`apps/app` (не `apps/mobile`), OG — `generateMetadata` (не `<Head>`), `DateField` web — в `@rkarakulov/ui`.
 
 # 2. Goal
 

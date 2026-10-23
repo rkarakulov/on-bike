@@ -72,7 +72,7 @@ outbox, очереди, лимитер, почта, HTTP, ошибки), тес�
 | `pnpm --filter @on-bike/app build:preview` | EAS: сборки для внутренних тестеров |
 | `pnpm build:web` | web-сборка приложения: SSR + PWA (`apps/app/dist`, service worker) |
 | `pnpm --filter @on-bike/app start:web` | production web-сервер на `dist` (env — `docs/runbooks/local-dev.md`, «Web») |
-| `pnpm e2e:web` | Playwright-смоук web в браузере (сначала `build:web`; нужен Chrome или `PW_CHANNEL`) |
+| `pnpm e2e:web` | Playwright-смоук web в браузере (сначала `build:web`; нужен Chrome или `PW_CHANNEL`); с API — `E2E_API=1` (регистрация → письмо → вход, runbook «Web») |
 | `pnpm infra:up` / `pnpm infra:down` | docker compose: PostgreSQL 18 + PostGIS, Redis, Mailpit |
 | `pnpm check` | **completion gate**: format:check + lint + arch:check + typecheck + test |
 | `pnpm lint` / `pnpm typecheck` / `pnpm test` | по отдельности |

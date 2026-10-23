@@ -653,3 +653,65 @@ gzip. Шаблон F5a — ~430 КБ: on-bike +~10 КБ на общем ядре
 
 **NOT VERIFIED:** CI job `web` на PR (проверит оркестратор после push); `actionlint` не установлен (YAML разобран
 `yaml`, структура job проверена); установка PWA руками и мобильные браузеры — ручной смоук человека.
+
+### S6 — документы и итоговые отличия от `v0.2.0` (coder, 2026-10-23)
+**Документы (§10):** `AGENTS.md` §3 (`e2e:web` с `E2E_API=1`; §2, §4.13, §8 — сделаны в S1/S2); `README.md` (быстрый
+старт шаблона: токен пакетов, Mailpit, web-строки, `127.0.0.1`, `e2e:web`; разделы on-bike — шаблон, EAS);
+ADR-0001 — статус «частично заменён ADR-0003» (+ реестр `docs/adr/README.md`); ADR-0003 — раздел «Реализация»
+(п. 1–2 SSR/OG/PWA и вес JS, п. 4 cookie/ротация/CSRF Fetch Metadata, п. 5–7, CI); `docs/architecture/README.md` —
+«Сессия: native и web», «Web (SSR, PWA)»; runbook — сессия web (cookie, 401 анонима в консоли, `sessionStorage`,
+Safari по http), `APP_LINK_BASE` web, смоук с API, CI `web`, прод Caddy → `web:8080`, ручная регистрация в браузере;
+`.claude/rules/onbike-app.md` — мета публичных экранов (`publicPageMetadata`, без ПДн, без `og:url` у пути с
+токеном) и «Сессия в вебе» (клиент); `onbike-security.md` — правило web-сессии уже из S2; задача-основа
+`2026-10-22-universal-app-foundation` — «сделано F5a + F5b» (+ отличия от плана); `design.md` — F5 сделан.
+
+**Итоговые локальные отличия от рендера `v0.2.0`** (скрипт: `find` рендера `copier copy --vcs-ref v0.2.0` vs
+`git ls-files` + `cmp`; `.claude/settings.json` — по HEAD: незакоммиченная правка человека не в счёт). Итого:
+изменено 63 файла шаблона, удалено 5, только в on-bike — 168 (из них `docs/tasks/**`, модули API, контракты auth,
+`packages/tracks`, миграции — продукт on-bike, O).
+- **Корень и CI (M):** `.copier-answers.yml` (`_src_path: gh:…`), `.github/workflows/ci.yml` (`pnpm turbo run build` —
+  все приложения; job `web` — services, сборка API, миграции, `E2E_API=1`, Playwright напрямую), `turbo.json`
+  (`E2E_API`, `MAILPIT_URL` в `passThroughEnv` `e2e:web`), `pnpm-workspace.yaml` (Playfair), `README.md`, `AGENTS.md`,
+  `CLAUDE.md`. «До F5» (Astro) — **нет**.
+- **API (M):** `.env.example`, `package.json`, `main.ts` (`configureOnBikeHttp`), `app.module.ts`, `worker.module.ts`,
+  `queues.ts`, `config/env{,.test}.ts`, `error-messages{,.test}.ts`, `test/{test-env.ts,harness.int.test.ts}`,
+  `drizzle/meta/{0000_snapshot,_journal}.json`. O: `http-app{,.test}.ts`, `trust-proxy.int.test.ts`, `test/identity.ts`,
+  `modules/{identity,tracks}/**`, миграции 0001–0003.
+- **App (M):** `package.json`, `app.json`, `jest.config.js` (TZ), `jest.setup.ts`, `e2e/{web.spec,urls}.ts` и
+  `playwright.config.ts` (смоук on-bike, API/worker при `E2E_API=1`), `public/icons/*` и `assets/images/favicon.png`
+  (марка on-bike), `src/app/{_layout,(tabs)/_layout,(tabs)/index}.tsx`, `src/components/screen-placeholder.tsx`
+  (`lead?`), `src/lib/api.ts` (`apiPlatformOptions`), `src/theme/{design-system,fonts,fonts.test}.ts`,
+  `src/__tests__/{app-routes.ts,root-layout.test.tsx,tabs.test.tsx,ui-kit.test.tsx}`. O: `(onboarding)/**`,
+  `auth/verify/[token].tsx`, вкладки on-bike, `features/auth/**` (в т. ч. `.web`-варианты), `lib/{api-platform(.web),
+  page-metadata,countdown}.ts`, `components/shell-skeleton.tsx`, `e2e/mailpit.ts`, марка `splash-route-*.png`, ассеты
+  create-expo-app (`expo-*`, `react-logo*`, `tabIcons`, `expo.icon`, `.vscode`).
+- **Admin (M):** `index.html`, `package.json`, `public/favicon.svg`, `src/App.test.tsx`, `src/fonts.ts`.
+- **Пакеты (M):** `api-client/src/{index,index.test}.ts`, `contracts/src/{common,common.test,index}.ts`,
+  `design-tokens/src/{brand,contrast,index,design-tokens.test}.ts`, `i18n/src/{ru,index.test}.ts`. O: `contracts/src/auth/**`,
+  `api-client/src/{auth,session}.test.ts`, `packages/tracks/**`.
+- **Docs (M):** `docs/README.md`, `docs/runbooks/local-dev.md`. O: `adr/**` (своя нумерация, `0001-stack-and-monorepo`),
+  `architecture/`, `product/`, `proposal-stack-architecture.md`, `runbooks/README.md`, `tasks/**`.
+- **Infra (O):** `infra/{Caddyfile,docker-compose.prod.yml,.env.example}` (прод: `web:8080` вместо landing).
+- **Rules (O):** `.claude/rules/onbike-*.md` (7). Правила шаблона, `.ai/dev-kit`, `.agents`, `.codex`,
+  `.claude/settings.json` (HEAD) = рендер.
+- **Удалённые файлы шаблона (N, 5):** `docs/adr/0001-stack.md`, `apps/api/drizzle/0000_init.sql`,
+  `apps/app/src/app/(tabs)/section.tsx`, `apps/app/src/__tests__/section.test.tsx`, `apps/app/assets/images/splash-icon.png`.
+- **Изменения против списка S1–S3a:** + `turbo.json`, `apps/api/src/main.ts`, `apps/app/src/lib/api.ts`,
+  `src/__tests__/ui-kit.test.tsx`, иконки PWA и favicon, `playwright.config.ts`; `e2e/web.spec.ts` — уже не
+  «временно», а смоук on-bike.
+
+**Проверки S6:** ссылки — скрипт по всем `*.md` в git (кроме `.ai/.agents/.codex`): относительные ссылки
+`[..](путь)` — 0 битых; пути в бэктиках новых разделов проверены `test -e`; `git grep -in 'astro\|landing'`
+(исключения §11) — только ADR-0001/0003; `pnpm check` — EXIT 0 (typecheck 8/8, test 13/13: app 27 наборов /
+120 тестов, api 99).
+
+**Follow-ups в app-foundation (итог F5b):**
+1. `_commit` после `copier update` — тег пакета (`@rkarakulov/api-client-core@0.2.0`), а не `v0.2.0` (повтор F3b S5(б)).
+2. Runbook шаблона: `apps/app/.env` создаётся после `pnpm build:web`, а сборка без `EXPO_PUBLIC_API_URL` падает —
+   поменять порядок.
+3. `createApiHarness` (test-kit): хук `configureApp` до `app.init()` — int-тесты с CSRF/CORS проекта.
+4. CORS `credentials` в шаблоне — когда сессия (identity) появится в базе (F6).
+5. Смоук шаблона: фильтр `console.error` `Failed to load resource|net::ERR_` пропускает любой HTTP-отказ — сузить
+   (как on-bike: конкретный URL и статус) и дать точку расширения `webServer` (API/worker при `E2E_API`) и
+   `passThroughEnv`, чтобы проекты с API не расходились с шаблоном в `playwright.config.ts`, `turbo.json`, CI.
+6. Иконки PWA шаблона — дефолтные Expo: скрипт генерации из марки бренда (maskable safe zone) как часть шаблона.
