@@ -223,6 +223,17 @@ update --defaults --vcs-ref v0.2.0 --skip-answered`). Факты:
   SameSite=Strict` сохранён; cookie ушла на `POST /v1/auth/session/refresh` и не ушла на `/v1/auth/register`;
   `document.cookie` пуст. Chromium Playwright (`PW_CHANNEL=chromium`) не проверялся — браузер нужной ревизии не
   установлен; Safari по `http` Secure-cookie не хранит (§8, runbook).
+- **S5, console.error в смоуке (решение оркестратора).** Аноним на каждой загрузке шлёт `POST /v1/auth/session/refresh`
+  и получает 401 — Chrome пишет «Failed to load resource … 401» как `console.error`. API не меняется (204 без cookie —
+  нет); фильтр `e2e/web.spec.ts` пропускает **только** это сообщение со статусом 401 для URL `…/v1/auth/session/refresh`,
+  всё остальное — падение. Уточнение S5: без API (`E2E_API` не задан) дополнительно пропускается
+  `net::ERR_CONNECTION_REFUSED` для URL на origin API — иначе «без API — остальное зелёное» невыполнимо. Экран
+  `/auth/verify/<неизвестный токен>` после гидрации в смоуке не открывается (404 API в консоли) — шаг SSR-only,
+  гидрация verify — в сценарии с API по настоящей ссылке.
+- **S5, запуск e2e с API.** `turbo.json` `e2e:web.passThroughEnv` += `E2E_API`, `MAILPIT_URL` (strict env turbo
+  иначе отрезал бы флаг); CI job `web` зовёт `pnpm build:web` + `pnpm --filter @on-bike/app e2e:web` напрямую, не
+  turbo `e2e:web`: переменные API (БД, Redis, SMTP, секреты-заглушки) turbo задаче не передал бы. API смоука —
+  свой процесс (`reuseExistingServer: false`): dev-API на :3000 надо остановить (другие `APP_LINK_BASE`/CORS).
 
 ## 8.3 Security checklist
 Затронуты сессии и аутентификация (web cookie, CSRF, ротация refresh), публичные страницы (SSR, OG, ссылки с
@@ -596,3 +607,49 @@ apps/app — 0 нарушений; `pnpm --filter @on-bike/app test` — 27 на
 «Failed to load resource: 401» как `console.error` — фильтр в смоуке (или решение по API: 204 без cookie — вне S3b);
 (2) `/check-email` при SSR содержит и форму регистрации (начальный экран стека `(onboarding)`) — ожидаемо;
 (3) `dist` после `expo export -p android` — Android, перед `e2e:web` — `build:web`.
+
+### S5 — PWA, бренд, e2e, CI (coder, 2026-10-23)
+**PWA и бренд (R3, §7).** Иконки — из марки `splash-route-light.png` (маршрут + точка старта) на
+`themes.light.surface.default` (#FFFFFF), одноразовым скриптом CoreGraphics (Swift, вне репозитория; `sips` не
+умеет наложение на фон): `icon-192`/`icon-512`/`apple-touch-icon` (180) — рамка марки 80 % ширины; `icon-maskable-512` —
+диагональ рамки 64 % стороны (= 80 % круга safe zone 80 %); `assets/images/favicon.png` (48², `app.json web.favicon`
+уже указывал на него) — 90 %. Manifest-маршрут и `+html.tsx` шаблона не менялись: имя и цвета — из словаря и темы
+on-bike. `/status` — экран шаблона (R3).
+
+**E2E (R11)** — `apps/app/e2e/{web.spec.ts,urls.ts,mailpit.ts}`, `playwright.config.ts`:
+- всегда: `/` — SSR-скелетон оболочки, после гидрации аноним → `/register`; `/register` — форма, `<title>`, OG,
+  `og:url` из `WEB_ORIGIN`; `/auth/verify/<43>` — SSR 200, title/OG, без `og:url`, токена нет в `<meta>`; `/status` —
+  как шаблон; `/ui-kit` production → `/register` (аноним), dev — витрина; PWA — manifest без ошибок, имя `on-bike`,
+  `theme_color` бренда, `Page.getInstallabilityErrors` пусто (кроме `in-incognito`), SW активен;
+- `E2E_API=1`: `playwright.config.ts` поднимает API (`node dist/main.js`, ждёт `/v1/health`) и worker из `apps/api`
+  с `APP_LINK_BASE=<web смоука>/`, `CORS_ORIGINS=<web>,<web dev>`, `PORT` из `EXPO_PUBLIC_API_URL`; остальное — `.env`
+  API локально или env CI. Сценарий: `/` → `/register` → форма → «Подтвердите e-mail» → письмо из Mailpit API
+  (`/api/v1/search`, `/api/v1/message/{ID}`), ссылка = `${BASE_URL}/auth/verify/<43>` → во второй вкладке
+  «Подтвердить e-mail» → «E-mail подтверждён»; первая вкладка: ответ poll `verified` — ключи сессии ровно
+  `accessToken, accessTokenExpiresAt, refreshTokenExpiresAt` → «Главная»; cookie `__Secure-onbike_rt` — `HttpOnly`,
+  `Secure`, `SameSite=Strict`, `Path=/v1/auth/session`, `document.cookie` без неё; перезагрузка → refresh 200 →
+  «Главная». Без `E2E_API` — `test.skip` с причиной.
+- `pageerror` и `console.error` — пусто, кроме 401 refresh (и отказа соединения с API без API) — §8.2.
+
+**CI** (`.github/workflows/ci.yml`, job `web`): services `postgres` (postgis 18-3.6), `redis` 8.8, `mailpit`
+(`axllent/mailpit:v1.31@sha256:23fe39e8…0387` — digest индекса мультиарх, проверен в registry); env — `E2E_API=1`,
+адреса и фиктивные секреты (как `test-env.ts`, gitleaks — no leaks); шаги: `pnpm turbo run build
+--filter=@on-bike/api` → `db:migrate` → `pnpm build:web` → `pnpm --filter @on-bike/app e2e:web`. Окружение CI
+проверено запуском `apps/api/dist/main.js` только с ним (`env -i`, без `.env`) — `/v1/health` 200.
+
+**Вес JS** (production `dist`, `gzip -9`, скрипты из SSR-HTML маршрута): `/` 6 скриптов, 1862 КБ raw / **441 КБ gzip**;
+`/register` 1914 / **458**; `/auth/verify/<токен>` 1863 / **441**; `/status` 1859 / **440**; весь JS сборки — 468 КБ
+gzip. Шаблон F5a — ~430 КБ: on-bike +~10 КБ на общем ядре, форма регистрации (react-hook-form, zod-резолвер) —
++17 КБ чанком `register`.
+
+**Проверки:**
+- `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000 pnpm build:web` — `Exported: dist`, `sw.js: 35 файлов статики`.
+- Без API: `playwright test` — `7 passed, 1 skipped` (сценарий с API — skip).
+- С API: `E2E_API=1 EXPO_PUBLIC_API_URL=… pnpm e2e:web` (turbo: `build:web` → e2e) — первый прогон 7/8: шаг verify с
+  неизвестным токеном ловил 404 API в консоли → шаг сделан SSR-only (§8.2); повтор — `8 passed (19.5s)`, регистрация
+  с письмом — 5.5 с. Перед этим `pnpm turbo run build --filter=@on-bike/api`, `db:migrate` (dev-БД, применено).
+- `pnpm check` — EXIT 0 (depcruise 217 модулей, 0 нарушений; app 27 наборов / 120 тестов; api 99; contracts 32;
+  api-client 19; design-tokens 114; admin 7; i18n 5; tracks 2).
+
+**NOT VERIFIED:** CI job `web` на PR (проверит оркестратор после push); `actionlint` не установлен (YAML разобран
+`yaml`, структура job проверена); установка PWA руками и мобильные браузеры — ручной смоук человека.
