@@ -56,12 +56,47 @@ export const size = {
   fieldHeight: 52,
   rowMin: 64,
   heroHeight: 300,
+  tabBarHeight: 49,
+  /** полоса активной вкладки */
+  tabIndicator: 2,
 } as const;
 
 export const font = {
   display: 'Playfair Display',
   text: 'Inter',
 } as const;
+
+export type FontRole = keyof typeof font;
+
+/** Подключённые начертания: токен с другим весом не пройдёт typecheck. */
+export const fontWeights = {
+  display: [500, 600],
+  text: [400, 500, 600, 700],
+} as const satisfies Record<FontRole, readonly number[]>;
+
+export type FontWeight<R extends FontRole = FontRole> = (typeof fontWeights)[R][number];
+
+/** Начертание: вес связан с ролью (`display` + 700 — ошибка типа). */
+export type FontFace = { [R in FontRole]: { role: R; weight: FontWeight<R> } }[FontRole];
+
+export type TextStyleToken = FontFace & {
+  /** px */
+  size: number;
+  /** px */
+  lineHeight: number;
+};
+
+/** Текстовые стили из прототипов: заголовки — Playfair, интерфейс — Inter. */
+export const typography = {
+  display: { role: 'display', weight: 600, size: 34, lineHeight: 40 },
+  title: { role: 'display', weight: 600, size: 28, lineHeight: 34 },
+  heading: { role: 'text', weight: 600, size: 17, lineHeight: 22 },
+  body: { role: 'text', weight: 400, size: 15, lineHeight: 22 },
+  label: { role: 'text', weight: 500, size: 13, lineHeight: 18 },
+  tab: { role: 'text', weight: 600, size: 11, lineHeight: 14 },
+} as const satisfies Record<string, TextStyleToken>;
+
+export type TextStyleName = keyof typeof typography;
 
 /** CSS custom properties для веба (admin, landing). */
 export function toCssVariables(theme: ThemeName): string {
