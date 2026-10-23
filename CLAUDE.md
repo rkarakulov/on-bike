@@ -2,23 +2,23 @@
 
 Канон проекта — [`AGENTS.md`](AGENTS.md). Прочитай его первым; здесь только навигация для Claude Code.
 
-## Ассеты `.claude/`
+Процесс разработки — плагин `app-dev-kit` (маркетплейс `app-foundation`, подключён в `.claude/settings.json`
+вместе с `superpowers`). Компоненты вызываются с префиксом плагина:
 
-| Путь | Назначение |
+| Что | Вызов |
 |---|---|
-| `.claude/commands/develop-task.md` | оркестратор задачи, точка входа |
-| `.claude/commands/task1.md` … `task3.md` | уровни реализации |
-| `.claude/commands/{create-spec,plan-task,implement-task,verify-task,review-task,finish-task}.md` | фазы цикла |
-| `.claude/commands/understand-project.md` | контекст-брифинг под задачу |
-| `.claude/commands/codex-review.md` | кросс-движковое ревью через Codex |
-| `.claude/commands/architecture-review.md` | периодический аудит (когда кодовая база вырастет) |
-| `.claude/agents/{architect,coder,independent-reviewer,investigator}.md` | роли субагентов |
-| `.claude/skills/{backend-nest,web-ui,mobile-expo}/` | процесс по зонам |
-| `.claude/rules/*.md` | правила по путям (`paths:` frontmatter) |
-| `.claude/task-template.md` | шаблон task.md |
-| `.claude/ai-runtime.md` | соответствие Claude ↔ Codex |
-| `.claude/hooks/completion-gate.sh` | Stop-хук, advisory |
-| `tools/ai_review/` | контракт ревью, Codex-мосты |
+| Оркестратор задачи | `/app-dev-kit:develop-task <задача \| путь к task.md>` |
+| Уровни | `/app-dev-kit:task1` … `/app-dev-kit:task3` |
+| Фазы | `/app-dev-kit:{understand-project,create-spec,plan-task,implement-task,verify-task,review-task,codex-review,finish-task}` |
+| Аудит архитектуры | `/app-dev-kit:architecture-review` |
+| Агенты | `subagent_type: "app-dev-kit:{architect,coder,independent-reviewer,investigator}"` |
+| Скилы зон | `app-dev-kit:{backend-nest,mobile-expo,web-ui}` |
+
+В проекте: `.claude/rules/*.md` — правила по путям (`paths:` frontmatter), `tools/ai_review/` — контракт ревью и
+Codex-мосты. `.ai/dev-kit/` — копия плагина для Codex; Claude Code её не читает.
+
+on-bike: доменные правила поверх правил шаблона — `.claude/rules/onbike-*.md` (те же `paths:`), продуктовые
+решения — `docs/product/`, ADR — `docs/adr/`.
 
 ## Уровень задачи → superpowers
 
@@ -29,4 +29,4 @@
 | task2 | `brainstorming` (если размыто) → `test-driven-development` → `verification-before-completion` |
 | task3 | `brainstorming` (обязательно) → `writing-plans` → `subagent-driven-development` / `test-driven-development` → `receiving-code-review` → `verification-before-completion` → `finishing-a-development-branch` |
 
-Документацию библиотек (NestJS, Expo, Drizzle, Astro, BullMQ, MapLibre …) сверяй через context7, а не по памяти.
+Документацию библиотек (NestJS, Expo, Drizzle, BullMQ, TanStack Query, Astro, MapLibre …) сверяй через context7, а не по памяти.
