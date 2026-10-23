@@ -1,0 +1,89 @@
+# Дизайн: база app-foundation
+
+Решение — [ADR-0004](../../adr/0004-app-foundation.md). Согласовано с автором 2026-10-22: гибрид
+(пакеты + шаблон + плагин), выделяем сейчас, identity — позже, репозиторий приватный.
+
+## 1. Состав репозитория
+
+```
+app-foundation/
+  packages/                  пакеты @rkarakulov/* (GitHub Packages)
+    config/                  tsconfig, пресеты eslint, prettier, vitest
+    design-tokens/           примитивы → семантика → темы; типографика; контраст; генератор CSS;
+                             defineThemes и нейтральный бренд по умолчанию (neutralThemes)
+    ui/                      компоненты RN (Button, TextField, DateField, Banner, Skeleton, AsyncContent…),
+                             configureDesignSystem({ themes, fonts, i18n }), useTheme; в web — через react-native-web
+    i18n-core/               механизм локализации + словари базы (ru, en)
+    contracts-core/          конверт ошибок, общие коды ошибок и полей, утилиты схем
+    api-client-core/         fetch-обёртка, толерантный разбор ошибок
+    api-kit/                 инфраструктура NestJS: env-основа, БД, executor, outbox, очереди, лимитер Redis,
+                             почта, clock, http-app, ApiExceptionFilter, DomainError, ZodValidationPipe
+    test-kit/                стенд API (реальные PG/Redis, FakeMailer, часы), хелперы jest-expo
+  template/                  шаблон copier: apps/api, apps/app (универсальное Expo), apps/admin (Vite),
+                             turbo/pnpm, CI, docker-compose, AGENTS.md-скелет, .claude/settings.json и rules,
+                             tools/ai_review
+  plugin/                    плагин Claude Code app-dev-kit: commands, agents, skills, hooks
+  .claude-plugin/marketplace.json
+```
+
+В базу не входит: доменные модули и пакеты (`tracks`), identity (позже), тексты и бренд продукта.
+
+**Бренд.** Проект передаёт примитивы (палитра, шрифты) и, при необходимости, дополнительные темы;
+`defineThemes` фиксирует их тип, `configureDesignSystem` передаёт темы, шрифты и i18n в `ui`. Компоненты `ui` знают только семантические роли.
+
+## 2. Локализация (`i18n-core`)
+
+- Словарь на язык; ключи типизированы по базовому языку; параметры `t('key', { email })`.
+- Множественное число — `Intl.PluralRules` (ru: one/few/many/other). Нужен ли полифил на Hermes — проверить
+  в плане F1.
+- Форматирование дат, времени, чисел, относительного времени — `Intl`, таймзона явно.
+- Цепочка: выбранный язык → базовый; в dev — предупреждение о пропущенном ключе.
+- Тест полноты: все языки содержат все ключи базового.
+- Словари базы (строки `ui`, общие коды ошибок) — ru и en; проект объединяет их со своими, типы складываются.
+- Выбор языка: приложение — `expo-localization` + ручной выбор; web/SSR — cookie / `Accept-Language`;
+  API — язык пользователя для писем. RTL — вне рамок.
+
+## 3. Подключение и обновление
+
+- **Пакеты:** changesets, публикация при слиянии в `main` базы. В проекте `.npmrc`:
+  `@rkarakulov:registry=https://npm.pkg.github.com` + токен из env (`GITHUB_TOKEN` в CI, доступ пакета
+  к репо проекта). Renovate группирует `@rkarakulov/*`. Исключение возраста версий — только этот scope.
+  Пакеты публикуются собранными (`dist`, ESM + d.ts).
+- **Шаблон:** `copier copy gh:rkarakulov/app-foundation <dir>` (вопросы: имя, scope, bundle id, домены, бренд);
+  `.copier-answers.yml` в проекте; `copier update` после релиза; версия шаблона — тот же тег.
+- **Плагин:** `/plugin marketplace add rkarakulov/app-foundation`, установка `app-dev-kit`;
+  в `.claude/settings.json` проекта — `enabledPlugins` и `extraKnownMarketplaces`. Codex получает AGENTS.md,
+  `tools/ai_review` и подсказки через шаблон.
+- **Соглашение плагина с проектом:** в проекте есть `AGENTS.md`, `pnpm check`, `docs/tasks/<дата-slug>/task.md`,
+  `tools/ai_review`. Шаблон это гарантирует.
+- **Разработка базы рядом с проектом:** `foundation:link` / `foundation:unlink` (локальные пакеты + `watchFolders`
+  Metro); CI проекта запрещает `link:` в lock-файле.
+- **CI базы:** проверки пакетов; генерация проекта из шаблона → install → `pnpm check`.
+
+## 4. Задачи и порядок
+
+| # | Задача | Зависит от |
+|---|---|---|
+| F1 | Репо, пакеты, публикация, релиз 0.1.0 | — |
+| F2 | Плагин `app-dev-kit` и маркетплейс | — |
+| F3 | Шаблон copier + проверка генерации в CI | F1, F2 |
+| F4 | Перевод on-bike на базу (identity и tracks остаются) | F3 |
+| F5 | Задача-основа universal-app в базе; on-bike — через `copier update` | F4 |
+| F6 | Identity в базу | слайсы 2–3 онбординга |
+
+Слайс 2 онбординга — после F5. PR #1–#3 on-bike вливаются в `main` до F4 (решение автора).
+
+Перенос — 1 в 1, без истории on-bike (ссылка на коммит-источник в первом коммите). Новая общность —
+только бренд как параметр и мультиязычность.
+
+## 5. Готово, когда
+
+- `copier copy` → `pnpm i && pnpm check` зелёный; приложение с нейтральным брендом запускается на iOS,
+  Android и web; `/develop-task` работает через плагин.
+- on-bike на базе: тесты зелёные, ручной проход регистрации на Android проходит.
+
+## 6. Риски
+
+- Выделение из одного проекта → перенос 1 в 1, on-bike — сразу потребитель.
+- Токены GitHub Packages локально и в CI; copier требует Python.
+- Сборка RN-пакетов для Metro (dist) — проверяется в F1.
