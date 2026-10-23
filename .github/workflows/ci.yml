@@ -9,7 +9,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# пакеты @rkarakulov/* читаются из GitHub Packages токеном GITHUB_TOKEN (доступ on-bike открыт в настройках пакетов)
+# пакеты @rkarakulov/* читаются из GitHub Packages токеном GITHUB_TOKEN: доступ репозитория открывается
+# в настройках каждого пакета (Manage Actions access, docs/runbooks/local-dev.md).
+# Сторонние actions закреплены по SHA (тег — в комментарии).
 permissions:
   contents: read
   packages: read
@@ -17,37 +19,40 @@ permissions:
 jobs:
   secrets:
     runs-on: ubuntu-latest
+    # gitleaks-action на событии PR читает список коммитов PR
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   check:
     runs-on: ubuntu-latest
-    # интеграционные тесты API — на реальных PostgreSQL + PostGIS и Redis (.claude/rules/tests.md)
+    # интеграционные тесты API — на реальных PostgreSQL и Redis (.claude/rules/tests.md)
     services:
       postgres:
         image: postgis/postgis:18-3.6
         env:
-          POSTGRES_USER: onbike
-          POSTGRES_PASSWORD: onbike
-          POSTGRES_DB: onbike
+          POSTGRES_USER: on_bike
+          POSTGRES_PASSWORD: on_bike
+          POSTGRES_DB: on_bike
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U onbike" --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U on_bike" --health-interval 5s --health-timeout 5s --health-retries 10
       redis:
         image: redis:8.8
         ports: ['6379:6379']
     env:
-      DATABASE_URL_TEST: postgres://onbike:onbike@127.0.0.1:5432/onbike_test
+      DATABASE_URL_TEST: postgres://on_bike:on_bike@127.0.0.1:5432/on_bike_test
       REDIS_URL_TEST: redis://127.0.0.1:6379/1
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -57,21 +62,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: pnpm format:check
-      - run: pnpm lint
-      - run: pnpm arch:check
-      # turbo пропускает пакеты без изменений по кешу; на PR — только затронутые
-      - name: typecheck & test
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            FILTER="--filter=...[origin/${{ github.base_ref }}]"
-          fi
-          pnpm turbo run typecheck test build $FILTER
+      # completion gate: format, lint, arch:check, typecheck, test (AGENTS.md §3)
+      - run: pnpm check
+      # on-bike: собираются все приложения и пакеты (admin, landing — до F5), не только API
+      - run: pnpm turbo run build
       # dist API — CommonJS поверх ESM-пакетов базы (require(esm), две сборки drizzle): typecheck и vitest
-      # этого не видят, поэтому модули dist загружаются отдельно (если API собирался в этом прогоне)
+      # этого не видят, поэтому модули dist загружаются отдельно
       - name: api dist loads
         working-directory: apps/api
-        run: |
-          if [ -d dist ]; then
-            node -e "require('reflect-metadata');require('./dist/app.module');require('./dist/worker.module')"
-          fi
+        run: node -e "require('reflect-metadata');require('./dist/app.module');require('./dist/worker.module')"

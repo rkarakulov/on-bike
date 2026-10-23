@@ -65,16 +65,16 @@ if [[ -n "$CONTEXT_FILE" ]]; then
 fi
 
 PROMPT="$(cat <<PROMPT_EOF
-You are an INDEPENDENT architecture reviewer for the on-bike monorepo, seeing this audit for the
+You are an INDEPENDENT architecture reviewer for this monorepo (AGENTS.md §1), seeing this audit for the
 FIRST time. Do NOT trust that it is correct. Working from the audit and the repository itself:
   - try to REFUTE findings and challenge generic recommendations,
   - find FALSE POSITIVES,
   - find architectural problems the audit MISSED,
   - offer alternative interpretations where the conclusion is debatable.
 
-Judge against the project canon: AGENTS.md (invariants §4: server authority for results,
-append-only audit, contracts-first, module boundaries via index.ts, idempotent BullMQ jobs,
-migrations not on startup, no secrets) and .claude/rules/*.md.
+Judge against the project canon: AGENTS.md (invariants §4: server authority, contracts-first,
+module boundaries via index.ts, idempotent BullMQ jobs and outbox, migrations not on startup,
+no secrets, append-only audit where the project keeps one) and .claude/rules/*.md.
 
 Output ONLY findings in Russian: severity (CRITICAL/HIGH/MEDIUM/LOW), which audit finding it
 concerns (ARCH-XXX or MISSED), and WHY with evidence (path:line). End with a verdict
