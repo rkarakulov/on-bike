@@ -9,6 +9,7 @@
     "@on-bike/i18n": "workspace:*",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/playfair-display": "^0.4.2",
+    "@expo/metro-runtime": "~58.0.15",
     "@expo/ui": "~58.0.0",
     "@hookform/resolvers": "^6.0.0",
     "@react-native-community/datetimepicker": "9.2.1",
@@ -24,11 +25,13 @@
     "expo-linking": "~58.0.0",
     "expo-router": "~58.0.0",
     "expo-secure-store": "~58.0.2",
+    "expo-server": "~58.0.5",
     "expo-splash-screen": "~58.0.0",
     "expo-status-bar": "~58.0.0",
     "expo-symbols": "~58.0.0",
     "expo-system-ui": "~58.0.0",
     "expo-web-browser": "~58.0.0",
+    "express": "^5.3.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "^7.90.0",
@@ -43,10 +46,14 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "catalog:",
     "@react-native/jest-preset": "~0.88.0",
     "@rkarakulov/config": "catalog:",
+    "@testing-library/react": "catalog:",
     "@testing-library/react-native": "^14.1.0",
+    "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
+    "@types/node": "catalog:",
     "@types/react": "~19.3.0",
     "jest": "^30.5.2",
     "jest-expo": "~58.0.11",
@@ -57,6 +64,10 @@
     "dev": "expo start",
     "ios": "expo start --ios",
     "android": "expo start --android",
+    "build:web": "expo export --platform web && node scripts/build-service-worker.ts",
+    "build:web:dev": "expo export --platform web --dev --output-dir dist-dev",
+    "start:web": "node --env-file-if-exists=.env server/main.ts",
+    "e2e:web": "playwright test",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "doctor": "expo-doctor",
@@ -65,5 +76,5 @@
     "build:play-internal": "eas build --profile production --platform android --auto-submit"
   },
   "private": true,
-  "description": "Мобильное приложение райдера (Expo, iOS + Android)"
+  "description": "Универсальное приложение райдера on-bike (Expo: iOS, Android и web/PWA)"
 }

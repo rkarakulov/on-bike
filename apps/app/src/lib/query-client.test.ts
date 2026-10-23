@@ -3,7 +3,8 @@ import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
 import NetInfo from '@react-native-community/netinfo';
 import { onlineManager } from '@tanstack/react-query';
 
-import { connectOnlineManager, createQueryClient, shouldRetry } from './query-client';
+import { connectOnlineManager } from './online-manager';
+import { createQueryClient, shouldRetry } from './query-client';
 
 type Listener = Parameters<typeof NetInfo.addEventListener>[0];
 

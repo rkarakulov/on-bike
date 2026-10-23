@@ -7,11 +7,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface ScreenPlaceholderProps {
   title: MessageKey;
+  /** Вводный текст; без него — «раздел появится позже» (вкладки, ещё не реализованные). */
+  lead?: MessageKey;
   children?: ReactNode;
 }
 
-/** Временный экран раздела, пока его содержимое не реализовано. */
-export function ScreenPlaceholder({ title, children }: ScreenPlaceholderProps) {
+/** Экран-заготовка: заголовок, вводный текст и содержимое раздела. */
+export function ScreenPlaceholder({
+  title,
+  lead = 'placeholder.soon',
+  children,
+}: ScreenPlaceholderProps) {
   const theme = useTheme();
 
   return (
@@ -26,9 +32,7 @@ export function ScreenPlaceholder({ title, children }: ScreenPlaceholderProps) {
         >
           {t(title)}
         </Text>
-        <Text style={[textStyle('body'), { color: theme.text.secondary }]}>
-          {t('placeholder.soon')}
-        </Text>
+        <Text style={[textStyle('body'), { color: theme.text.secondary }]}>{t(lead)}</Text>
         {children}
       </View>
     </SafeAreaView>

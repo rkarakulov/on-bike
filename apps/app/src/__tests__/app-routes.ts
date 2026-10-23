@@ -10,6 +10,7 @@ import RidesScreen from '../app/(tabs)/rides';
 import RoutesScreen from '../app/(tabs)/routes';
 import VerifyEmailScreen from '../app/auth/verify/[token]';
 import RootLayout from '../app/_layout';
+import StatusScreen from '../app/status';
 import UiKitScreen from '../app/ui-kit';
 
 /** Маршруты вкладок для renderRouter (корневой layout подключают отдельные тесты). */
@@ -22,7 +23,7 @@ export const tabRoutes = {
   '(tabs)/calendar': CalendarScreen,
 };
 
-/** Всё приложение: корневой layout с гардом, вкладки, регистрация, ссылка из письма. */
+/** Всё приложение: корневой layout с гардом, вкладки, регистрация, ссылка из письма, витрина, `/status`. */
 export const appRoutes = {
   _layout: RootLayout,
   ...tabRoutes,
@@ -32,4 +33,5 @@ export const appRoutes = {
   '(onboarding)/sign-in': SignInScreen,
   'auth/verify/[token]': VerifyEmailScreen,
   'ui-kit': UiKitScreen,
+  status: StatusScreen,
 };

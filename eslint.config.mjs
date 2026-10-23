@@ -2,7 +2,14 @@
 import { createEslintConfig } from '@rkarakulov/config/eslint';
 
 export default await createEslintConfig({
-  ignores: ['apps/api/drizzle/**', '**/.astro/**'],
+  // dist-dev и отчёты Playwright — артефакты web-сборки и e2e
+  ignores: [
+    'apps/api/drizzle/**',
+    'apps/app/dist-dev/**',
+    'apps/app/test-results/**',
+    'apps/app/playwright-report/**',
+    '**/.astro/**',
+  ],
   reactNative: ['apps/app/**/*.{ts,tsx,js}'],
   browser: ['apps/admin/**/*.{ts,tsx}'],
   nest: ['apps/api/**/*.ts'],

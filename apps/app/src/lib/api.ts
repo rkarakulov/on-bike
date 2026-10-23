@@ -4,7 +4,9 @@ import { createApiClient } from '@on-bike/api-client';
 const DEV_API_URL = 'http://127.0.0.1:3000';
 
 function apiBaseUrl(): string {
-  // EXPO_PUBLIC_* Metro подставляет при сборке — только прямое обращение к process.env.EXPO_PUBLIC_…
+  // EXPO_PUBLIC_* Metro подставляет при сборке — только прямое обращение к process.env.EXPO_PUBLIC_….
+  // Серверный бандл web (SSR) их не подставляет: читает из окружения web-сервера во время запроса —
+  // EXPO_PUBLIC_API_URL нужен и на сборке, и процессу `start:web`
   const configured = process.env.EXPO_PUBLIC_API_URL;
   if (configured) return configured.replace(/\/$/, '');
   if (__DEV__) return DEV_API_URL;

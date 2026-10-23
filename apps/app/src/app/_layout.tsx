@@ -10,7 +10,8 @@ import { useEffect, useState } from 'react';
 
 import { useRegistrationStore } from '@/features/auth/registration-store';
 import { isSignedIn, useSessionStore } from '@/features/auth/session-store';
-import { connectOnlineManager, createQueryClient } from '@/lib/query-client';
+import { connectOnlineManager } from '@/lib/online-manager';
+import { createQueryClient } from '@/lib/query-client';
 import { fontAssets } from '@/theme/fonts';
 
 // нативный splash держим, пока не загружены шрифты и не прочитана сессия — без мигания экраном входа
@@ -60,6 +61,7 @@ export default function RootLayout() {
         {/* ссылка из письма открывается всегда: и до входа, и на другом устройстве */}
         <Stack.Screen name="auth/verify/[token]" />
         <Stack.Screen name="ui-kit" />
+        <Stack.Screen name="status" />
       </Stack>
       <StatusBar style="auto" />
     </QueryClientProvider>

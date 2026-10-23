@@ -26,6 +26,23 @@ jest.mock('@react-native-community/netinfo', () =>
   jest.requireActual('@react-native-community/netinfo/jest/netinfo-mock.js'),
 );
 
+// Нативный модуль ExpoHead — как в dev client и сборках iOS (в Expo Go его нет): с ним `expo-router/head`
+// регистрирует NSUserActivity и без `origin` у плагина expo-router бросает ошибку при рендере. Мок ловит
+// `<Head>` вне `.web`-файлов. Модуль читается при первом импорте expo-router/head — задаём до него.
+const expoGlobal = globalThis as { expo?: { modules?: Record<string, unknown> } };
+expoGlobal.expo = {
+  ...expoGlobal.expo,
+  modules: {
+    ...expoGlobal.expo?.modules,
+    ExpoHead: {
+      activities: { INDEXED_ROUTE: 'expo.modules.router.indexed_route' },
+      createActivity: jest.fn(),
+      suspendActivity: jest.fn(),
+      clearActivitiesWithIds: jest.fn(),
+    },
+  },
+};
+
 jest.mock('@react-native-community/datetimepicker', () => {
   const { createElement } = jest.requireActual('react');
   const { View } = jest.requireActual('react-native');

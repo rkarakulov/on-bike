@@ -60,6 +60,11 @@ description: Обязательный процесс для работы в ун
 
 ## 6. Проверка
 
-Jest (jest-expo, хелперы `@rkarakulov/test-kit`) + Testing Library: состояния, навигация по deep link, формы.
-Typecheck и тесты пакета приложения (`AGENTS.md` §3), `pnpm check`. Ручная проверка на симуляторе и в
+Jest (jest-expo, хелперы `@rkarakulov/test-kit`) + Testing Library: состояния, навигация по deep link, формы;
+web-варианты модулей — web-проект jest (`*.web.test.ts(x)`, react-native-web).
+Typecheck и тесты пакета приложения (`AGENTS.md` §3), `pnpm check`.
+
+В VERIFY экран проверяется и в браузере: web-сборка и production-сервер приложения (`build:web` + `start:web`,
+`AGENTS.md` §3) — экран открывается, SSR отдаёт контент (публичный — с OG-мета), после гидрации нет ошибок в
+консоли; новый маршрут — шаг в Playwright-смоуке проекта (`e2e:web`). Ручная проверка на симуляторе и в
 браузере — в pr.md как `NOT VERIFIED`, если не делалась.

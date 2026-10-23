@@ -34,9 +34,8 @@ on-bike.by — геймифицированная платформа для ве
 ```
 apps/
   api/        NestJS (Fastify): src/main.ts (HTTP) + src/worker.ts (BullMQ); модули в src/modules/<context>
-  app/        Expo + Expo Router — универсальное приложение райдера (iOS, Android; веб — ADR-0003)
+  app/        Expo + Expo Router — универсальное приложение райдера (iOS, Android, web/PWA с SSR; server/ — web-сервер)
   admin/      Vite + React — веб-панель организаторов «Протокол» (desktop, только светлая тема)
-  landing/    Astro SSR — гостевые страницы по ссылкам, удаление аккаунта, OG-мета (до F5, вне шаблона)
 packages/
   contracts/     zod-схемы — источник правды API (DTO, enum-ы, коды ошибок)
   api-client/    тонкий HTTP-клиент поверх contracts (zod-валидация ответов)
@@ -71,6 +70,9 @@ outbox, очереди, лимитер, почта, HTTP, ошибки), тес�
 | `pnpm dev:worker` | воркер очередей BullMQ в dev |
 | `pnpm build` | production-сборка |
 | `pnpm --filter @on-bike/app build:preview` | EAS: сборки для внутренних тестеров |
+| `pnpm build:web` | web-сборка приложения: SSR + PWA (`apps/app/dist`, service worker) |
+| `pnpm --filter @on-bike/app start:web` | production web-сервер на `dist` (env — `docs/runbooks/local-dev.md`, «Web») |
+| `pnpm e2e:web` | Playwright-смоук web в браузере (сначала `build:web`; нужен Chrome или `PW_CHANNEL`) |
 | `pnpm infra:up` / `pnpm infra:down` | docker compose: PostgreSQL 18 + PostGIS, Redis, Mailpit |
 | `pnpm check` | **completion gate**: format:check + lint + arch:check + typecheck + test |
 | `pnpm lint` / `pnpm typecheck` / `pnpm test` | по отдельности |
@@ -122,14 +124,12 @@ outbox, очереди, лимитер, почта, HTTP, ошибки), тес�
     - **ошибка обновления при уже показанных данных** — данные остаются, сверху баннер с повтором;
     - **пусто** — пустое состояние экрана;
     - **мутации** — состояние кнопки (disabled на время запроса, индикатор внутри кнопки допустим), не скелетон.
-13. **Все платформы — веб = то же приложение (ADR-0003).** В браузере (мобильный веб / PWA) — полноценное
-    приложение райдера с тем же функционалом, что в iOS/Android, из одного кода `apps/app`; не лендинг. Каждый
-    экран и каждая ссылка открываются без установки; публичные экраны объектов рендерятся на сервере (OG).
-    Нативное — только за модулями с `.native` / `.web`-реализациями рядом; экран без web-варианта —
-    дефект (HIGH). Ссылки в письмах и шеринге — https-URL, открывающиеся без приложения.
-    **Переход:** действует с задачи-основы `docs/tasks/2026-10-22-universal-app-foundation` (по решению человека —
-    сразу после онбординга, слайс 1). До неё web-варианты не требуются, но нативное обязано быть изолировано
-    в модулях (`secure-storage`, `date-field`, `query-client`) — задача-основа добавляет `.web` рядом.
+13. **Все платформы (ADR-0003).** Фича = все платформы: экран приложения работает в iOS, Android и web/PWA
+    (мобильный и десктопный браузер) с тем же функционалом. Платформенные развилки — только файлами рядом
+    (`*.web.ts(x)` / `*.native.ts(x)`, бандлер выбирает сам); экраны и компоненты о платформе не знают
+    (`Platform.OS` в экранах — нет). Публичные экраны (открываются по ссылке без входа) рендерятся на сервере:
+    мета и OG — `generateMetadata`, `loader` — только ускоритель SSR (посев запроса через `useLoaderSeed`);
+    источник данных на всех платформах — API (TanStack Query). Нет web-варианта — дефект, как и нет iOS/Android.
 
 ## 5. Workflow
 
