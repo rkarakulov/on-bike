@@ -66,8 +66,9 @@ Expo Go не открывает схему `onbike://`. Для проверки 
   Регистрация «Подтвердите e-mail» — в `sessionStorage` вкладки. Chrome и Firefox считают `http://127.0.0.1`
   безопасным контекстом и хранят `Secure`-cookie; **Safari по `http` её не хранит** — вход не переживёт
   перезагрузку. Проверка в Safari — только по https (Caddy `infra/Caddyfile` локально) или принять ограничение dev.
-- **Production-сборка:** `pnpm build:web` (`apps/app/dist`: `client/` — статика и `sw.js`, `server/` — рендер и
-  API-маршруты), затем `cp apps/app/.env.example apps/app/.env` и `pnpm --filter @on-bike/app start:web`
+- **Production-сборка:** сначала `cp apps/app/.env.example apps/app/.env` (`EXPO_PUBLIC_API_URL` нужен уже сборке:
+  без него `build:web` падает «EXPO_PUBLIC_API_URL не задан для сборки»), затем `pnpm build:web` (`apps/app/dist`:
+  `client/` — статика и `sw.js`, `server/` — рендер и API-маршруты) и `pnpm --filter @on-bike/app start:web`
   (`http://127.0.0.1:8080`). Кеш, сжатие и TLS — на обратном прокси перед сервером. Прод (`infra/`): Caddy
   `PUBLIC_HOST` отдаёт `/v1/*` → `api:3000`, остальное → `web:8080` — один origin, CORS выключен.
 - **Смоук в браузере:** `pnpm e2e:web` (Playwright, `apps/app/e2e/`): production- и dev-сборка (`dist-dev`, там

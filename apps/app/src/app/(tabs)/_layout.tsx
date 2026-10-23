@@ -4,14 +4,22 @@ import { Tabs } from 'expo-router/js-tabs';
 
 import { ShellSkeleton } from '@/components/shell-skeleton';
 import { TabBar } from '@/components/tab-bar';
-import { useSessionStore } from '@/features/auth/session-store';
+import { isSessionPending, useSessionStore } from '@/features/auth/session-store';
+
+const retryRestore = () => void useSessionStore.getState().hydrate();
 
 export default function TabsLayout() {
   const theme = useTheme();
-  // сессия ещё неизвестна (SSR, восстановление при запуске): гард пускает сюда, но контент — только после входа
-  const sessionUnknown = useSessionStore((state) => state.status === 'unknown');
+  // сессия ещё неизвестна (SSR, восстановление при запуске) или проверить её не удалось (web: 429, сеть): гард
+  // пускает сюда, но контент — только после входа; вместо него скелетон или ошибка с повтором
+  const status = useSessionStore((state) => state.status);
+  const restoreError = useSessionStore((state) => state.restoreError);
 
-  if (sessionUnknown) return <ShellSkeleton />;
+  if (isSessionPending(status)) {
+    const failure =
+      status === 'unavailable' ? { error: restoreError, retry: retryRestore } : undefined;
+    return <ShellSkeleton failure={failure} />;
+  }
 
   return (
     <Tabs

@@ -26,7 +26,7 @@ pnpm dev                                # все приложения
 | Воркер (письма, очереди) | `pnpm dev:worker` | — |
 | Панель «Протокол» | `pnpm dev --filter=@on-bike/admin` | http://127.0.0.1:5173 |
 | Приложение | `pnpm --filter @on-bike/app dev` | QR → Expo Go, `i` / `a` — симуляторы, `w` — браузер (http://127.0.0.1:8081) |
-| Web (production) | `pnpm build:web` → `pnpm --filter @on-bike/app start:web` | http://127.0.0.1:8080 |
+| Web (production) | `cp apps/app/.env.example apps/app/.env` → `pnpm build:web` → `pnpm --filter @on-bike/app start:web` | http://127.0.0.1:8080 |
 
 Запускайте API и воркер через `pnpm dev` / `pnpm dev:worker` (turbo): они сначала собирают `packages/*`, которые
 API берёт из `dist`. Web открывайте на `127.0.0.1`, не `localhost`: cookie сессии web привязана к сайту API

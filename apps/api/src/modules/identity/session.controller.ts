@@ -46,8 +46,10 @@ export class SessionController {
       if (!token) throw domainError('UNAUTHORIZED', 401);
       return this.cookie.deliver(reply, await this.sessions.rotate(token, ip), 'cookie');
     } catch (error) {
-      // недействительная cookie больше не нужна браузеру; 429 и сбои — не повод её стирать
-      if (isDomainError(error) && error.status === 401) this.cookie.clear(reply);
+      // недействительная cookie больше не нужна браузеру; 429 и сбои — не повод её стирать. Без cookie сбрасывать
+      // нечего: запоздалый ответ анонимного refresh стёр бы cookie, выданную тем временем poll другой вкладки
+      const presented = cookieValue !== undefined;
+      if (presented && isDomainError(error) && error.status === 401) this.cookie.clear(reply);
       throw error;
     }
   }

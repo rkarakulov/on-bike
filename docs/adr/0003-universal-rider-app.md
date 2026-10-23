@@ -80,7 +80,8 @@ Expo SDK 58 (Expo Router 58) собирает тот же проект под в
 - п. 4 реализован: refresh — cookie `__Secure-onbike_rt` (`HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session`,
   без `Domain`, `Max-Age` — остаток срока сессии); тело ответа web — без refresh (`sessionTransport: 'cookie'`,
   `CookieSession`); `POST /v1/auth/session/refresh` (ротация, срок не продлевается) и `/sign-out`. Access — в памяти;
-  перезагрузка восстанавливает сессию запросом refresh по cookie (Web Lock между вкладками). CSRF — встроенный
+  перезагрузка восстанавливает сессию запросом refresh по cookie (refresh, poll регистрации и выход — под одним
+  Web Lock между вкладками; 429/сеть — повтор, а не выход). CSRF — встроенный
   `enableCsrfProtection` NestJS (Fetch Metadata `Sec-Fetch-Site` + `Origin`), доверенные origin-ы — `CORS_ORIGINS`;
   CORS с credentials — только для этого списка, в проде (один origin за Caddy) выключен. Native — без изменений.
 - п. 5: в dev/e2e `APP_LINK_BASE` web — `http://127.0.0.1:8081/` / origin смоука; universal/app links — когда будет домен.

@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 
 import { useRegistrationStore } from '@/features/auth/registration-store';
-import { isSignedIn, useSessionStore } from '@/features/auth/session-store';
+import { isSessionPending, isSignedIn, useSessionStore } from '@/features/auth/session-store';
 import { connectOnlineManager } from '@/lib/online-manager';
 import { createQueryClient } from '@/lib/query-client';
 import { fontAssets } from '@/theme/fonts';
@@ -56,7 +56,7 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: theme.surface.default },
         }}
       >
-        <Stack.Protected guard={sessionStatus === 'unknown' || signedIn} redirectTo="/register">
+        <Stack.Protected guard={isSessionPending(sessionStatus) || signedIn} redirectTo="/register">
           <Stack.Screen name="(tabs)" />
         </Stack.Protected>
         <Stack.Protected guard={!signedIn} redirectTo="/">

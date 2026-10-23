@@ -193,7 +193,7 @@ describe('POST /v1/auth/session/refresh', () => {
     expect(body.accessTokenExpiresAt).toBe(row?.expiresAt.toISOString());
   });
 
-  it('истёкшая, отозванная, удалённый пользователь, нет cookie, мусор, неизвестный → одинаковый 401 и сброс cookie', async () => {
+  it('истёкшая, отозванная, удалённый пользователь, нет cookie, мусор, неизвестный → одинаковый 401; сброс — только предъявленной cookie', async () => {
     const results: CallResult[] = [];
 
     const expired = await webSignIn();
@@ -210,17 +210,19 @@ describe('POST /v1/auth/session/refresh', () => {
     await h.db.update(users).set({ deletedAt: h.clock.now() });
     results.push(await refreshByCookie(orphan));
 
-    results.push(await call(h, 'POST', REFRESH, {}));
     results.push(await refreshByCookie('not-a-token'));
     results.push(await refreshByCookie(randomToken()));
+    // без cookie сбрасывать нечего: Set-Cookie сброса стёр бы cookie, выданную тем временем poll другой вкладки
+    const anonymous = await call(h, 'POST', REFRESH, {});
 
-    for (const res of results) {
+    for (const res of [...results, anonymous]) {
       expect(res.status).toBe(401);
       expect(res.body).toEqual({ code: 'UNAUTHORIZED', message: expect.any(String) });
       expect(res.headers['cache-control']).toBe('no-store');
-      expect(isCleared(res)).toBe(true);
     }
-    expect(new Set(results.map((res) => JSON.stringify(res.body))).size).toBe(1);
+    for (const res of results) expect(isCleared(res)).toBe(true);
+    expect(setCookie(anonymous)).toBeUndefined();
+    expect(new Set([...results, anonymous].map((res) => JSON.stringify(res.body))).size).toBe(1);
   });
 
   it('refreshToken в теле не по схеме → 400 (валидация контракта)', async () => {

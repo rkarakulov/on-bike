@@ -1,9 +1,11 @@
 /// <reference types="jest" />
 // разбор входящего URL тем же кодом, что у Router на устройстве (публичный путь пакета `./build/*`)
 import { extractExpoPathFromURL } from 'expo-router/build/fork/extractPathFromURL';
-import { renderRouter, screen } from 'expo-router/testing-library';
+import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
+import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
 
+import * as persistence from '@/features/auth/session-persistence';
 import { api } from '@/lib/api';
 
 import { LINK_TOKEN, session, storePendingRegistration, storeSession } from './auth-fixtures';
@@ -32,6 +34,27 @@ describe('гард сессии (Stack.Protected)', () => {
     expect(screen.queryByRole('header', { name: 'Создать аккаунт' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Главная' })).toBeNull();
   });
+
+  it.each([
+    ['429', new ApiHttpError(429, { code: 'RATE_LIMITED', message: 'x' }), 'Не удалось загрузить'],
+    ['нет сети', new ApiNetworkError(new TypeError('Failed to fetch')), 'Нет соединения'],
+  ])(
+    'сессию проверить не удалось (web: %s после повторов) — не выход: на месте вкладок ошибка с повтором',
+    async (_case, error, title) => {
+      const restore = jest.spyOn(persistence, 'restoreSession').mockRejectedValueOnce(error);
+      const router = await renderRouter(appRoutes, { initialUrl: '/' });
+
+      expect(await screen.findByText(title)).toBeOnTheScreen();
+      expect(router.getPathname()).toBe('/');
+      expect(screen.queryByRole('header', { name: 'Создать аккаунт' })).toBeNull();
+
+      // повтор — снова восстановление (здесь сессии нет → регистрация)
+      await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+      expect(await screen.findByRole('header', { name: 'Создать аккаунт' })).toBeOnTheScreen();
+      expect(restore).toHaveBeenCalledTimes(2);
+      restore.mockRestore();
+    },
+  );
 
   it('пока сессия не прочитана — регистрация открывается сразу (публичный экран, SSR)', async () => {
     jest.mocked(SecureStore.getItemAsync).mockReturnValueOnce(new Promise(() => undefined));

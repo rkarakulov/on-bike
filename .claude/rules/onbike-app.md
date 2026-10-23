@@ -50,10 +50,16 @@ paths:
 
 - Развилка платформ — файлами: `features/auth/session-persistence(.web).ts`, `secure-storage(.web).ts`,
   `lib/api-platform(.web).ts`. Web: access — только в памяти стора, refresh — httpOnly cookie (JS его не видит и не
-  хранит), восстановление — `api.refreshSession()` под Web Lock `onbike.session-refresh`; токен регистрации —
-  `sessionStorage` вкладки. Native — SecureStore, как было.
+  хранит), восстановление — `api.refreshSession()`; токен регистрации — `sessionStorage` вкладки. Native —
+  SecureStore, как было.
+- Всё, что меняет cookie сессии (refresh, poll регистрации, выход), — под одним Web Lock `onbike.session-refresh`
+  (`withSessionLock`, `features/auth/session-lock(.web).ts`; native — без замка): ответ одной операции не приходит
+  поверх результата другой.
+- Восстановление: 401 — «не вошёл»; 429, сеть, сбой API — не выход: повторы (429 — через `retryAfterSec`), затем
+  статус `unavailable` — вкладки показывают «Нет соединения» / «Не удалось загрузить» с повтором (`AsyncContent`).
 - Сторы и `api` не вызываются в рендере и на уровне модуля (на SSR-сервере сторы — общие синглтоны); гидрация — в
-  эффектах. Гарды допускают `unknown`: вкладки — скелетон оболочки, не редирект (SSR отдаёт HTML).
+  эффектах. Гарды допускают `unknown` и `unavailable`: вкладки — скелетон оболочки или повтор, не редирект (SSR
+  отдаёт HTML).
 
 ## Проверка
 

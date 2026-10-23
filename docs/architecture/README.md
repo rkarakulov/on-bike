@@ -57,6 +57,7 @@ web:    poll { sessionTransport: 'cookie' } ─► CookieSession в теле (б
         + Set-Cookie __Secure-onbike_rt (HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session)
 web, загрузка страницы: POST /v1/auth/session/refresh (cookie, Web Lock между вкладками)
         ─► ротация refresh (срок сессии не продлевается) ─► новый access в память | 401 → не вошли
+        | 429 / сеть / 5xx → повтор, затем «не удалось» с кнопкой повтора (не выход)
 выход: POST /v1/auth/session/sign-out ─► revoked_at, 204, cookie сброшена
 ```
 
@@ -66,6 +67,8 @@ web, загрузка страницы: POST /v1/auth/session/refresh (cookie, W
   origin-ы и CORS с credentials — `CORS_ORIGINS` (dev: web на другом порту); прод — один origin за Caddy, список пуст.
 - App: развилки файлами — `features/auth/session-persistence(.web).ts`, `secure-storage(.web).ts`,
   `lib/api-platform(.web).ts`; гарды допускают «сессия неизвестна» — SSR отдаёт HTML, вкладки — скелетон.
+  Web: refresh, poll регистрации и выход — под одним Web Lock (`session-lock.web.ts`): операции, меняющие cookie,
+  не перекрываются между вкладками; API на 401 без предъявленной cookie её не сбрасывает.
 
 ### Web (SSR, PWA)
 

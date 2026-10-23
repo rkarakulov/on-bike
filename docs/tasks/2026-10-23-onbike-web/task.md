@@ -90,6 +90,13 @@ ADR-0003 (раздел «Решение», п. 0–6) и задача-основ
 - **Ротация refresh и несколько вкладок:** одновременная перезагрузка двух вкладок → оба запроса со старой cookie →
   второй 401. Снимается Web Locks (`navigator.locks.request('onbike.session-refresh')`) в web-реализации; без
   обнаружения повторного использования (reuse detection) в F5b — слайс 2.
+- **Строгая ротация без окна повтора (ревью pass 1, Claude MEDIUM #2 — риск принят в F5b).** Старый хеш refresh
+  заменяется сразу: если сервер закоммитил ротацию, а браузер ответ не принял (F5 или закрытие вкладки во время
+  запроса, обрыв мобильной сети), следующая загрузка шлёт старую cookie → 401 → сброс cookie → выход. На web refresh
+  идёт на каждой загрузке, окно риска регулярное; до слайса 2 входа по паролю нет — доступ к аккаунту теряется
+  (повторная регистрация того же e-mail — отказ). Код в F5b не меняется (решение оркестратора). **Follow-up слайс 2**
+  (вместе с reuse detection): окно повтора — хранить `previous_refresh_token_hash` + `rotated_at` и 30–60 с отвечать
+  на предыдущий токен новой ротацией той же сессии; вне окна предъявление старого токена — сигнал reuse detection.
 - **Secure cookie по http в dev/e2e:** Chrome/Firefox считают `localhost`/`127.0.0.1` безопасным контекстом;
   Safari на `http://` Secure-cookie не хранит → ручной смоук в Safari — только через https (Caddy локально) или
   принять как ограничение dev (runbook).
@@ -234,6 +241,19 @@ update --defaults --vcs-ref v0.2.0 --skip-answered`). Факты:
   иначе отрезал бы флаг); CI job `web` зовёт `pnpm build:web` + `pnpm --filter @on-bike/app e2e:web` напрямую, не
   turbo `e2e:web`: переменные API (БД, Redis, SMTP, секреты-заглушки) turbo задаче не передал бы. API смоука —
   свой процесс (`reuseExistingServer: false`): dev-API на :3000 надо остановить (другие `APP_LINK_BASE`/CORS).
+
+- **Ревью pass 1 (решение оркестратора), восстановление web-сессии при 429 и сбое сети.** Было (§11 TESTS,
+  S3b): «сеть → signedOut без очистки cookie», 429 — тоже «не вошёл». Стало: 401 — «не вошёл»; 429, сеть, 5xx — не
+  выход: до 3 попыток (429 — пауза `retryAfterSec`, если она ≤ 10 с, иначе сразу без повторов; прочее — 2 с), пауза
+  вне Web Lock; после попыток — новый статус стора `unavailable` (`restoreError` — причина). Готового состояния
+  «ошибка с повтором» у стора и гардов не было; минимум — статус + `AsyncContent` базы (без новых компонентов и
+  строк): гарды пускают `unavailable` как `unknown`, вкладки вместо скелетона показывают «Нет соединения» (сеть) или
+  «Не удалось загрузить» (429/5xx) с «Повторить» → `hydrate()` (снова `unknown` → refresh). Регистрация (`/register`)
+  при `unavailable` открыта, как при `unknown`. Native restore не бросает — статус там недостижим.
+- **Ревью pass 1, Web Lock шире refresh.** Замок `onbike.session-refresh` теперь общий для всех операций web,
+  меняющих cookie: refresh, poll регистрации (`fetchRegistrationPoll` в `features/auth/queries.ts`) и выход
+  (`features/auth/session-lock(.web).ts`, `withSessionLock`; native — без замка, поведение прежнее). Имя замка
+  сохранено (решение оркестратора), хотя покрывает не только refresh.
 
 ## 8.3 Security checklist
 Затронуты сессии и аутентификация (web cookie, CSRF, ротация refresh), публичные страницы (SSR, OG, ссылки с
@@ -692,8 +712,11 @@ Safari по http), `APP_LINK_BASE` web, смоук с API, CI `web`, прод Ca
 - **Docs (M):** `docs/README.md`, `docs/runbooks/local-dev.md`. O: `adr/**` (своя нумерация, `0001-stack-and-monorepo`),
   `architecture/`, `product/`, `proposal-stack-architecture.md`, `runbooks/README.md`, `tasks/**`.
 - **Infra (O):** `infra/{Caddyfile,docker-compose.prod.yml,.env.example}` (прод: `web:8080` вместо landing).
-- **Rules (O):** `.claude/rules/onbike-*.md` (7). Правила шаблона, `.ai/dev-kit`, `.agents`, `.codex`,
-  `.claude/settings.json` (HEAD) = рендер.
+- **Rules (O):** `.claude/rules/onbike-*.md` (7). Правила шаблона, `.ai/dev-kit`, `.agents`, `.codex` = рендер.
+- **Права Claude Code (M, ревью pass 1, LOW-4):** `.claude/settings.json` — после `7b2ca4d` отличается от рендера
+  `v0.2.0`: `gh pr merge*` убран из `deny`, `rm -rf` и `DROP`/`TRUNCATE` перенесены в `ask`, `extraKnownMarketplaces`
+  переформатирован (многострочный `source`). Изменение прав автора; при `copier update` конфликт в этом файле
+  решать в пользу on-bike (не возвращать `deny`, не терять `ask`) или вынести правку прав в app-foundation.
 - **Удалённые файлы шаблона (N, 5):** `docs/adr/0001-stack.md`, `apps/api/drizzle/0000_init.sql`,
   `apps/app/src/app/(tabs)/section.tsx`, `apps/app/src/__tests__/section.test.tsx`, `apps/app/assets/images/splash-icon.png`.
 - **Изменения против списка S1–S3a:** + `turbo.json`, `apps/api/src/main.ts`, `apps/app/src/lib/api.ts`,
@@ -715,3 +738,43 @@ Safari по http), `APP_LINK_BASE` web, смоук с API, CI `web`, прод Ca
    (как on-bike: конкретный URL и статус) и дать точку расширения `webServer` (API/worker при `E2E_API`) и
    `passThroughEnv`, чтобы проекты с API не расходились с шаблоном в `playwright.config.ts`, `turbo.json`, CI.
 6. Иконки PWA шаблона — дефолтные Expo: скрипт генерации из марки бренда (maskable safe zone) как часть шаблона.
+
+### Фиксы ревью pass 1 (coder, 2026-10-23)
+Findings: `findings-codex.md` (Codex, REQUEST CHANGES), `findings.md` (Claude, APPROVE). Каждое замечание проверено
+по коду — все подтвердились, оспоренных нет.
+- **Codex HIGH + Claude LOW-3 — запоздалый 401 refresh стирал свежую cookie (fixed).**
+  API (`session.controller.ts`): сброс cookie на 401 — только если cookie пришла в запросе (`cookieValue !==
+  undefined`); пустая/мусорная/недействительная — сбрасывается, как раньше. Тесты: `session.controller.test.ts` —
+  «без cookie → 401 без сброса» (красный до правки); `session.int.test.ts` — шесть причин 401 с одинаковым телом,
+  у пяти с cookie — сброс, у запроса без cookie `Set-Cookie` нет (красный на коде HEAD:
+  `expected '__Secure-onbike_rt=; Path=/v1/auth/se…' to be undefined`).
+  App: `features/auth/session-lock.ts` (native: без замка) / `.web.ts` (`navigator.locks` `onbike.session-refresh`,
+  без `navigator.locks` — как раньше); под замком — refresh (`restoreSession`), poll (`fetchRegistrationPoll`,
+  `useRegistrationPoll`) и выход (`clearSession`). Web-тесты: все три операции берут один замок; с очередью
+  LockManager poll не уходит, пока не завершён refresh, итог — вошёл, `signOut` не вызывался; без Web Lock —
+  401 восстановления после успешного poll вход не отменяет.
+- **Claude MEDIUM #1 — 429 на restore = «не вошёл» (fixed, §8.2).** `session-persistence.web.ts`: 401 →
+  `undefined`; 429/сеть/5xx — повторы (429 через `retryAfterSec` ≤ 10 с), затем ошибка → стор `unavailable` с
+  `restoreError`; вкладки — `ShellSkeleton` с `failure` → `AsyncContent` («Нет соединения» / «Не удалось загрузить»
+  + «Повторить» → `hydrate()`). Тесты web: 401 без повторов; 429 → пауза → вошёл; 429×3 → `unavailable`, без
+  sign-out; 429 с паузой 60 с → сразу `unavailable`; сеть×3 → `unavailable`; повтор из `unavailable` → `unknown` →
+  вошёл. Native (`auth-guard.test.tsx`): restore бросил (429 / сеть) → на `/` ошибка с «Повторить», без редиректа на
+  регистрацию; повтор → снова восстановление.
+- **Claude MEDIUM #2 — строгая ротация без окна повтора (risk accepted, §8 «Строгая ротация…»).** Код не менялся;
+  follow-up слайса 2 — окно повтора 30–60 с через предыдущий хеш.
+- **Codex MEDIUM — runbook (fixed).** `docs/runbooks/local-dev.md` «Production-сборка» и таблица `README.md`:
+  `cp apps/app/.env.example apps/app/.env` — до `pnpm build:web`.
+- **Claude LOW-4 — §12 и `.claude/settings.json` (fixed).** Файл добавлен в итоговые локальные отличия от рендера
+  `v0.2.0` («Права Claude Code (M)»); сам `.claude/settings.json` не менялся.
+- Документы: `.claude/rules/onbike-app.md` «Сессия в вебе» (замок на все операции, `unavailable`),
+  `docs/architecture/README.md`, ADR-0003 «Реализация» п. 4.
+
+
+**Проверки pass 1:** TDD — красные до правки: API unit 1, int 1 (на коде HEAD), web 8, native 2. `pnpm check` —
+EXIT 0 (depcruise 220 модулей, 0 нарушений; app 27 наборов / 128 тестов; api 20 файлов / 100 тестов);
+`pnpm turbo run build --filter=@on-bike/api`, `db:migrate`; `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000 pnpm
+build:web` — `sw.js: 35 файлов статики`; `E2E_API=1 EXPO_PUBLIC_API_URL=… pnpm --filter @on-bike/app e2e:web` —
+`8 passed (16.4s)`, регистрация с API — 5.5 с. Серверы смоука остановлены (порты 3000/8090/8091 свободны).
+**NOT VERIFIED:** гонка двух вкладок (poll + запоздалый refresh) в настоящем браузере — покрыта unit/int и
+web-тестами с очередью LockManager, отдельного Playwright-сценария нет; runbook на чистой установке (порядок
+`.env` → `build:web`) не прогонялся — сборка запускалась с `EXPO_PUBLIC_API_URL` в окружении.

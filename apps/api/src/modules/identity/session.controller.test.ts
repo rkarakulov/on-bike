@@ -17,8 +17,20 @@ function createController() {
 }
 
 describe('SessionController: cookie валидируется схемой до сервиса', () => {
+  it('refresh без cookie → 401 без сброса: запоздалый ответ не сотрёт cookie, выданную тем временем poll', async () => {
+    const { controller, sessions, cookie } = createController();
+
+    await expect(controller.refresh({}, undefined, '1.2.3.4', {})).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+      status: 401,
+    });
+    expect(sessions.rotate).not.toHaveBeenCalled();
+    expect(cookie.noStore).toHaveBeenCalled();
+    expect(cookie.clear).not.toHaveBeenCalled();
+  });
+
   it.each([
-    ['нет cookie', undefined],
+    ['пустая cookie', ''],
     ['мусор', 'not-a-token'],
     ['почти токен (42 символа)', 'a'.repeat(42)],
   ])(
