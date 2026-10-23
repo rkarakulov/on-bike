@@ -21,7 +21,7 @@ export default tseslint.config(
       '**/.astro/**',
       '**/coverage/**',
       'apps/api/drizzle/**',
-      'apps/mobile/expo-env.d.ts',
+      'apps/app/expo-env.d.ts',
       '.claude/**',
       '.agents/**',
       '.codex/**',
@@ -39,15 +39,15 @@ export default tseslint.config(
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,
   },
-  ...expoConfig.map((config) => ({ ...config, files: ['apps/mobile/**/*.{ts,tsx,js}'] })),
+  ...expoConfig.map((config) => ({ ...config, files: ['apps/app/**/*.{ts,tsx,js}'] })),
   {
-    files: ['apps/mobile/**/*.{ts,tsx}'],
+    files: ['apps/app/**/*.{ts,tsx}'],
     // резолв модулей проверяет tsc (с условием @on-bike/source), import-плагин его не знает
     rules: { 'import/no-unresolved': 'off' },
   },
   {
     // цвета — только семантика @on-bike/design-tokens (тесты сравнивают с токенами, а не с hex)
-    files: ['apps/{mobile,admin,landing}/src/**/*.{ts,tsx}'],
+    files: ['apps/{app,admin,landing}/src/**/*.{ts,tsx}'],
     ignores: ['**/*.test.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': [

@@ -6,7 +6,7 @@ dist
 coverage
 pnpm-lock.yaml
 apps/api/drizzle/meta
-apps/mobile/assets
+apps/app/assets
 *.md
 .claude
 .agents

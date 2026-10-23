@@ -1,9 +1,9 @@
 ---
 paths:
-  - "apps/mobile/**"
+  - "apps/app/**"
 ---
 
-# Mobile — apps/mobile (Expo SDK 58 + Expo Router)
+# App — apps/app (Expo SDK 58 + Expo Router)
 
 Процесс: скил `.claude/skills/mobile-expo/SKILL.md`.
 

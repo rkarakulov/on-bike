@@ -11,7 +11,7 @@
    Сам токен нигде не записывается.
    **EAS Build** (облачная сборка) не видит ваш `~/.npmrc`: перед первой сборкой человек создаёт в EAS секрет
    `NODE_AUTH_TOKEN` (токен с `read:packages`, видимость — secret) и хук `eas-build-pre-install` в
-   `apps/mobile/package.json`, который дописывает строку авторизации в `~/.npmrc` сборщика — тот же вид, что
+   `apps/app/package.json`, который дописывает строку авторизации в `~/.npmrc` сборщика — тот же вид, что
    локально. До этого EAS-сборка упадёт на установке `@rkarakulov/*` (follow-up F4, не проверено).
 1. Инфраструктура: `pnpm infra:up` — PostgreSQL 18 + PostGIS (`:5432`), Redis (`:6379`),
    Mailpit (SMTP `:1025`, веб `http://127.0.0.1:8025`).

@@ -7,7 +7,7 @@ import { connectOnlineManager, createQueryClient, shouldRetry } from './query-cl
 
 type Listener = Parameters<typeof NetInfo.addEventListener>[0];
 
-describe('QueryClient мобилки', () => {
+describe('QueryClient приложения', () => {
   it('onlineManager следует за NetInfo: без сети запросы встают на паузу (fetchStatus paused)', () => {
     let listener: Listener | undefined;
     jest.mocked(NetInfo.addEventListener).mockImplementation((next) => {
@@ -31,7 +31,7 @@ describe('QueryClient мобилки', () => {
     expect(shouldRetry(0, new ApiHttpError(401, null))).toBe(false);
   });
 
-  it('мутации не повторяются сами (регистрация и повтор письма — не идемпотентны для пользователя)', () => {
+  it('мутации не повторяются сами (действие пользователя может быть не идемпотентным)', () => {
     const client = createQueryClient();
     expect(client.getDefaultOptions().mutations?.retry).toBe(false);
     expect(client.getDefaultOptions().queries?.retry).toBe(shouldRetry);

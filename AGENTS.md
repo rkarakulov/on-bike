@@ -61,10 +61,10 @@ tools/ai_review/  контракт независимого ревью + Codex-�
 |---|---|
 | `pnpm install` | установка зависимостей |
 | `pnpm dev` | все приложения в dev через turbo (сначала собирает `packages/*`) |
-| `pnpm dev --filter=@on-bike/<app>` | одно приложение в dev (api / admin / landing / mobile) |
+| `pnpm dev --filter=@on-bike/<app>` | одно приложение в dev (api / admin / landing / app) |
 | `pnpm dev:worker` | воркер очередей BullMQ в dev |
 | `pnpm build` | production-сборка всех приложений |
-| `pnpm --filter @on-bike/mobile build:preview` | EAS: APK + iOS ad-hoc для внутренних тестеров |
+| `pnpm --filter @on-bike/app build:preview` | EAS: APK + iOS ad-hoc для внутренних тестеров |
 | `pnpm infra:up` | docker compose: PostgreSQL 18 + PostGIS, Redis |
 | `pnpm check` | **completion gate**: lint + typecheck + test + arch:check + format:check |
 | `pnpm lint` / `pnpm typecheck` / `pnpm test` | по отдельности |
@@ -100,7 +100,7 @@ tools/ai_review/  контракт независимого ревью + Codex-�
     (семантические роли, `.t-*` / `textStyle`, `space` / `inset` / `size` / `stroke` / `density`) и готовых
     компонентов (`@rkarakulov/ui`; веб — классы и переменные пакета). Нужного нет — **расширяй систему**:
     общий компонент или токен — задачей и релизом в app-foundation (с тестом и примером на витрине `UiKit`);
-    продуктовый компонент — в `apps/mobile/src/components` только из токенов и компонентов системы, с тестом. Запрещено: hex и примитивы `color.*` в приложениях (ловит ESLint), px-литералы
+    продуктовый компонент — в `apps/app/src/components` только из токенов и компонентов системы, с тестом. Запрещено: hex и примитивы `color.*` в приложениях (ловит ESLint), px-литералы
     оформления (размеры, отступы, шрифты, толщины), свои шрифты и цвета «по месту». Разрешено без токенов
     только раскладка: flex/grid, порядок, выравнивание, проценты, `0`. Значения берутся из прототипов;
     расходятся с ними — вопрос человеку.
@@ -115,7 +115,7 @@ tools/ai_review/  контракт независимого ревью + Codex-�
       кнопки допустим), не скелетон.
 
 13. **Веб = то же приложение (ADR-0003).** В браузере (мобильный веб / PWA) — полноценное приложение
-    райдера с тем же функционалом, что в iOS/Android, из одного кода `apps/mobile`; не лендинг. Каждый экран
+    райдера с тем же функционалом, что в iOS/Android, из одного кода `apps/app`; не лендинг. Каждый экран
     и каждая ссылка открываются без установки; публичные экраны объектов рендерятся на сервере (OG).
     Нативное — только за модулями с `.native` / `.web`-реализациями рядом; экран без web-варианта —
     дефект (HIGH). Ссылки в письмах и шеринге — https-URL, открывающиеся без приложения.
@@ -168,7 +168,7 @@ finishing-a-development-branch). Если его нет — выполни ту 
 | `.claude/rules/backend.md` | `apps/api/**` |
 | `.claude/rules/db.md` | миграции, Drizzle-схемы, PostGIS |
 | `.claude/rules/contracts.md` | `packages/contracts/**` |
-| `.claude/rules/mobile.md` | `apps/mobile/**` |
+| `.claude/rules/mobile.md` | `apps/app/**` |
 | `.claude/rules/web.md` | `apps/admin/**`, `apps/landing/**` |
 | `.claude/rules/tests.md` | все тесты |
 | `.claude/rules/security.md` | auth, загрузка файлов, персональные данные |
