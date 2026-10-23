@@ -1,6 +1,8 @@
 /// <reference types="jest" />
 import type { RegisterResponse, Session } from '@on-bike/contracts';
 
+import { useSessionStore } from '@/features/auth/session-store';
+
 /** Фикстуры для тестов auth. Токены — 43 символа base64url, как в контракте. */
 export const NOW = new Date('2026-10-22T10:00:00Z');
 
@@ -28,6 +30,9 @@ const secureStore = () =>
 export function storeSession(value: Session = session) {
   secureStore().set('onbike.session', JSON.stringify(value));
 }
+
+/** Вошедший пользователь без корневого layout: вкладки рендерят контент только при известной сессии. */
+export const signInForTest = () => useSessionStore.setState({ status: 'signedIn', session });
 
 /** Регистрация, начатая прошлым запуском (токен жив). */
 export function storePendingRegistration(now = Date.now(), resendInSec = 60) {

@@ -64,10 +64,70 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # completion gate: format, lint, arch:check, typecheck, test (AGENTS.md §3)
       - run: pnpm check
-      # on-bike: собираются все приложения и пакеты (admin, landing — до F5), не только API
+      # on-bike: собираются все приложения и пакеты (admin), не только API; web — job `web`
       - run: pnpm turbo run build
       # dist API — CommonJS поверх ESM-пакетов базы (require(esm), две сборки drizzle): typecheck и vitest
       # этого не видят, поэтому модули dist загружаются отдельно
       - name: api dist loads
         working-directory: apps/api
         run: node -e "require('reflect-metadata');require('./dist/app.module');require('./dist/worker.module')"
+
+  # web/PWA: production-сборка (SSR) и Playwright-смоук в браузере — Google Chrome с ubuntu-latest
+  # (без загрузки браузеров Playwright). on-bike: с API (E2E_API=1) — регистрация → письмо (Mailpit) →
+  # подтверждение → вход → перезагрузка (cookie сессии); API и worker из dist поднимает playwright.config.ts
+  web:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
+        env:
+          POSTGRES_USER: on_bike
+          POSTGRES_PASSWORD: on_bike
+          POSTGRES_DB: on_bike
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U on_bike" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:8.8
+        ports: ['6379:6379']
+      mailpit:
+        image: axllent/mailpit:v1.31@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
+        ports: ['1025:1025', '8025:8025']
+    env:
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3000
+      PW_CHANNEL: chrome
+      E2E_API: '1'
+      # окружение API и worker смоука: фиктивные несекретные значения (как apps/api/test/test-env.ts);
+      # APP_LINK_BASE, CORS_ORIGINS и PORT задаёт playwright.config.ts (origin-ы web-серверов смоука)
+      DATABASE_URL: postgres://on_bike:on_bike@127.0.0.1:5432/on_bike
+      REDIS_URL: redis://127.0.0.1:6379
+      SMTP_URL: smtp://127.0.0.1:1025
+      MAIL_FROM: 'on-bike <no-reply@on-bike.test>'
+      JWT_SECRET: e2e-jwt-secret-e2e-jwt-secret-00000
+      EMAIL_TOKEN_SECRET: e2e-email-secret-e2e-email-secret-0
+      AGREEMENT_VERSION: e2e-agreement
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: '@rkarakulov'
+      - run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # API и worker смоука — из dist (с пакетами, от которых зависят); схема БД — миграции, как в деплое
+      - run: pnpm turbo run build --filter=@on-bike/api
+      - run: pnpm --filter @on-bike/api db:migrate
+      # export web + service worker; Playwright — напрямую, не через turbo e2e:web: turbo (strict env) не
+      # передал бы задаче переменные API выше
+      - run: pnpm build:web
+      - run: pnpm --filter @on-bike/app e2e:web
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/app/test-results/
+          retention-days: 7

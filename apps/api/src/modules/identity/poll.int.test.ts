@@ -1,4 +1,4 @@
-import { RegisterResponse, RegistrationPollResponse } from '@on-bike/contracts';
+import { RegisterResponse, RegistrationPollResponse, Session } from '@on-bike/contracts';
 import { jwtVerify } from 'jose';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -50,7 +50,8 @@ describe('POST /v1/auth/registration/poll', () => {
     expect(payload.sub).toBe(user?.id);
     const [session] = await h.db.select().from(sessions);
     expect(payload.sid).toBe(session?.id);
-    expect(session?.refreshTokenHash).toBe(sha256(body.session.refreshToken));
+    // без sessionTransport — прежний ответ native: полный Session с refreshToken в теле
+    expect(session?.refreshTokenHash).toBe(sha256(Session.parse(body.session).refreshToken));
     const [registration] = await h.db.select().from(registrationTokens);
     expect(registration?.consumedAt).toEqual(h.clock.now());
 

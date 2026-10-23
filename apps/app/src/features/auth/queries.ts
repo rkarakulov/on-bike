@@ -8,6 +8,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 import { apiErrorCode } from './error-messages';
+import { withSessionLock } from './session-lock';
 
 /** Интервал опроса подтверждения на экране «Подтвердите e-mail». */
 export const POLL_INTERVAL_MS = 3000;
@@ -44,13 +45,24 @@ export function useResendVerification() {
 }
 
 /**
+ * Один запрос опроса. Ответ `verified` на web выставляет cookie сессии — поэтому под тем же замком, что refresh и
+ * выход (`session-lock.web.ts`): запоздалый ответ восстановления в другой вкладке не придёт поверх новой cookie.
+ * Native — без замка.
+ */
+export function fetchRegistrationPoll(
+  registrationToken: string,
+): Promise<RegistrationPollResponse> {
+  return withSessionLock(() => api.pollRegistration({ registrationToken }));
+}
+
+/**
  * Опрос подтверждения по токену регистрации. Ответ `verified` с сессией приходит ровно один раз,
  * поэтому он не перезапрашивается (staleTime ∞), а 401 не повторяется.
  */
 export function useRegistrationPoll(registrationToken: string | undefined) {
   return useQuery<RegistrationPollResponse>({
     queryKey: authKeys.registrationPoll(registrationToken ?? ''),
-    queryFn: () => api.pollRegistration({ registrationToken: registrationToken ?? '' }),
+    queryFn: () => fetchRegistrationPoll(registrationToken ?? ''),
     enabled: registrationToken !== undefined,
     staleTime: Infinity,
     refetchInterval: (query) =>

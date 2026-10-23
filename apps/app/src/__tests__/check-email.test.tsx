@@ -43,6 +43,32 @@ async function openCheckEmail(resendInSec = 60) {
 }
 
 describe('«Подтвердите e-mail»', () => {
+  it('пока регистрация не прочитана из хранилища — скелетон, без редиректа и отсчёта (SSR, R2)', async () => {
+    storePendingRegistration(NOW.getTime());
+    const getItem = jest.mocked(SecureStore.getItemAsync);
+    const original = getItem.getMockImplementation();
+    getItem.mockImplementation((key) =>
+      key === 'onbike.registration' ? new Promise(() => undefined) : Promise.resolve(null),
+    );
+    try {
+      const router = await renderRouter(appRoutes, { initialUrl: '/check-email' });
+
+      expect(await screen.findByRole('progressbar', { name: 'Загрузка' })).toBeOnTheScreen();
+      expect(router.getPathname()).toBe('/check-email');
+      expect(screen.queryByText(/Повторно — через/)).toBeNull();
+      expect(screen.queryByRole('header', { name: 'Создать аккаунт' })).toBeNull();
+    } finally {
+      if (original) getItem.mockImplementation(original);
+    }
+  });
+
+  it('прочитана, регистрации нет — к «Создать аккаунт»', async () => {
+    const router = await renderRouter(appRoutes, { initialUrl: '/check-email' });
+
+    expect(await screen.findByRole('header', { name: 'Создать аккаунт' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/register');
+  });
+
   it('опрос без сети — «Нет соединения» с повтором, экран и действия остаются', async () => {
     poll.mockRejectedValue(new ApiNetworkError(new TypeError('Network request failed')));
     await openCheckEmail();

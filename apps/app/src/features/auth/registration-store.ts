@@ -2,13 +2,14 @@ import { RegistrationToken, type RegisterResponse } from '@on-bike/contracts';
 import { z } from 'zod';
 import { create } from 'zustand';
 
-import { readJson, secureStorage } from './secure-storage';
+import { readJson } from './read-json';
+import { secureStorage } from './secure-storage';
 
 const KEY = 'onbike.registration';
 /** Срок токена регистрации (ADR-0002); каждый повтор письма продлевает его (task.md §8.1). */
 export const REGISTRATION_TTL_MS = 24 * 3600_000;
 
-/** Формат записи в SecureStore (локальный, не API). */
+/** Формат записи в хранилище (SecureStore; web — sessionStorage), локальный, не API. */
 const PendingRegistrationRecord = z.object({
   registrationToken: RegistrationToken,
   email: z.string(),

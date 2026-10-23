@@ -17,9 +17,12 @@ describe('SessionService', () => {
         return Promise.resolve();
       },
     };
-    const service = new SessionService(repository as never, { JWT_SECRET: secret } as never, {
-      now: () => now,
-    });
+    const service = new SessionService(
+      repository as never,
+      { JWT_SECRET: secret } as never,
+      { now: () => now },
+      {} as never,
+    );
 
     const session = await service.issue({} as never, 'user-1');
 

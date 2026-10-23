@@ -7,7 +7,7 @@
 ```
 app (Expo)    ─┐
 admin (Vite)  ─┼─ HTTPS ─ Caddy ─ api (NestJS) ─┬─ PostgreSQL 18 + PostGIS
-landing (Astro)┘                                ├─ Redis (BullMQ, rate-limit)
+web (app, SSR)─┘                                ├─ Redis (BullMQ, rate-limit)
                                                 └─ S3 (треки, фото, карточки, бэкапы)
                          worker (NestJS, BullMQ) ─ те же PG / Redis / S3; ffmpeg, Skia
 ```
@@ -27,7 +27,7 @@ gamification · sharing · notifications · moderation · media
   результат, кластер, флаги правдоподобия → пересчёт мест → уведомление in-app.
 - **Протокол:** чек-лист публикации → публикация → финальные результаты → пересчёт сезона.
 - **Спор:** подача → ответы обвиняемого (append-only) → решение → DQ / отклонение → пересчёт.
-- **Шеринг:** запрос карточки → задача рендера (Skia / ffmpeg) → S3 → публичная ссылка → landing + OG.
+- **Шеринг:** запрос карточки → задача рендера (Skia / ffmpeg) → S3 → публичная ссылка → публичный экран приложения (web: SSR + OG).
 
 ### Регистрация и подтверждение e-mail (модуль `identity`, ADR-0002)
 
@@ -48,6 +48,33 @@ worker: identity-maintenance, 03:00 Europe/Minsk ─► удаление неп�
   приложения, а не с `now()` в SQL.
 - Ошибки — единый `ApiError` из contracts (глобальный фильтр), в ответах и логах нет SQL, стеков,
   e-mail и токенов.
+
+### Сессия: native и web (модуль `identity`, ADR-0003 п. 4)
+
+```
+native: poll / refresh ─ тело { refreshToken } ─► Session в теле ─► SecureStore
+web:    poll { sessionTransport: 'cookie' } ─► CookieSession в теле (без refresh)
+        + Set-Cookie __Secure-onbike_rt (HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session)
+web, загрузка страницы: POST /v1/auth/session/refresh (cookie, Web Lock между вкладками)
+        ─► ротация refresh (срок сессии не продлевается) ─► новый access в память | 401 → не вошли
+        | 429 / сеть / 5xx → повтор, затем «не удалось» с кнопкой повтора (не выход)
+выход: POST /v1/auth/session/sign-out ─► revoked_at, 204, cookie сброшена
+```
+
+- Ротация — один условный `UPDATE … RETURNING` (жива, не отозвана, пользователь не удалён): из двух одновременных
+  refresh одним токеном выигрывает один. Лимит refresh — 60/мин на IP (Redis).
+- HTTP API (`apps/api/src/http-app.ts`): CSRF — `enableCsrfProtection` (Fetch Metadata + `Origin`), доверенные
+  origin-ы и CORS с credentials — `CORS_ORIGINS` (dev: web на другом порту); прод — один origin за Caddy, список пуст.
+- App: развилки файлами — `features/auth/session-persistence(.web).ts`, `secure-storage(.web).ts`,
+  `lib/api-platform(.web).ts`; гарды допускают «сессия неизвестна» — SSR отдаёт HTML, вкладки — скелетон.
+  Web: refresh, poll регистрации и выход — под одним Web Lock (`session-lock.web.ts`): операции, меняющие cookie,
+  не перекрываются между вкладками; API на 401 без предъявленной cookie её не сбрасывает.
+
+### Web (SSR, PWA)
+
+`apps/app` собирается `expo export --platform web` (`web.output: 'server'`) и обслуживается `apps/app/server`
+(Express + `expo-server`) за Caddy: HTML каждого маршрута — с сервера, OG — `generateMetadata`, данные — API
+после гидрации (`loader` — только посев). PWA — manifest-маршрут из темы бренда, service worker — только статика.
 
 ## Outbox и очереди
 
@@ -77,7 +104,6 @@ worker: identity-maintenance, 03:00 Europe/Minsk ─► удаление неп�
 |---|---|
 | app | `configureDesignSystem` (`src/theme/design-system.ts`); `useTheme()` → семантика; `textStyle(name)`; компоненты `@rkarakulov/ui`; данные — `AsyncContent` + `Skeleton*`; витрина `/ui-kit` = `UiKit` базы (dev) |
 | admin | `installDesignSystem()` → `designSystemCss({ theme: 'panel' })` в `<head>`; классы `.t-*`, `.skeleton`; шрифты `src/fonts.ts` |
-| landing | `designSystemCss({ theme: 'light', darkTheme: 'dark' })` и шрифты в `Base.astro`; классы `.t-*`, `.skeleton` |
 
 Шрифты на вебе — самохостинг `@fontsource/*` (без внешних CDN). Состояния данных — AGENTS.md §4.12.
 

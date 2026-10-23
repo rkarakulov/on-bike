@@ -1,8 +1,10 @@
 node_modules
 dist
+dist-dev
+test-results
+playwright-report
 .turbo
 .expo
-.astro
 coverage
 pnpm-lock.yaml
 apps/api/drizzle/meta

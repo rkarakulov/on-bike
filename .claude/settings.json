@@ -46,26 +46,30 @@
       "Bash(git add --all*)",
       "Bash(git add .)",
       "Bash(git clean -f*)",
-      "Bash(rm -rf*)",
-      "Bash(gh pr merge*)",
       "Bash(gh repo delete*)",
-      "Bash(*psql*DROP*)",
-      "Bash(*psql*drop*)",
-      "Bash(*psql*TRUNCATE*)",
-      "Bash(*psql*truncate*)",
-      "Bash(*DROP DATABASE*)",
-      "Bash(*DROP TABLE*)",
       "Bash(docker compose down -v*)",
       "Read(./**/.env)",
       "Read(./**/.env.local)",
       "Read(./**/.env.*.local)",
       "Read(./**/.env.production)",
       "Read(./**/.env.stage)"
+    ],
+    "ask": [
+      "Bash(rm -rf*)",
+      "Bash(*psql*DROP*)",
+      "Bash(*psql*drop*)",
+      "Bash(*psql*TRUNCATE*)",
+      "Bash(*psql*truncate*)",
+      "Bash(*DROP DATABASE*)",
+      "Bash(*DROP TABLE*)"
     ]
   },
   "extraKnownMarketplaces": {
     "app-foundation": {
-      "source": { "source": "github", "repo": "rkarakulov/app-foundation" }
+      "source": {
+        "source": "github",
+        "repo": "rkarakulov/app-foundation"
+      }
     }
   },
   "enabledPlugins": {

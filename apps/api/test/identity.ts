@@ -63,8 +63,11 @@ export async function activeLinkToken(h: Harness, email = 'rider@example.com'): 
 export const confirm = (h: Harness, token: string) =>
   call(h, 'POST', '/v1/auth/verification/confirm', { token });
 
-export const poll = (h: Harness, registrationToken: string) =>
-  call(h, 'POST', '/v1/auth/registration/poll', { registrationToken });
+export const poll = (h: Harness, registrationToken: string, sessionTransport?: 'body' | 'cookie') =>
+  call(h, 'POST', '/v1/auth/registration/poll', {
+    registrationToken,
+    ...(sessionTransport ? { sessionTransport } : {}),
+  });
 
 export const resend = (h: Harness, body: Record<string, string>) =>
   call(h, 'POST', '/v1/auth/verification/resend', body);

@@ -42,7 +42,8 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
             key={route.key}
             accessibilityRole="tab"
             accessibilityLabel={label}
-            accessibilityState={{ selected: focused }}
+            // aria-*, а не accessibilityState: react-native-web его не переносит в DOM
+            aria-selected={focused}
             onPress={onPress}
             style={styles.tab}
           >

@@ -9,11 +9,13 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 
 import { useRegistrationStore } from '@/features/auth/registration-store';
-import { isSignedIn, useSessionStore } from '@/features/auth/session-store';
-import { connectOnlineManager, createQueryClient } from '@/lib/query-client';
+import { isSessionPending, isSignedIn, useSessionStore } from '@/features/auth/session-store';
+import { connectOnlineManager } from '@/lib/online-manager';
+import { createQueryClient } from '@/lib/query-client';
 import { fontAssets } from '@/theme/fonts';
 
-// нативный splash держим, пока не загружены шрифты и не прочитана сессия — без мигания экраном входа
+// нативный splash держим, пока не загружены шрифты и не прочитаны сессия и регистрация — без мигания экраном
+// входа; на web splash нет, а дерево рендерится сразу (SSR): гарды ниже допускают «сессия ещё неизвестна»
 void SplashScreen.preventAutoHideAsync();
 connectOnlineManager();
 
@@ -24,8 +26,8 @@ export default function RootLayout() {
   const sessionStatus = useSessionStore((state) => state.status);
   const signedIn = useSessionStore((state) => isSignedIn(state));
   const registrationHydrated = useRegistrationStore((state) => state.hydrated);
-  const ready =
-    (fontsLoaded || fontError !== null) && sessionStatus !== 'unknown' && registrationHydrated;
+  const fontsReady = fontsLoaded || fontError !== null;
+  const hydrated = sessionStatus !== 'unknown' && registrationHydrated;
 
   useEffect(() => {
     void useSessionStore.getState().hydrate();
@@ -38,10 +40,13 @@ export default function RootLayout() {
   }, [fontError]);
 
   useEffect(() => {
-    if (ready) void SplashScreen.hideAsync();
-  }, [ready]);
+    if (fontsReady && hydrated) void SplashScreen.hideAsync();
+  }, [fontsReady, hydrated]);
 
-  if (!ready) return null;
+  // корень ждёт только шрифты (как шаблон): ожидание сессии здесь дало бы пустой HTML при SSR (сервер эффекты
+  // не выполняет). Пока сессия неизвестна, открыты обе группы: вкладки рисуют скелетон оболочки, регистрация —
+  // форму; после гидрации гард переводит куда нужно
+  if (!fontsReady) return null;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -51,15 +56,16 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: theme.surface.default },
         }}
       >
-        <Stack.Protected guard={signedIn} redirectTo="/register">
+        <Stack.Protected guard={isSessionPending(sessionStatus) || signedIn} redirectTo="/register">
           <Stack.Screen name="(tabs)" />
         </Stack.Protected>
         <Stack.Protected guard={!signedIn} redirectTo="/">
           <Stack.Screen name="(onboarding)" />
         </Stack.Protected>
-        {/* ссылка из письма открывается всегда: и до входа, и на другом устройстве */}
+        {/* публичные экраны вне гардов: ссылка из письма — и до входа, и на другом устройстве */}
         <Stack.Screen name="auth/verify/[token]" />
         <Stack.Screen name="ui-kit" />
+        <Stack.Screen name="status" />
       </Stack>
       <StatusBar style="auto" />
     </QueryClientProvider>

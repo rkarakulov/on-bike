@@ -299,6 +299,38 @@ export class IdentityRepository {
     await ex.insert(sessions).values(session);
   }
 
+  /**
+   * Ротация refresh одним условным UPDATE: живая (не отозвана, не истекла) сессия не удалённого пользователя
+   * получает новый хеш, срок не меняется. Из параллельных ротаций одного токена проходит ровно одна:
+   * остальные после ожидания блокировки строки перепроверяют условие на новой версии (хеш уже другой).
+   */
+  async rotateSession(
+    ex: DbExecutor,
+    rotation: { tokenHash: string; nextTokenHash: string; now: Date },
+  ): Promise<{ id: string; userId: string; expiresAt: Date } | undefined> {
+    const [row] = await ex
+      .update(sessions)
+      .set({ refreshTokenHash: rotation.nextTokenHash })
+      .where(
+        and(
+          eq(sessions.refreshTokenHash, rotation.tokenHash),
+          isNull(sessions.revokedAt),
+          gt(sessions.expiresAt, rotation.now),
+          sql`EXISTS (SELECT 1 FROM ${users} WHERE ${users.id} = ${sessions.userId} AND ${isNull(users.deletedAt)})`,
+        ),
+      )
+      .returning({ id: sessions.id, userId: sessions.userId, expiresAt: sessions.expiresAt });
+    return row;
+  }
+
+  /** Отзыв сессии по хешу refresh; уже отозванная не меняется (идемпотентно). */
+  async revokeSession(ex: DbExecutor, tokenHash: string, at: Date): Promise<void> {
+    await ex
+      .update(sessions)
+      .set({ revokedAt: at })
+      .where(and(eq(sessions.refreshTokenHash, tokenHash), isNull(sessions.revokedAt)));
+  }
+
   // --- очистка (V-10) ---
 
   /**

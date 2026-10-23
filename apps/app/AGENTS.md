@@ -19,7 +19,13 @@ npx expo lint               # lint
 npx tsc --noEmit            # typecheck
 npx expo-doctor             # diagnose dependency and config issues
 npx expo install --fix      # fix incompatible package versions
+pnpm build:web              # web export (server output: SSR + API routes) + service worker → dist/
+pnpm start:web              # production web server (server/main.ts) on dist/
+pnpm e2e:web                # Playwright smoke in the browser (e2e/web.spec.ts)
 ```
+
+Web (same code as iOS/Android): `web.output: "server"` in `app.json`; platform-specific code only in sibling
+`*.web.ts(x)` / `*.native.ts(x)` files; `src/app/+html.tsx` is the server-only root HTML.
 
 Run lint and typecheck before declaring any task done.
 

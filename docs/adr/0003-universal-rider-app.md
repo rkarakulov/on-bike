@@ -66,3 +66,26 @@ Expo SDK 58 (Expo Router 58) собирает тот же проект под в
 - **CI**: `expo export --platform web` и тесты компонентов в web-окружении; smoke Playwright для веба.
 - **API**: эндпоинты сессии получают web-вариант (cookie) — до слайса 2 онбординга.
 - Пересмотреть, если вес гостевой страницы или время первого рендера неприемлемы на реальных устройствах.
+
+## Реализация (F5a + F5b, 2026-10-23)
+
+Каркас web/PWA/SSR — шаблон app-foundation `v0.2.0` (F5a); on-bike — `docs/tasks/2026-10-23-onbike-web/task.md` (F5b).
+Уточнения к решению:
+
+- п. 1–2: приложение — `apps/app`; OG и `<title>` — `generateMetadata` маршрута (`expo-router/server`), `loader` —
+  только посев SSR. Сервер — `apps/app/server` (Express + `expo-server`). Гарды сессии допускают «сессия неизвестна»:
+  SSR отдаёт HTML публичных экранов, оболочка вкладок — скелетоном до гидрации.
+- п. 2, PWA: manifest — API-маршрут (имя из словаря, цвета из темы), иконки — марка on-bike, service worker кеширует
+  только статику с хешем. Вес JS начальной загрузки — 440–458 КБ gzip (оценка 300–500 КБ подтверждена).
+- п. 4 реализован: refresh — cookie `__Secure-onbike_rt` (`HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session`,
+  без `Domain`, `Max-Age` — остаток срока сессии); тело ответа web — без refresh (`sessionTransport: 'cookie'`,
+  `CookieSession`); `POST /v1/auth/session/refresh` (ротация, срок не продлевается) и `/sign-out`. Access — в памяти;
+  перезагрузка восстанавливает сессию запросом refresh по cookie (refresh, poll регистрации и выход — под одним
+  Web Lock между вкладками; 429/сеть — повтор, а не выход). CSRF — встроенный
+  `enableCsrfProtection` NestJS (Fetch Metadata `Sec-Fetch-Site` + `Origin`), доверенные origin-ы — `CORS_ORIGINS`;
+  CORS с credentials — только для этого списка, в проде (один origin за Caddy) выключен. Native — без изменений.
+- п. 5: в dev/e2e `APP_LINK_BASE` web — `http://127.0.0.1:8081/` / origin смоука; universal/app links — когда будет домен.
+- п. 6–7: `apps/landing` удалён; Caddy `PUBLIC_HOST`: `/v1/*` → `api:3000`, остальное → `web:8080`
+  (`infra/Caddyfile`, `infra/docker-compose.prod.yml`).
+- CI: job `web` — сборка web, Playwright-смоук в Chrome с API, worker, PostgreSQL, Redis и Mailpit (регистрация →
+  письмо → подтверждение → вход → перезагрузка).

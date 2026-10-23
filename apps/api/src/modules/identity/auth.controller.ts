@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, HttpCode, Ip, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, Ip, Param, Post, Res } from '@nestjs/common';
 import {
   ConfirmVerificationRequest,
   type ConfirmVerificationResponse,
@@ -16,6 +16,7 @@ import { ZodValidationPipe } from '@rkarakulov/api-kit';
 
 import { domainError } from '../../error-messages';
 import { RegistrationService } from './registration.service';
+import { SessionCookie } from './session-cookie';
 import { VerificationService } from './verification.service';
 
 /** Публичные эндпоинты регистрации. Тонкий слой: контракт → сервис. Ответы с токенами не кешируются. */
@@ -24,6 +25,7 @@ export class AuthController {
   constructor(
     private readonly registration: RegistrationService,
     private readonly verification: VerificationService,
+    private readonly cookie: SessionCookie,
   ) {}
 
   @Post('register')
@@ -64,13 +66,18 @@ export class AuthController {
     return this.verification.resend(body);
   }
 
+  /** Сессия — по транспорту клиента: `cookie` (web) — refresh в httpOnly cookie, без него — прежний `Session`. */
   @Post('registration/poll')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
-  poll(
+  async poll(
     @Body(new ZodValidationPipe(RegistrationPollRequest, FieldErrorCode))
     body: RegistrationPollRequest,
+    @Res({ passthrough: true }) reply: unknown,
   ): Promise<RegistrationPollResponse> {
-    return this.registration.poll(body.registrationToken);
+    const result = await this.registration.poll(body.registrationToken);
+    if (result.state === 'pending') return result;
+    const transport = body.sessionTransport ?? 'body';
+    return { state: 'verified', session: this.cookie.deliver(reply, result.session, transport) };
   }
 }

@@ -9,16 +9,19 @@ import { IdentitySchedules } from './jobs/identity-schedules';
 import { VerificationEmailProcessor } from './jobs/verification-email.processor';
 import { PasswordHasher } from './password-hasher';
 import { RegistrationService } from './registration.service';
+import { SessionController } from './session.controller';
+import { SessionCookie } from './session-cookie';
 import { SessionService } from './session.service';
 import { VerificationService } from './verification.service';
 
-/** HTTP-часть identity: регистрация, ссылки подтверждения, обмен токена регистрации на сессию. */
+/** HTTP-часть identity: регистрация, ссылки подтверждения, обмен токена регистрации на сессию, ротация и выход. */
 @Module({
-  controllers: [AuthController],
+  controllers: [AuthController, SessionController],
   providers: [
     IdentityRepository,
     PasswordHasher,
     SessionService,
+    SessionCookie,
     VerificationService,
     RegistrationService,
   ],

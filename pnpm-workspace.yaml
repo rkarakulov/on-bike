@@ -19,7 +19,6 @@ catalog:
   eslint-plugin-react-hooks: ^7.1.1
   globals: ^17.13.0
   prettier: ^3.9.10
-  prettier-plugin-astro: ^1.1.1
   turbo: ^2.11.10
   dependency-cruiser: ^18.7.0
   vitest: ^5.0.5
@@ -33,6 +32,10 @@ catalog:
   '@tanstack/react-query': ^5.104.5
   '@fontsource/inter': ^5.3.0
   '@fontsource/playfair-display': ^5.3.0
+  # тесты UI в DOM: web-проект jest приложения (react-native-web) и admin
+  '@testing-library/react': ^16.3.3
+  # смоук web в браузере; версия = ревизия браузера Playwright — точно
+  '@playwright/test': 1.64.1
   # backend
   '@nestjs/common': ^12.2.0
   '@nestjs/core': ^12.2.0
@@ -50,14 +53,14 @@ catalog:
   unplugin-swc: ^2.0.0
   '@swc/core': ^1.16.18
   # база app-foundation (ADR-0004): точная версия, обновление — `copier update` (версия приходит из шаблона)
-  '@rkarakulov/config': 0.1.2
-  '@rkarakulov/api-kit': 0.1.2
-  '@rkarakulov/test-kit': 0.1.2
-  '@rkarakulov/contracts-core': 0.1.2
-  '@rkarakulov/api-client-core': 0.1.2
-  '@rkarakulov/i18n-core': 0.1.2
-  '@rkarakulov/design-tokens': 0.1.2
-  '@rkarakulov/ui': 0.1.2
+  '@rkarakulov/config': 0.2.0
+  '@rkarakulov/api-kit': 0.2.0
+  '@rkarakulov/test-kit': 0.2.0
+  '@rkarakulov/contracts-core': 0.2.0
+  '@rkarakulov/api-client-core': 0.2.0
+  '@rkarakulov/i18n-core': 0.2.0
+  '@rkarakulov/design-tokens': 0.2.0
+  '@rkarakulov/ui': 0.2.0
 
 allowBuilds:
   '@parcel/watcher': false
