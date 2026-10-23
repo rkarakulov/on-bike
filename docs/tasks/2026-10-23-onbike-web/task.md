@@ -367,4 +367,114 @@ csrf-protection-options.interface.d.ts`, `@nestjs/core/adapters/http-adapter.d.t
 app-foundation (только follow-ups в §12).
 
 ## 12. Outcome
-Заполняет coder.
+
+### S1–S3a (coder, 2026-10-23)
+Коммиты: S1 `34ed8c4`, S2 `fc32ecf`, S3a `28dbf46`.
+
+**S1 — copier update.** `uvx copier@9.19.1 update --defaults --vcs-ref v0.2.0 --skip-answered` с `gh:` (git-доступ
+через `gh auth git-credential` в env, `_src_path` не менялся): 11 конфликтов, `.rej` нет — как в пробе U1.
+`.copier-answers.yml`: `_commit` `'@rkarakulov/api-client-core@0.2.0'` → `v0.2.0` руками (R1). Разбор:
+- `AGENTS.md` §2 — строка app шаблона + «райдера», admin on-bike, без landing; §4.13 — текст шаблона + «(ADR-0003)»,
+  «Переход» удалён;
+- `docs/runbooks/local-dev.md` — оба: переменные identity + `CORS_ORIGINS`; «Ссылки из писем» + `APP_LINK_BASE` web
+  (`http://127.0.0.1:8081/`); раздел «Web» шаблона, dev на `127.0.0.1:8081` (cookie `SameSite=Strict`);
+- `apps/api/.env.example`, `config/env.ts` — оба (`Secret` + `corsOrigins`; identity + `CORS_ORIGINS`);
+  `env.test.ts` — оба, `});` теста «секреты» восстановлен;
+- `apps/app/package.json` — все зависимости, description шаблона + «райдера on-bike»; `_layout.tsx` — импорты сторов
+  + `online-manager`; `app-routes.ts` — один комментарий; `pnpm-workspace.yaml` — оба;
+- `ru.ts` — `status.*` + наш `admin.title`, возвращён `apiStatus.title`;
+- `eslint.config.mjs` — шаблон, но `'**/.astro/**'` оставлен до S2 (иначе lint падал на `apps/landing/.astro`).
+U5: `ScreenPlaceholder.lead?` (по умолчанию `placeholder.soon`), `__tests__/query-wrapper.tsx` из шаблона.
+`e2e/web.spec.ts` — шаг «Раздел» убран (TODO S5). Пакеты `@rkarakulov/*` 0.2.0 в lockfile.
+
+**S2 — удалено:** `apps/landing/**` (`git rm`, 9 файлов; неотслеживаемые `.astro/`, `dist/`, `node_modules/` перенесены
+в scratchpad), `prettier-plugin-astro` (каталог, корень), `.astro` в `.gitignore`/`.prettierignore`/depcruise/eslint,
+`landing` в `designSystemOnly`, `landing.openInApp`. Корневые `.prettierrc.json`, `.prettierignore`, `.gitignore`,
+`.dependency-cruiser.cjs`, `eslint.config.mjs`, `package.json` = рендер `v0.2.0`; `pnpm-workspace.yaml` — плюс Playfair.
+Infra: Caddy → `web:8080`, compose `landing` → `web` (`on-bike-web`, `HOST`, `PORT`, `EXPO_PUBLIC_API_URL`,
+`API_INTERNAL_URL=http://api:3000`, `WEB_ORIGIN`). Rules: `onbike-web.md` — только admin; правила гостевых страниц
+(экран на тип ссылки, SSR + OG без ПДн, публичное удаление аккаунта) → `onbike-app.md` «Публичные экраны по
+ссылкам»; `onbike-security.md` — paths `apps/app/src/features/auth/**` вместо landing + правило web-сессии.
+
+**S3a — контракты** (`packages/contracts/src/auth/session.schema.ts`, точные типы):
+```ts
+SessionTransport = z.enum(['body', 'cookie'])
+CookieSession = Session.omit({ refreshToken: true })     // { accessToken, accessTokenExpiresAt, refreshTokenExpiresAt }
+AnySession = z.union([Session, CookieSession])
+RefreshSessionRequest = z.object({ refreshToken: OpaqueToken.optional() })   // {} → cookie
+RefreshSessionResponse = AnySession
+SignOutRequest = RefreshSessionRequest                    // ответ 204 без тела
+SESSION_COOKIE = { name: '__Secure-onbike_rt', path: '/v1/auth/session' } as const
+RegistrationPollRequest = { registrationToken, sessionTransport?: SessionTransport }
+RegistrationPollResponse = pending | { state: 'verified', session: AnySession }
+```
+api-client: `ApiClientOptions` += `credentials?: RequestCredentials` (в каждый запрос, GET и POST; не задан — поля
+нет), `sessionTransport?: SessionTransport` (подмешивается в тело poll); `refreshSession(body = {})` →
+`POST /v1/auth/session/refresh` (`RefreshSessionResponse`); `signOut(body = {})` → `POST /v1/auth/session/sign-out`
+(`z.undefined()`: ждёт пустое тело). Потребители: `poll.int.test.ts` — `Session.parse(body.session)` (ответ без
+транспорта — полный Session); `use-sign-in-when-verified.ts` — `Session.safeParse` (native body), TODO S3b.
+
+**Проверки** (после каждого слайса, хвосты):
+- S1: `pnpm check` — EXIT 0 (prettier ok; turbo typecheck 9/9; тесты: api 66, app 98 (native+web+server, 21 suite),
+  contracts 21, api-client 11, design-tokens 114, admin 7, i18n 5, tracks 2); `expo export -p android` — `Exported`
+  (hbc 4.1 MB); `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000 pnpm build:web` — `Exported: dist`, `sw.js: 35 файлов`
+  (без переменной сборка падает «EXPO_PUBLIC_API_URL не задан для сборки» — поведение шаблона); маркеры
+  `<<<<<<<`/`>>>>>>>` — пусто; `.rej` — нет.
+- S2: `pnpm install`; `pnpm check` — EXIT 0 (depcruise 190 модулей, 0 нарушений); `pnpm turbo run build` — 7/7;
+  `git grep -in 'astro\|landing'` (исключения §11) — только ADR-0001/0003; diff корневых конфигов с рендером — пусто
+  (кроме Playfair в `pnpm-workspace.yaml`).
+- S3a: TDD — тесты падали (10 contracts, 6 api-client), затем зелёные: contracts 32, api-client 19; `pnpm check` —
+  EXIT 0 (typecheck 8/8, api 66, app 98).
+- Флейк окружения: первый `pnpm test` после смены lockfile — `ENOTEMPTY rmdir node_modules/.vitest-cache` (гонка
+  пакетов vitest за общий кеш), повтор зелёный. PostgreSQL dev был остановлен (Docker Desktop выключен) —
+  запущены Docker Desktop и контейнеры `on-bike-dev-postgres-1`, `on-bike-dev-mailpit-1`; Redis — локальный на :6379.
+
+**NOT VERIFIED:** `pnpm e2e:web` (S5: `/` SSR пустой — U7, `/ui-kit` в production → гард); CI на PR — job `web`
+будет красным до S3b/S5; `actionlint` не установлен.
+
+**Отклонения (для §8.2):** (1) `'**/.astro/**'` в eslint удалён в S2, а не в S1; (2) в S2 сверх таблицы — точечно
+убран landing из AGENTS.md §3/§8, README, CLAUDE.md, `docs/architecture/README.md`, runbook (чтобы grep S2 был
+чистым; полное обновление docs — S6), правила гостевых страниц перенесены в `onbike-app.md`; (3) в S3a — правки в
+зонах S3b/S4 только для typecheck (`use-sign-in-when-verified.ts`, `poll.int.test.ts`); (4) `credentials` клиента —
+на всех запросах, не только сессии (cookie всё равно ограничена `Path`).
+
+**Исполнителю S3b (app):** web-клиент — `createApiClient({ baseUrl, credentials: 'include', sessionTransport:
+'cookie' })`; ответ poll/refresh на web — `CookieSession` (стор — общая часть); убрать TODO и `safeParse` в
+`use-sign-in-when-verified.ts`; `refreshSession()` без аргументов — по cookie, `signOut()` резолвится `undefined`;
+`_layout.tsx` — гарды прежние, `if (!ready) return null` (U7 — твоя задача, R2); `ScreenPlaceholder` уже с `lead?`;
+`build:web` локально — с `EXPO_PUBLIC_API_URL`.
+
+**Исполнителю S4 (api):** `main.ts` сейчас с блоком CORS шаблона (`credentials: false`) — заменить на
+`configureOnBikeHttp`; JSDoc `corsOrigins` в `config/env.ts` говорит «cookie и credentials не разрешаются» — поправить
+(R8); для `cookie` отвечать без `refreshToken` (`CookieSession`), для тела/без транспорта — прежний `Session`;
+sign-out — строго 204 без тела (клиент парсит `z.undefined()`); имя и путь cookie — `SESSION_COOKIE` из contracts:
+если `__Secure-` не примется на `http://127.0.0.1` — сообщить оркестратору (правка в `packages/**` — не в зоне S4);
+`APP_LINK_BASE` уже принимает `http://127.0.0.1:8081/`.
+
+**Не трогал:** незакоммиченное изменение `.claude/settings.json` (deny → ask для `rm -rf`/DROP, без `gh pr merge`)
+и `.idea/` в рабочем дереве — появились не от coder, не в коммитах.
+
+### Локальные отличия от рендера `v0.2.0` (скриптовый сравнитель: `copier copy --vcs-ref v0.2.0` в scratchpad,
+`git ls-files` vs рендер, после S3a)
+**Корень и CI:** `.copier-answers.yml` (`_src_path: gh:…`), `.github/workflows/ci.yml` (`pnpm turbo run build` — все
+приложения), `pnpm-workspace.yaml` (Playfair), `README.md`, `AGENTS.md`, `CLAUDE.md`. «До F5» (Astro) — **нет**.
+**API:** `.env.example`, `package.json`, `app.module.ts`, `worker.module.ts`, `queues.ts`, `config/env{,.test}.ts`,
+`error-messages{,.test}.ts`, `test/{test-env.ts,harness.int.test.ts}`, `drizzle/meta/{0000_snapshot,_journal}.json`;
+вне шаблона — `modules/{identity,tracks}`, миграции on-bike и пр. (O, как F3b).
+**App:** `package.json`, `app.json`, `jest.config.js` (TZ), `jest.setup.ts`, `e2e/web.spec.ts` (временно, S5),
+`src/app/{_layout,(tabs)/_layout,(tabs)/index}.tsx`, `src/components/screen-placeholder.tsx` (`lead?`),
+`src/__tests__/{app-routes.ts,root-layout.test.tsx,tabs.test.tsx}`, `src/theme/{design-system,fonts,fonts.test}.ts`;
+O — как F3b.
+**Admin:** `index.html`, `package.json`, `public/favicon.svg`, `src/App.test.tsx`, `src/fonts.ts`.
+**Пакеты:** `api-client/src/{index,index.test}.ts`, `contracts/src/{common,common.test,index}.ts`,
+`design-tokens/src/{brand,contrast,index,design-tokens.test}.ts`, `i18n/src/{ru,index.test}.ts`; O — `auth/**`,
+`tracks/**`, тесты продукта.
+**Docs:** `docs/README.md`, `docs/runbooks/local-dev.md`; O — adr, architecture, product.
+**Удалённые файлы шаблона (N):** `docs/adr/0001-stack.md`, `apps/api/drizzle/0000_init.sql`,
+`apps/app/src/app/(tabs)/section.tsx`, `apps/app/src/__tests__/section.test.tsx`,
+`apps/app/assets/images/splash-icon.png`; `__tests__/query-wrapper.tsx` — **возвращён** (R3). Правила, `.ai/dev-kit`,
+`.agents`, `.codex`, `.claude/settings.json` (в git) = рендер.
+
+**Follow-ups в app-foundation:** `_commit` после `copier update` — снова тег пакета, а не `v0.2.0` (повтор F3b S5(б));
+runbook шаблона создаёт `apps/app/.env` после `pnpm build:web`, а сборка без `EXPO_PUBLIC_API_URL` уже падает —
+поменять порядок шагов.
