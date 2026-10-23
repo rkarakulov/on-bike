@@ -1,4 +1,4 @@
-import type { RegistrationPollResponse } from '@on-bike/contracts';
+import { type RegistrationPollResponse, Session } from '@on-bike/contracts';
 import { useEffect } from 'react';
 
 import { useRegistrationStore } from './registration-store';
@@ -14,7 +14,11 @@ export const VERIFIED_HOLD_MS = 1000;
 export function useSignInWhenVerified(poll: RegistrationPollResponse | undefined) {
   useEffect(() => {
     if (poll?.state !== 'verified') return;
-    const { session } = poll;
+    // TODO(F5b S3b): web (транспорт cookie) — сессия без refreshToken, через session-persistence.web;
+    // пока клиент шлёт транспорт body (native) — ответ всегда полный Session
+    const parsed = Session.safeParse(poll.session);
+    if (!parsed.success) return;
+    const session = parsed.data;
     void persistSession(session);
     const timer = setTimeout(() => {
       void (async () => {

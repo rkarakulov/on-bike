@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { fieldError } from '../common.ts';
-import { Session } from './session.schema.ts';
+import { AnySession, SessionTransport } from './session.schema.ts';
 import { OpaqueToken } from './verification.schema.ts';
 
 export const MIN_AGE_YEARS = 18;
@@ -73,12 +73,19 @@ export const RegisterResponse = z.object({
 });
 export type RegisterResponse = z.infer<typeof RegisterResponse>;
 
-/** `POST /v1/auth/registration/poll` — экран «Подтвердите e-mail» ждёт подтверждения. */
-export const RegistrationPollRequest = z.object({ registrationToken: RegistrationToken });
+/**
+ * `POST /v1/auth/registration/poll` — экран «Подтвердите e-mail» ждёт подтверждения. `sessionTransport` —
+ * как выдать сессию (`body` по умолчанию: старые сборки native поля не шлют).
+ */
+export const RegistrationPollRequest = z.object({
+  registrationToken: RegistrationToken,
+  sessionTransport: SessionTransport.optional(),
+});
 export type RegistrationPollRequest = z.infer<typeof RegistrationPollRequest>;
 
 export const RegistrationPollResponse = z.discriminatedUnion('state', [
   z.object({ state: z.literal('pending') }),
-  z.object({ state: z.literal('verified'), session: Session }),
+  /** `Session` для `body`, `CookieSession` (refresh — в cookie) для `cookie`. */
+  z.object({ state: z.literal('verified'), session: AnySession }),
 ]);
 export type RegistrationPollResponse = z.infer<typeof RegistrationPollResponse>;

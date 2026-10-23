@@ -6,6 +6,7 @@ import {
   normalizeEmail,
   RegisterRequest,
   RegisterResponse,
+  RegistrationPollRequest,
   RegistrationPollResponse,
 } from './registration.schema.ts';
 
@@ -134,5 +135,37 @@ describe('ответы регистрации', () => {
       session,
     });
     expect(RegistrationPollResponse.safeParse({ state: 'verified' }).success).toBe(false);
+  });
+
+  it('RegistrationPollResponse: web (cookie) — сессия без refreshToken', () => {
+    const cookieSession = {
+      accessToken: 'jwt',
+      accessTokenExpiresAt: '2026-10-22T10:15:00.000Z',
+      refreshTokenExpiresAt: '2026-11-21T10:00:00.000Z',
+    };
+    expect(RegistrationPollResponse.parse({ state: 'verified', session: cookieSession })).toEqual({
+      state: 'verified',
+      session: cookieSession,
+    });
+  });
+});
+
+describe('RegistrationPollRequest', () => {
+  const token = 'a'.repeat(43);
+
+  it('старый запрос native без sessionTransport валиден', () => {
+    expect(RegistrationPollRequest.parse({ registrationToken: token })).toEqual({
+      registrationToken: token,
+    });
+  });
+
+  it('sessionTransport — body или cookie', () => {
+    expect(
+      RegistrationPollRequest.parse({ registrationToken: token, sessionTransport: 'cookie' }),
+    ).toEqual({ registrationToken: token, sessionTransport: 'cookie' });
+    expect(
+      RegistrationPollRequest.safeParse({ registrationToken: token, sessionTransport: 'header' })
+        .success,
+    ).toBe(false);
   });
 });
