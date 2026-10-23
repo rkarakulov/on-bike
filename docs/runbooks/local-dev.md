@@ -90,11 +90,11 @@ Expo Go не открывает схему `onbike://`. Для проверки 
 ```bash
 docker compose -f infra/docker-compose.dev.yml exec postgres psql -U onbike -d onbike \
   -c "CREATE ROLE on_bike LOGIN SUPERUSER PASSWORD 'on_bike';" -c "CREATE DATABASE on_bike OWNER on_bike;"
-pnpm --filter @on-bike/api db:migrate   # с DATABASE_URL на on_bike
+DATABASE_URL=postgres://on_bike:on_bike@127.0.0.1:5432/on_bike pnpm --filter @on-bike/api db:migrate
 ```
 
-Затем в своём `apps/api/.env` — `DATABASE_URL=postgres://on_bike:on_bike@127.0.0.1:5432/on_bike` и
-`MAIL_FROM` в кавычках (как в `.env.example`). Тестовая база `on_bike_test` создаётся сама при `pnpm test`.
+Потом в своём `apps/api/.env` — тот же `DATABASE_URL` и `MAIL_FROM` в кавычках (как в `.env.example`).
+Порядок важен: без явного `DATABASE_URL` миграции уйдут в старую базу `onbike`, а `on_bike` останется пустой. Тестовая база `on_bike_test` создаётся сама при `pnpm test`.
 
 ## Откат
 

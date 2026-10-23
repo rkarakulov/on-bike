@@ -2,12 +2,13 @@
 
 ```
 docs/tasks/<YYYY-MM-DD>-<slug>/
-  task.md      спецификация и план (шаблон .claude/task-template.md)
+  task.md      спецификация и план (шаблон — плагин app-dev-kit: .ai/dev-kit/templates/task-template.md)
   findings.md  проходы независимого ревью (tools/ai_review/review_contract.md)
   pr.md        описание PR
 ```
 
-- Создаются командами `/create-spec`, `/task2`, `/task3`, `/review-task`, `/finish-task`.
+- Создаются командами плагина `/app-dev-kit:create-spec`, `/app-dev-kit:task2`, `/app-dev-kit:task3`,
+  `/app-dev-kit:review-task`, `/app-dev-kit:finish-task` (Codex — скилы `.agents/skills`).
 - Коммитятся вместе с кодом задачи — это история решений для людей и агентов.
-- `/task1` и fast path артефактов не требуют.
-- Продолжить задачу: `/develop-task docs/tasks/<…>/task.md`.
+- `/app-dev-kit:task1` и fast path артефактов не требуют.
+- Продолжить задачу: `/app-dev-kit:develop-task docs/tasks/<…>/task.md`.
