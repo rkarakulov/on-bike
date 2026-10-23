@@ -29,13 +29,220 @@ ADR-0003 (раздел «Решение», п. 0–6) и задача-основ
 - Universal links/app links (нужен домен), карты на web, шеринг, офлайн-данные; слайсы онбординга 2+ (вход, сброс пароля)
   — после F5b, они уже будут web-first.
 
-## 5–8
-Заполняет architect (§8.1); риски: конфликты copier update, cookie-сессия (безопасность), удаление лендинга.
+## 5. Architecture Context
+- **copier update** — трёхстороннее слияние: база — рендер `v0.1.2`, «их» — рендер `v0.2.0`, «наши» — on-bike. Пробный
+  прогон (§8.1, факты U1–U8) — в копии репозитория; реальный on-bike не менялся.
+- **Web on-bike = то же приложение** (ADR-0003): каркас приходит из шаблона (`web.output: 'server'`, `+html.tsx`,
+  manifest-маршрут, service worker, Express-адаптер `expo-server`, `online-manager.web`, `loader-seed`,
+  `DocumentTitle`, jest-проекты native/web/server, Playwright). Продуктовое — здесь: гарды сессии без блокировки SSR,
+  web-хранилище, web-сессия, бренд PWA, смоук регистрации.
+- **Сессия в вебе**: NestJS 12.2 (уже в каталоге) умеет cookie и CSRF **без пакетов**: `httpAdapter.setCookie/
+  clearCookie` + `@Cookies()` (проверено по `node_modules/@nestjs/{core,common}` 12.2.0 и docs.nestjs.com/techniques/
+  cookies) и `app.enableCsrfProtection()` — Fetch Metadata (`Sec-Fetch-Site`) с fallback `Origin`/`Host`, алгоритм Go
+  `CrossOriginProtection`; GET/HEAD/OPTIONS пропускаются, запросы без `Sec-Fetch-Site` и `Origin` (native) —
+  пропускаются, cross-origin небезопасные — 403 (docs.nestjs.com/security/csrf, `CsrfProtectionOptions`).
+  `@fastify/cookie` и `@fastify/csrf-protection` (токены + секрет, `getToken`/`userInfo`) не нужны (R7).
+- **Прод — один origin**: Caddy `PUBLIC_HOST` уже отдаёт `/v1/*` → `api:3000`, остальное — сейчас `landing:4321`,
+  станет `web:8080`. Cookie первой стороны, CORS выключен. Dev/e2e — web и API на разных портах одного хоста
+  (same-site, cross-origin): CORS с credentials только для `CORS_ORIGINS` (R8).
+
+## 5.1 Placement & Reuse Gate
+- Каркас web/PWA/SSR, `CORS_ORIGINS`, jest/Playwright — из шаблона, без копий. Файлы шаблона правим только там, где
+  on-bike расходится по продукту (перечень — §12 coder).
+- Cookie/CSRF — встроенное NestJS 12.2, без новых зависимостей API. Сессия — модуль `identity` on-bike (в шаблоне
+  auth нет). Конфигурация HTTP on-bike (CORS + CSRF) — одна функция `apps/api/src/http-app.ts`, её зовёт `main.ts`
+  и unit-тест (R9). Кандидат в базу (follow-up): хук `configureApp` в `createApiHarness` test-kit.
+- Платформенные развилки — файлами рядом (`.web.ts`), без `Platform.OS` в экранах. Web-клиент API — опции
+  `@on-bike/api-client` (`credentials`), без второго клиента.
+- `@rkarakulov/ui` 0.2.0 уже даёт web `DateField`, `useTheme` после гидрации, `aria-*` — своих web-компонентов нет.
+
+## 6. Relevant Files
+- Шаблон: app-foundation `v0.2.0` (`template/**`), F5a — `git show feature/app-foundation-f5a:docs/tasks/2026-10-23-app-foundation-f5a-web/task.md` (§8.1 F1–F11, R1–R13).
+- API: `apps/api/src/{main.ts,config/env.ts}`, `modules/identity/{auth.controller,registration.service,session.service,identity.repository,identity.policy}.ts`, `test/harness.ts`.
+- Контракты/клиент: `packages/contracts/src/auth/{session,registration}.schema.ts`, `packages/api-client/src/index.ts`; `@rkarakulov/api-client-core` (`createHttpClient`, `request(path, schema, init)`).
+- App: `src/app/_layout.tsx`, `(tabs)/_layout.tsx`, `(onboarding)/{_layout,register,check-email}.tsx`, `auth/verify/[token].tsx`, `features/auth/{session-store,registration-store,secure-storage,use-sign-in-when-verified,queries}.ts`, `lib/api.ts`, `components/screen-placeholder.tsx`.
+- Landing и хвосты: `apps/landing/**`, `.prettierrc.json`, `.prettierignore`, `.gitignore`, `.dependency-cruiser.cjs`, `eslint.config.mjs`, `package.json`, `pnpm-workspace.yaml`, `.github/workflows/ci.yml`, `infra/{Caddyfile,docker-compose.prod.yml}`, `.claude/rules/onbike-{web,security}.md`, `packages/i18n/src/ru.ts` (`landing.openInApp`).
+
+## 7. Implementation Notes
+- **Порядок merge-а copier:** конфликты решать по таблице U4 (§8.1); `_commit` и `_src_path` в `.copier-answers.yml`
+  поправить руками (U2) — не «перезапускать update».
+- **SSR-безопасность сторов:** zustand-сторы — синглтоны модуля, на сервере общие для всех запросов. На сервере их
+  никто не меняет (гидрация — в эффектах); правило: ни сторы, ни `api` не вызываются в рендере/на уровне модуля.
+- **Время в SSR:** обратный отсчёт повтора письма (`check-email`) и прочие тексты от `Date.now()` — только после
+  монтирования (R13 F5a), иначе ошибка гидрации #418.
+- **Cookie refresh:** `HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session; Max-Age=<остаток срока>`, без `Domain`.
+  Имя — `__Secure-onbike_rt`; если Chrome на `http://127.0.0.1` (e2e) не примет префикс — `onbike_rt` (проверка — первый
+  шаг S4, результат — в §8.2). `Path=/` (и префикс `__Host-`) не берём: cookie уходила бы на каждый SSR-запрос web-сервера.
+  Путь сужен относительно scope (`/v1/auth`) до `/v1/auth/session`: cookie не уходит на регистрацию и ссылки писем.
+- **Dev web и cookie:** открывать web на том же хосте, что API: `http://127.0.0.1:8081` при `EXPO_PUBLIC_API_URL=
+  http://127.0.0.1:3000` (`localhost` ↔ `127.0.0.1` — разные сайты, `SameSite=Strict` cookie не пошлёт). Runbook.
+- **Иконки PWA on-bike:** из марки `assets/images/splash-route-{light,dark}.png` (1024²) — `sips` (macOS): 192/512,
+  apple-touch 180, maskable 512 — марка ~80 % в safe zone на фоне `themes.light.surface.default`. Файлы коммитятся
+  (генератор не нужен — одноразово); `app.json web.favicon` — та же марка 48². Нативная иконка `icon.png` — дефолтная
+  Expo, вне F5b (вопрос Q1).
+
+## 8. Risks / Assumptions / Open Questions
+- **NOT VERIFIED в пробе:** `pnpm install` в копии не прошёл — нет `NODE_AUTH_TOKEN` в окружении architect
+  (401 от GitHub Packages); typecheck/тесты/export после merge — первым шагом S1.
+- **Stack.Protected и SSR:** по докам Expo «protected screens are evaluated only on the client» — как рендерит
+  сервер группу с `guard`, проверять спайком в начале S3 (curl `/`, `/register`, `/auth/verify/x`). План Б — гард
+  в `_layout` групп (`<Redirect>` после гидрации, скелетон пока `unknown`).
+- **Ротация refresh и несколько вкладок:** одновременная перезагрузка двух вкладок → оба запроса со старой cookie →
+  второй 401. Снимается Web Locks (`navigator.locks.request('onbike.session-refresh')`) в web-реализации; без
+  обнаружения повторного использования (reuse detection) в F5b — слайс 2.
+- **Secure cookie по http в dev/e2e:** Chrome/Firefox считают `localhost`/`127.0.0.1` безопасным контекстом;
+  Safari на `http://` Secure-cookie не хранит → ручной смоук в Safari — только через https (Caddy локально) или
+  принять как ограничение dev (runbook).
+- **Вес JS** (F10 F5a: ~430 КБ gzip у шаблона) — on-bike добавит формы/zod; замер в pr.md.
+
+## 8.1 Requirements Consistency
+Architecture Review — onbike-web. **Status: CONCERNS** (блокеров нет; R1–R12 приняты architect-ом по умолчанию,
+автономный режим; R4 — расширение scope API, оркестратор может отклонить; Q1–Q2 — человеку, не блокируют).
+
+Пробный `copier update` (клон `feature/onbike-web` в scratchpad, `_src_path` → локальная база, `uvx copier@9.19.1
+update --defaults --vcs-ref v0.2.0 --skip-answered`). Факты:
+- **U1. Конфликтов 11, `.rej` нет.** Чисто слились 20 файлов, новых 19 путей (каркас web). Удалённые в on-bike файлы
+  шаблона (`(tabs)/section.tsx`, `section.test.tsx`, `query-wrapper.tsx`, `splash-icon.png`, `0001-stack.md`) **не
+  вернулись** — copier уважает удаление, но правки шаблона в них теряются молча (R3 F3b).
+- **U2. `_commit: '@rkarakulov/api-client-core@0.2.0'`** вместо `v0.2.0` — copier берёт тег пакета на том же коммите
+  (известный follow-up F3b S5(б), не исправлен в базе). AC1 требует `v0.2.0` → правка руками + `_src_path: gh:…`.
+- **U3. Каталог `@rkarakulov/*` → 0.2.0** — слит автоматически; `@testing-library/react`, `@playwright/test` 1.64.1 в
+  каталог; в app — `@expo/metro-runtime`, `expo-server`, `express`, `@types/express`, `@playwright/test`,
+  `@testing-library/react`, `@types/node`, скрипты `build:web`, `build:web:dev`, `start:web`, `e2e:web`.
+- **U4. Конфликты и решение:**
+
+  | Файл | Наше | Шаблон | Решение |
+  |---|---|---|---|
+  | `AGENTS.md` §2 | `landing/` + описание app/admin on-bike | app + `server/`, admin кратко | шаблон по app (+ «райдера»), admin on-bike, строки landing нет (S2) |
+  | `AGENTS.md` §4.13 | ADR-0003 + «Переход» | «Фича = все платформы», SSR/loader/`generateMetadata` | текст шаблона + ссылка на ADR-0003; «Переход» удалить (основа сделана) |
+  | `docs/runbooks/local-dev.md` | identity-переменные, Expo Go | `CORS_ORIGINS`, раздел «Web» | оба + web-сессия (cookie, `127.0.0.1:8081`, `APP_LINK_BASE` для web) |
+  | `eslint.config.mjs` | `**/.astro/**` | `dist-dev`, Playwright-отчёты | шаблон (Astro уходит в S2) |
+  | `pnpm-workspace.yaml` | `@fontsource/playfair-display` | `@testing-library/react`, `@playwright/test` | оба |
+  | `packages/i18n/src/ru.ts` | `admin.title` on-bike | `status.*`, `admin.title` шаблона | `status.*` + наш `admin.title`; вернуть `apiStatus.title` (его требует `api-status.tsx`); `landing.openInApp` — удалить (S2) |
+  | `apps/app/package.json` | Playfair, `expo-secure-store`, description | metro-runtime, expo-server, description | все зависимости; description — шаблона с «райдера» |
+  | `apps/app/src/app/_layout.tsx` | импорты сторов | `online-manager` | оба импорта; гарды — переделка S3 (R2) |
+  | `apps/app/src/__tests__/app-routes.ts` | комментарий | комментарий + `status` | объединить |
+  | `apps/api/.env.example` | секреты identity | `CORS_ORIGINS` | оба (+ `127.0.0.1:8081` уже в списке) |
+  | `apps/api/src/config/{env,env.test}.ts` | `Secret`, JWT/EMAIL/APP_LINK/AGREEMENT | `corsOrigins`, `CORS_ORIGINS`; тесты почты/CORS/адресов | оба; в тесте закрыть `it` «секреты» (при склейке теряется `});`) |
+- **U5. Новый `status.tsx` не компилируется в on-bike:** `ScreenPlaceholder` on-bike без `lead`, нет ключа
+  `apiStatus.title`; `status.test.tsx` импортирует удалённый в on-bike `__tests__/query-wrapper.tsx`.
+- **U6. `e2e/web.spec.ts` шаблона проверяет «Раздел» (`/section`)** — в on-bike его нет; смоук переписывается под on-bike.
+- **U7. Корневой layout on-bike не даст SSR:** `if (!ready) return null`, где `ready` ждёт `hydrate()` сессии и
+  регистрации из эффектов — на сервере эффекты не выполняются → HTML любого маршрута пустой (по коду, без запуска).
+- **U8. CI `web` шаблона — без API** («Нет соединения»); AC2 (регистрация → письмо → вход) требует API, БД, Redis,
+  worker и Mailpit в job.
+
+Найдено в коде API (до решений):
+- **A1. Эндпоинтов, читающих refresh, нет:** сессию выдаёт только `POST /v1/auth/registration/poll`; `Session` в
+  контракте — «ротация refresh и вход — слайс 2». Без refresh-эндпоинта web теряет вход на каждой перезагрузке
+  (access только в памяти), а cookie и CSRF защищали бы пустоту.
+- **A2. `createApiHarness` (test-kit 0.2.0) не даёт хука до `app.init()`**, а `enableCsrfProtection` вызывается до
+  init → интеграционные тесты identity идут без CSRF.
+- **A3. `@nestjs/platform-fastify` регистрирует `@fastify/formbody`** — form-POST с другого сайта парсится; это
+  классический CSRF-вектор для cookie-эндпоинтов → глобальная Fetch-Metadata-проверка обязательна.
+
+Решения (R) — приняты в §11, если оркестратор не решит иначе:
+- **R1 (U2).** После update: `_commit: v0.2.0`, `_src_path: gh:rkarakulov/app-foundation` — руками, отдельным
+  шагом S1; в §12 — follow-up в базу повторно (тег `v*` при `copier update`, напр. `--vcs-ref` + проверка в CI шаблона).
+- **R2 (U7, SSR и гарды).** Корень ждёт только шрифты (как шаблон); `SplashScreen.hideAsync()` — когда шрифты
+  и гидрация сессии/регистрации готовы (на native splash закрывает дерево, на web его нет). Гарды допускают
+  `unknown`: `(tabs)` — `guard={status !== 'signedOut'}`, `(onboarding)` — `guard={status !== 'signedIn'}`;
+  пока `unknown`, `(tabs)/_layout` рисует скелетон оболочки (не контент). Публичные маршруты (`auth/verify/[token]`,
+  `status`, `ui-kit`) — вне гардов. Итог: SSR отдаёт HTML для `/register`, `/auth/verify/*`, `/status`; `/` — скелетон,
+  после гидрации — вход или `/register`. Без `Platform.OS`. Альтернативы: держать `return null` на web (нет SSR —
+  против ADR-0003 п. 2); читать cookie на SSR-сервере (refresh уходил бы на web-сервер, `Path=/`) — нет.
+- **R3 (`/status`).** **Оставить** экран шаблона: образец публичного SSR (на него ссылается `app.md`), смоук CI без
+  API, ноль расхождений с шаблоном. Починка U5: `ScreenPlaceholder` on-bike получает необязательный `lead`
+  (без него — «Скоро здесь…»), `apiStatus.title` в словарь, `__tests__/query-wrapper.tsx` вернуть из шаблона (минус
+  одно «удалённое» отличие). Публичный продуктовый экран on-bike с OG — `auth/verify/[token]`: `generateMetadata`
+  (нейтральный заголовок, **без e-mail**, `og:url` не выводится — в пути токен), без `loader` (e-mail в HTML не
+  нужен, данные — API как сейчас). OG объектов (заезд, маршрут…) — с экранами объектов; «заготовка» = `generateMetadata`
+  на verify + `register` и правило в `onbike-app.md`. Альтернатива «удалить `/status`» — минус образец и плюс
+  4 удалённых файла шаблона (тихие потери правок при update).
+- **R4 (A1, расширение scope).** В F5b — **минимальный жизненный цикл web-сессии:** `POST /v1/auth/session/refresh`
+  (ротация: новый refresh взамен старого, срок сессии **не продлевается**; отозванная/истёкшая/удалённый пользователь
+  → 401) и `POST /v1/auth/session/sign-out` (отзыв `revoked_at`, идемпотентно 204). Оба принимают refresh **из тела**
+  (native, слайс 2 подключит) **или из cookie** (web); ответ — по тому же транспорту. Native-клиент в F5b их не зовёт
+  (без изменений). Reuse detection, вход по паролю, продление — слайс 2. Альтернативы: (б) только выставить cookie
+  в poll, refresh — слайс 2: web теряет вход при каждой перезагрузке, AC3 «CSRF» проверять не на чем; (в) access в
+  `sessionStorage` — против ADR-0003 п. 4. Рекомендую (а).
+- **R5 (контракт транспорта).** Транспорт задаёт клиент явно: `sessionTransport: 'body' | 'cookie'` (необязательное,
+  по умолчанию `body`) в `RegistrationPollRequest`; для refresh/sign-out — «`refreshToken` в теле → body, иначе
+  cookie». Ответ: `Session` (body) или `CookieSession = Session.omit({ refreshToken })` (cookie). Старые сборки
+  native шлют без поля — получают как сейчас. Альтернативы: заголовок `X-Client` (вне контракта, contracts-first
+  нарушен); угадывать по `Origin`/`Sec-Fetch-*` (неявно, ломается на прокси) — нет.
+- **R6 (A3, CSRF).** `app.enableCsrfProtection({ trustedOrigins: CORS_ORIGINS })` глобально + `SameSite=Strict` +
+  JSON-тело (`content-type: application/json` — preflight для cross-origin). Токенный `@fastify/csrf-protection` — нет:
+  нужен второй секрет, cookie `_csrf`, изменения клиента; Fetch Metadata поддерживают все evergreen-браузеры, а
+  native-запросы без `Origin`/`Sec-Fetch-Site` проходят по алгоритму. Rate-limit refresh — по IP (`RateLimiter`,
+  60/мин, как политика в `IDENTITY_POLICY`).
+- **R7 (cookie без пакетов).** `HttpAdapterHost.httpAdapter.setCookie/clearCookie` + `@Res({ passthrough: true })`,
+  чтение — `@Cookies(name)`; подпись cookie не нужна (значение — случайный токен, в БД — sha256), `cookies.secret`
+  не задаём.
+- **R8 (CORS в dev).** `enableCors({ origin: CORS_ORIGINS, credentials: true })` — отличие on-bike от шаблона
+  (`credentials: false`), в проде список пуст → CORS выключен. Follow-up в базу: опция credentials — когда сессия
+  появится в шаблоне.
+- **R9 (A2, тест CSRF без базы).** `apps/api/src/http-app.ts`: `configureOnBikeHttp(app, env)` = `configureHttpApp`
+  + CORS + CSRF; `main.ts` зовёт её. Unit-тест `http-app.test.ts` (как `http-app.test.ts` в api-kit): тестовый
+  контроллер, `inject` с `Sec-Fetch-Site: cross-site` → 403, `same-origin`/без заголовков (native)/trusted origin → 200,
+  preflight CORS → `Access-Control-Allow-Credentials`. Интеграционные тесты identity — через harness (cookie работают
+  без настройки). Follow-up в базу: `configureApp`-хук в `createApiHarness`.
+- **R10 (web-хранилище).** `secure-storage.web.ts` — `sessionStorage` (вкладка, переживает перезагрузку, не
+  делится между вкладками) для `onbike.registration`; сессию web **не хранит вовсе**: `session-persistence.ts`
+  (native: SecureStore, как сейчас) / `.web.ts` (restore = `refreshSession()` по cookie под Web Lock; persist — no-op;
+  clear = `signOut()`). Токен регистрации (24 ч, одноразовый обмен на сессию своего же аккаунта) в `sessionStorage` —
+  осознанный компромисс: XSS прочитает его, но и так исполняется в странице. Альтернатива «только память» — потеря
+  «Подтвердите e-mail» при перезагрузке вкладки.
+- **R11 (U8, e2e).** CI `web` получает services `postgres`/`redis` + `mailpit` (`axllent/mailpit`), миграции, API и
+  worker из `dist`; Playwright `webServer` поднимает их (команды из `e2e/`). Смоук on-bike: `/` → `/register`; форма →
+  «Подтвердите e-mail»; ссылка из Mailpit API → «Подтвердить» → «E-mail подтверждён»; первая вкладка → вход (Главная);
+  перезагрузка — вход сохранён (cookie); `document.cookie` без refresh, тело ответа poll без `refreshToken`; `/status`
+  (SSR + OG), `/ui-kit` (dev), PWA. Без API (переменная не задана) — сценарий с регистрацией `skip`, локально тоже.
+  Альтернатива — моки `page.route` (быстро, но не проверяет cookie/CSRF сервера) — нет.
+- **R12 (landing).** Удаляется целиком (функций нет: `index.astro` — заглушка, фавиконы — дефолт Astro/Vite):
+  `apps/landing/**`, `prettier-plugin-astro` (каталог, корень, `.prettierrc.json` → как в шаблоне), `.astro` в
+  ignore/depcruise/eslint, `landing` в `designSystemOnly`, Caddy `landing:4321` → `web:8080`, compose `landing` → `web`
+  (образ `on-bike-web`, env `EXPO_PUBLIC_API_URL`, `API_INTERNAL_URL=http://api:3000`, `WEB_ORIGIN`, `HOST=0.0.0.0`),
+  CI-комментарий, `onbike-web.md` → только admin, `onbike-security.md` paths → без landing, + `apps/app/src/features/auth/**`.
+
+Вопросы человеку (не блокируют, по умолчанию — как указано):
+- **Q1.** Нативная иконка приложения (`assets/images/icon.png`) — дефолтная Expo. PWA-иконки делаем из марки
+  splash (маршрут + точка старта). Нужна ли отдельная задача на иконку бренда? По умолчанию — PWA из марки, native — как есть.
+- **Q2.** Сессия не продлевается при refresh (30 дней от регистрации). Политику продления — в слайсе 2? По умолчанию — да.
 
 ## 8.2 Deviations from spec
+- Рекомендации architect R1–R12 (§8.1) приняты автором (автономный режим, 2026-10-23), включая расширение scope R4:
+  `POST /v1/auth/session/refresh` (ротация, без продления) и `POST /v1/auth/session/sign-out` — без них web-сессия
+  теряется при перезагрузке. Cookie `__Secure-onbike_rt`, `Path=/v1/auth/session`; CSRF — встроенный
+  `enableCsrfProtection` NestJS 12.2 (Fetch Metadata + Origin) с `trustedOrigins` из `CORS_ORIGINS`; CORS `credentials`
+  только для списка origin. Q1 (иконка бренда) — отдельная задача; Q2 (продление сессии) — слайс 2 онбординга.
 
 ## 8.3 Security checklist
-Затронуты сессии и аутентификация (web cookie, CSRF), публичные страницы. Чек-лист — `.claude/rules/security.md` (обязателен).
+Затронуты сессии и аутентификация (web cookie, CSRF, ротация refresh), публичные страницы (SSR, OG, ссылки с
+токеном), конфиг API (`main.ts`, `config/env.ts`, CORS), CI и `infra/` (`.claude/rules/security.md`, `onbike-security.md`).
+
+1. **AuthN/AuthZ.** `refresh`/`sign-out` — владелец refresh-токена (тело или cookie); сессия ищется по sha256 токена,
+   условие `revoked_at IS NULL AND expires_at > now` и пользователь не удалён — на сервере, в одной транзакции с
+   ротацией (UPDATE … RETURNING; гонка двух refresh — один выигрывает, второй 401). Web: refresh только в cookie
+   `HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session`, без `Domain`; access — только в памяти; в теле ответа
+   web refresh нет (тест). Native — как сейчас (SecureStore), сервер для `body` отвечает прежним `Session` (тест).
+   CSRF: `enableCsrfProtection` глобально (Fetch Metadata + Origin/Host), `trustedOrigins` = `CORS_ORIGINS` (в проде
+   пусто); CORS с credentials — только для списка, в проде выключен; `Protected` в Expo Router — не авторизация (доки),
+   доступ к данным решает API.
+2. **Входные данные.** Тела — zod из `@on-bike/contracts` (`OpaqueToken` 43 символа base64url для refresh из тела и
+   cookie — cookie тоже валидируется схемой, мусор → 401 без запроса в БД); `sessionTransport` — enum.
+3. **Данные наружу.** Ответ refresh/poll — только токены и сроки; sign-out — 204 без тела. SSR `/auth/verify/*` — без
+   `loader`, e-mail в HTML не попадает; `generateMetadata` без e-mail и без `og:url` (в пути токен);
+   `Referrer-Policy: strict-origin-when-cross-origin` (web-сервер шаблона) — токен из пути не уходит третьим лицам.
+   Service worker не кеширует HTML и `/v1` (шаблон). `Cache-Control: no-store` на всех ответах сессии.
+4. **Злоупотребления.** Rate-limit refresh по IP (Redis `RateLimiter`, ключ — HMAC IP, `IDENTITY_POLICY`), 429 с
+   `retryAfterSec`; ответы 401 одинаковые для «нет cookie», «нет сессии», «отозвана», «истекла» (без оракула).
+5. **Секреты и логи.** Refresh в БД — только sha256 (как сейчас); cookie и тела не логируются (логгер Nest не пишет
+   тела; проверить, что `console.warn` клиента не содержит токенов). CI e2e — тестовые значения секретов в workflow
+   (не реальные, как `test-env.ts`), gitleaks зелёный. `EXPO_PUBLIC_*` — только публичный адрес API.
+   `mailpit` в CI — образ по тегу версии (+ SHA-дайджест, как actions).
+6. **Аудит.** Ротация и выход — не «решения модерации/споры» (§4.10 on-bike): append-only журнал не требуется;
+   след — `sessions.revoked_at` и смена хеша. Reuse detection (кража refresh) — слайс 2, записано в §12 follow-up.
 
 ## 9. Acceptance Criteria
 1. `.copier-answers.yml` — `_commit: v0.2.0`; конфликты разобраны, локальные отличия перечислены.
@@ -46,9 +253,118 @@ ADR-0003 (раздел «Решение», п. 0–6) и задача-основ
 
 ## 10. Documentation Impact
 AGENTS.md, rules, runbook (web, cookie), architecture, ADR-0001/0003, design.md (F5 сделан).
+Architect: AGENTS.md §2 (без landing, `app/server/`), §3 (без landing; `build:web`, `start:web`, `e2e:web`), §4.13 (текст
+шаблона + ADR-0003, без «Перехода»), §8 (onbike-web — только admin); `onbike-security.md` (web-сессия: cookie,
+access в памяти, CSRF Fetch Metadata), `onbike-app.md` (`generateMetadata` публичных экранов без персональных данных);
+runbook — web-сессия в dev (`127.0.0.1:8081`, `CORS_ORIGINS`, `APP_LINK_BASE=http://127.0.0.1:8081/`, Safari),
+`infra` web вместо landing; ADR-0003 — п. 4 реализован (путь cookie, ротация, CSRF); задача-основа
+`2026-10-22-universal-app-foundation` — статус «сделано F5a + F5b»; §12 — перечень отличий от рендера `v0.2.0`.
 
 ## 11. Implementation Context
-Заполняет architect.
+Уровень — task3. Решения R1–R12 (§8.1). Слайсы — по одному коммиту, проверка после каждого обязательна.
+
+### ENTRY POINTS
+- S1: `uvx copier@9.19.1 update --defaults --vcs-ref v0.2.0 --skip-answered` в корне on-bike (чистое дерево;
+  `_src_path` временно на локальную базу допустим — вернуть в S1).
+- API: `POST /v1/auth/registration/poll` (+ `sessionTransport`), новые `POST /v1/auth/session/refresh`,
+  `POST /v1/auth/session/sign-out`; `apps/api/src/main.ts` → `configureOnBikeHttp`.
+- App: `src/app/_layout.tsx` (гарды), `features/auth/session-persistence(.web).ts`, `secure-storage.web.ts`.
+- E2E: `apps/app/e2e/web.spec.ts`, `playwright.config.ts`, CI job `web`.
+
+### Слайсы и проверка после каждого
+| # | Что | Проверка |
+|---|---|---|
+| **S1** | `copier update` до `v0.2.0`; конфликты по U4; `.copier-answers.yml` (R1); U5: `lead?` в `ScreenPlaceholder`, `apiStatus.title`, вернуть `__tests__/query-wrapper.tsx`; `_layout.tsx` — импорт `online-manager` (гарды пока прежние); `pnpm install` (lockfile, пакеты 0.2.0); `e2e/web.spec.ts` — временно убрать шаг «Раздел» (полный смоук — S5) | `pnpm check`; `pnpm --filter @on-bike/app exec expo export -p android`; `pnpm build:web` проходит (SSR-пустота — известна, U7); `grep -rn '<<<<<<<\|>>>>>>>'` пусто; `git status` без `.rej` |
+| **S2** | Удалить `apps/landing` и «до F5» (R12): `.prettierrc.json`, `.prettierignore`, `.gitignore`, `.dependency-cruiser.cjs`, `eslint.config.mjs`, корневой `package.json`, `pnpm-workspace.yaml`, `ru.ts` (`landing.openInApp`), CI-комментарий, `infra/{Caddyfile,docker-compose.prod.yml}` (landing → web), rules `onbike-web.md`/`onbike-security.md` | `pnpm install`; `pnpm check`; `pnpm turbo run build`; `git grep -in 'astro\|landing' -- ':!docs/tasks' ':!docs/proposal-stack-architecture.md' ':!pnpm-lock.yaml'` — только ADR-0001/0003 и исторические места; diff корневых конфигов с рендером `v0.2.0` — пусто |
+| **S3a** | Контракты + api-client (R5): `SessionTransport`, `CookieSession`, `RegistrationPollRequest.sessionTransport`, `RefreshSessionRequest/Response`, `SignOutRequest`; клиент: опция `credentials`, `refreshSession`, `signOut`, `pollRegistration` с транспортом | `pnpm --filter @on-bike/contracts test`, `--filter @on-bike/api-client test`, `pnpm typecheck` |
+| **S3b** (параллельно S4) | Web-варианты app (R2, R10): гарды без блокировки SSR, `session-persistence(.web)`, `secure-storage.web`, `lib/api.ts` → `apiPlatformOptions` (`lib/api-platform(.web).ts`: web — `credentials: 'include'`, транспорт `cookie`), `generateMetadata` на `register` и `auth/verify/[token]`, отсчёт в `check-email` — после монтирования; спайк Stack.Protected на SSR — первым шагом | `pnpm --filter @on-bike/app test` (native + web + server); `pnpm build:web` + `start:web` + `curl -s 127.0.0.1:8080/register \| grep 'Регистрац'`, `/auth/verify/<43 символа>` — HTML не пустой, без e-mail; `expo export -p android` |
+| **S4** (параллельно S3b) | API web-сессия (R4, R6–R9): `http-app.ts` (CORS credentials + CSRF), cookie в poll, `session/refresh`, `session/sign-out`, ротация в `SessionService`/репозитории, лимит refresh; первым шагом — проверка префикса `__Secure-` в Chrome на `http://127.0.0.1` (результат — §8.2) | `pnpm --filter @on-bike/api test` (unit + int на `on_bike_test`); `pnpm check`; Security checklist §8.3 — каждый пункт с тестом |
+| **S5** | PWA/бренд/SSR on-bike + e2e (R3, R11): иконки из марки (§7), favicon, `app.json web.favicon`; `e2e/web.spec.ts` — смоук on-bike; `playwright.config.ts` — webServer API/worker при `E2E_API=1`; CI `web` — services + миграции + сборка API; замер веса JS | `pnpm build:web && pnpm e2e:web` с `pnpm infra:up` и `E2E_API=1` локально — зелёный; без API — сценарии регистрации `skip`, остальное зелёное; CI зелёный на PR; `Page.getInstallabilityErrors` пусто (кроме `in-incognito`) |
+| **S6** | Документы (§10): AGENTS.md (§2, §3, §4.13, §8), README, ADR-0001 (пометка), ADR-0003 (п. 4 — реализация: путь cookie, CSRF Fetch Metadata), `docs/architecture/README.md`, runbook (web, cookie, dev на `127.0.0.1:8081`, `APP_LINK_BASE` для web, Safari), `onbike-app.md` (web-сессия, OG публичных экранов), задача-основа `2026-10-22-universal-app-foundation` — статус «сделано F5a+F5b», `design.md` (F5 сделан); §12 — перечень локальных отличий от рендера `v0.2.0` (обновить список F3b) | `pnpm check`; скриптовый `diff -rq` рендера `v0.2.0` с on-bike = перечень §12; ссылки в docs живые |
+
+Параллель: после S3a — **исполнитель A: S4** (только `apps/api/**`), **исполнитель B: S3b** (только `apps/app/src/**`,
+`apps/app/jest*`); общие файлы (`packages/**`, корень, lockfile, `ru.ts`) — не трогают: нужен ключ i18n — сообщить
+оркестратору, он добавит после обоих. S1, S2, S3a, S5, S6 — последовательно, один исполнитель.
+
+### Пофайловая таблица
+| Файл | Слайс | Изменение |
+|---|---|---|
+| `.copier-answers.yml` | S1 | `_commit: v0.2.0`, `_src_path: gh:rkarakulov/app-foundation` |
+| конфликтные файлы U4 (11) | S1 | по таблице U4 |
+| `apps/app/src/components/screen-placeholder.tsx` | S1 | `lead?: MessageKey`; без него — `placeholder.soon` |
+| `apps/app/src/__tests__/query-wrapper.tsx` | S1 | вернуть из шаблона |
+| `packages/i18n/src/ru.ts` | S1, S2 | `apiStatus.title`, `status.*`; убрать `landing.openInApp`; новые ключи S3b/S5 (заголовки мета) |
+| `apps/landing/**` | S2 | удалить (`git rm`) |
+| `.prettierrc.json`, `.prettierignore`, `.gitignore`, `.dependency-cruiser.cjs`, `eslint.config.mjs`, `package.json`, `pnpm-workspace.yaml` | S2 | вернуть к рендеру шаблона (без Astro); Playfair в каталоге — остаётся |
+| `infra/Caddyfile`, `infra/docker-compose.prod.yml` | S2 | `landing` → `web` (`expo-server`, :8080), env web |
+| `.claude/rules/onbike-web.md` | S2 | только admin, paths `apps/admin/**` |
+| `.claude/rules/onbike-security.md` | S2 | paths: без landing; + `apps/app/src/features/auth/**`; правило web-сессии (cookie, access в памяти, CSRF) |
+| `.github/workflows/ci.yml` | S2, S5 | комментарий build; job `web` — services, API/worker, `E2E_API=1`, секреты-заглушки |
+| `packages/contracts/src/auth/session.schema.ts` | S3a | `SessionTransport`, `CookieSession`, `RefreshSessionRequest`, `RefreshSessionResponse`, `SignOutRequest`, `SESSION_COOKIE` (имя, path) |
+| `packages/contracts/src/auth/registration.schema.ts` | S3a | `RegistrationPollRequest.sessionTransport?`; `verified.session: Session \| CookieSession` |
+| `packages/contracts/src/auth/*.test.ts`, `index.ts` | S3a | тесты схем (старый native-запрос валиден; body-ответ — `Session`) |
+| `packages/api-client/src/index.ts` (+ тест) | S3a | `credentials?: RequestCredentials` → `request(..., { credentials })`; `refreshSession(body?)`, `signOut(body?)` (204 → `z.undefined()`); `sessionTransport?` в опциях для poll |
+| `apps/api/src/http-app.ts` (+ `http-app.test.ts`) | S4 | `configureOnBikeHttp(app, env)` (R9) |
+| `apps/api/src/main.ts` | S4 | вызов `configureOnBikeHttp` вместо блока CORS шаблона |
+| `apps/api/src/modules/identity/session.controller.ts` | S4 | `refresh`, `sign-out`: тонкий слой, `@Cookies`, `setCookie/clearCookie`, `no-store` |
+| `apps/api/src/modules/identity/session-cookie.ts` | S4 | атрибуты cookie из `IDENTITY_POLICY` (один источник для set/clear) |
+| `apps/api/src/modules/identity/{session.service,identity.repository,identity.policy,auth.controller,registration.service,identity.module}.ts` | S4 | `rotate`, `revoke`, лимит refresh; poll → cookie по транспорту |
+| `apps/api/src/modules/identity/session.int.test.ts` | S4 | см. TESTS |
+| `apps/app/src/app/_layout.tsx` | S3b | R2 |
+| `apps/app/src/app/(tabs)/_layout.tsx` | S3b | скелетон при `unknown` |
+| `apps/app/src/app/(onboarding)/{register,check-email}.tsx`, `auth/verify/[token].tsx` | S3b | `generateMetadata`; отсчёт после монтирования |
+| `apps/app/src/features/auth/session-persistence.ts` / `.web.ts` | S3b | R10 |
+| `apps/app/src/features/auth/secure-storage.web.ts` | S3b | `sessionStorage`, try/catch, SSR-безопасно |
+| `apps/app/src/features/auth/{session-store,use-sign-in-when-verified}.ts` | S3b | через persistence; тип сессии в сторе — `CookieSession` (общая часть) |
+| `apps/app/src/lib/api.ts`, `lib/api-platform.ts` / `.web.ts` | S3b | опции клиента по платформе |
+| `apps/app/public/icons/*`, `assets/images/favicon.png` | S5 | марка on-bike |
+| `apps/app/e2e/{web.spec.ts,urls.ts,mailpit.ts}`, `playwright.config.ts` | S5 | R11 |
+| docs (§10) | S6 | — |
+
+### TYPES & SCHEMAS (`packages/contracts/src/auth/session.schema.ts`)
+```ts
+export const SessionTransport = z.enum(['body', 'cookie']);           // по умолчанию body
+export const CookieSession = Session.omit({ refreshToken: true });   // web: refresh — только в cookie
+export const AnySession = z.union([Session, CookieSession]);         // Session первым: шире
+export const RefreshSessionRequest = z.object({ refreshToken: OpaqueToken.optional() }); // нет → cookie
+export const RefreshSessionResponse = AnySession;
+export const SignOutRequest = RefreshSessionRequest;                  // ответ 204
+export const SESSION_COOKIE = { name: '__Secure-onbike_rt', path: '/v1/auth/session' } as const;
+```
+`RegistrationPollRequest` += `sessionTransport: SessionTransport.optional()`. Коды ошибок — существующие
+`UNAUTHORIZED` (401), `RATE_LIMITED` (429); отказ CSRF — `ForbiddenException` → фильтр api-kit отдаёт `FORBIDDEN`
+(403) в конверте `ApiError` (проверить тестом `http-app.test.ts`).
+
+### TESTS / CHECKS
+- **contracts:** старый poll-запрос без `sessionTransport` валиден; `AnySession` парсит оба вида; `CookieSession`
+  отбрасывает `refreshToken`.
+- **api-client:** `credentials` уходит в `fetch`; `signOut` на 204 не падает; poll шлёт транспорт из опций.
+- **API int (`on_bike_test`):** poll `cookie` → `Set-Cookie` с `HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session`,
+  тело без `refreshToken`; poll без транспорта → прежний `Session`, без `Set-Cookie`; refresh по cookie → новая cookie,
+  старая → 401; refresh по телу → новый `refreshToken`; истёкшая/отозванная/удалённый пользователь/мусор в cookie → 401
+  и `clearCookie`; sign-out → 204, повтор → 204, refresh после — 401; лимит → 429; гонка двух refresh одним токеном —
+  ровно один 200.
+- **API unit:** `http-app.test.ts` (R9); `session-cookie` атрибуты.
+- **App native (jest-expo/ios):** существующие тесты регистрации/гарда/verify зелёные без правок по смыслу; гард при
+  `unknown` — скелетон, не редирект.
+- **App web (`*.web.test.ts`):** `secure-storage.web` (sessionStorage, сбой → не бросает); `session-persistence.web`
+  (restore → refresh с cookie; 401 → signedOut; сеть → signedOut без очистки cookie; Web Lock если есть);
+  `api-platform.web` (`credentials: 'include'`, транспорт `cookie`).
+- **E2E (S5):** R11 + шаги шаблона (`/status`, `/ui-kit`, PWA); `pageerror` и `console.error` — пусто.
+- **Ручной смоук (человек):** мобильный Chrome/Safari по https (или `127.0.0.1` в Chrome) — регистрация → письмо →
+  вход → перезагрузка; установка PWA. В pr.md — `NOT VERIFIED`, если не делался.
+
+### FILES TO READ
+F5a §8.1 (R1–R13, F1–F11); ADR-0003; `.claude/rules/{security,onbike-security,app,onbike-app,backend,contracts,tests}.md`;
+`docs/tasks/2026-10-22-onboarding-01-signup/task.md` (сессия, poll, V-09); `node_modules/@nestjs/common/interfaces/http/
+csrf-protection-options.interface.d.ts`, `@nestjs/core/adapters/http-adapter.d.ts` (`setCookie`); шаблон
+`apps/app/{server,e2e,scripts}/**`.
+
+### OUT OF SCOPE
+Вход по паролю, сброс, reuse detection refresh, продление сессии, авто-refresh access по 401 (нет авторизованных
+эндпоинтов) — слайс 2; native-клиент refresh/sign-out — слайс 2; universal/app links; og:image 1200×630 и экраны
+объектов; Accept-Language на SSR; Docker-образ `on-bike-web` и деплой; нативная иконка (Q1); изменения в
+app-foundation (только follow-ups в §12).
 
 ## 12. Outcome
 Заполняет coder.
