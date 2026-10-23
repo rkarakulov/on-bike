@@ -2,7 +2,7 @@
 paths:
   - "apps/api/drizzle/**"
   - "**/schema*.ts"
-  - "apps/api/src/infra/db/**"
+  - "apps/api/src/db/**"
 ---
 
 # База данных — PostgreSQL 18 + PostGIS, Drizzle

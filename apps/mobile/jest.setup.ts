@@ -1,4 +1,6 @@
 /// <reference types="jest" />
+// Дизайн-система с настоящим брендом on-bike (темы, шрифты, i18n) — первым, до модулей экранов.
+import './src/theme/design-system';
 // Моки нативных модулей для всех тестов: в jest нет ни Keychain, ни NetInfo, ни нативного пикера.
 import { onlineManager } from '@tanstack/react-query';
 

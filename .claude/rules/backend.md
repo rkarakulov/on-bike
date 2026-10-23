@@ -15,7 +15,9 @@ paths:
   `*.service.ts` (бизнес-логика) → `*.repository.ts` (Drizzle) ; `jobs/*.processor.ts` (BullMQ);
   `index.ts` — публичный API модуля.
 - Чужой модуль — только через его `index.ts`. Циклы модулей запрещены (без `forwardRef`).
-- Общая инфраструктура (db, redis, queue, s3, config, logger) — `src/infra/`; она не знает о модулях.
+- Общая инфраструктура (env, db, outbox, redis, queue, mail, http, ошибки) — `@rkarakulov/api-kit`; она не знает о
+  модулях. В `src/` — только композиция: `config/env.ts` (`defineEnv`), `db/schema.ts`, `queues.ts`,
+  `error-messages.ts`, `app.module.ts`/`worker.module.ts`. Нужно изменить инфраструктуру — задача в app-foundation.
 
 ## Правила
 

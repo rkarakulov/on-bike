@@ -1,8 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { HealthResponse } from '@on-bike/contracts';
+import { PG_POOL } from '@rkarakulov/api-kit';
 import { Pool } from 'pg';
-
-import { PG_POOL } from '../../infra/database/database.module';
 
 @Injectable()
 export class HealthService {

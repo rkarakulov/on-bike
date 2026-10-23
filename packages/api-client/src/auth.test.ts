@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ApiHttpError, createApiClient } from './index.ts';
+import { ApiHttpError, apiErrorOf, ApiNetworkError, createApiClient } from './index.ts';
 
 const token = 'T'.repeat(43);
 
@@ -83,17 +83,17 @@ describe('ApiHttpError.apiError — толерантный разбор ошиб
       .api.getVerificationLink(token)
       .catch((e: unknown) => e)) as ApiHttpError;
 
-  it('известный код — как есть, с деталями', async () => {
-    const error = await failWith(429, {
-      code: 'RATE_LIMITED',
-      message: 'Слишком часто',
-      details: { retryAfterSec: 42 },
+  it('известный код on-bike — как есть, с деталями (клиент разбирает по схеме on-bike)', async () => {
+    const error = await failWith(410, {
+      code: 'LINK_EXPIRED',
+      message: 'Ссылка устарела',
+      details: { email: 'rider@example.com' },
     });
     expect(error).toBeInstanceOf(ApiHttpError);
     expect(error.apiError).toEqual({
-      code: 'RATE_LIMITED',
-      message: 'Слишком часто',
-      details: { retryAfterSec: 42 },
+      code: 'LINK_EXPIRED',
+      message: 'Ссылка устарела',
+      details: { email: 'rider@example.com' },
     });
   });
 
@@ -106,5 +106,27 @@ describe('ApiHttpError.apiError — толерантный разбор ошиб
     const error = await failWith(502, null);
     expect(error.status).toBe(502);
     expect(error.apiError.code).toBe('UNKNOWN');
+  });
+});
+
+describe('apiErrorOf — код on-bike независимо от того, кто создал ошибку', () => {
+  it('ошибка без схемы on-bike (тест, другой клиент) — код on-bike не теряется', () => {
+    const error = new ApiHttpError(409, { code: 'EMAIL_TAKEN', message: 'Занят' });
+    expect(error.apiError.code).toBe('UNKNOWN');
+    expect(apiErrorOf(error)).toEqual({ code: 'EMAIL_TAKEN', message: 'Занят' });
+  });
+
+  it('незнакомый код и не-API ответ — UNKNOWN', () => {
+    expect(apiErrorOf(new ApiHttpError(409, { code: 'BRAND_NEW', message: 'Новое' }))).toEqual({
+      code: 'UNKNOWN',
+      message: 'Новое',
+    });
+    expect(apiErrorOf(new ApiHttpError(502, null))?.code).toBe('UNKNOWN');
+  });
+
+  it('не ответ сервера (сеть, прочие ошибки) — undefined', () => {
+    expect(apiErrorOf(new ApiNetworkError(new TypeError('offline')))).toBeUndefined();
+    expect(apiErrorOf(new Error('boom'))).toBeUndefined();
+    expect(apiErrorOf(undefined)).toBeUndefined();
   });
 });

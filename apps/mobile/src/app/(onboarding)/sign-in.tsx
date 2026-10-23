@@ -1,8 +1,8 @@
 import { t } from '@on-bike/i18n';
+import { TextAction } from '@rkarakulov/ui';
 import { useRouter } from 'expo-router';
 
 import { ScreenPlaceholder } from '@/components/screen-placeholder';
-import { TextAction } from '@/components/ui';
 
 /** Вход по паролю — слайс 2; пока заглушка с возвратом к регистрации. */
 export default function SignInScreen() {

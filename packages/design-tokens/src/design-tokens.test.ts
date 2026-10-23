@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { contrastPairs, contrastRatio, WCAG } from './contrast.ts';
-import { cssVariables, designSystemCss, typographyCss } from './css.ts';
+import { contrastPairs, contrastRatio } from './contrast.ts';
+import { designSystemCss } from './css.ts';
 import { themes, type ThemeName } from './themes.ts';
-import { typography } from './typography.ts';
 
 /** CSS-переменные прототипов (`:root,[data-theme=light]` / `[data-theme=dark]`) → семантические роли. */
 const prototype: Record<'light' | 'dark', Record<string, [string, string]>> = {
@@ -80,12 +79,7 @@ describe('семантика совпадает с CSS прототипов', ()
   });
 });
 
-describe('контраст WCAG', () => {
-  it('contrastRatio: чёрный на белом = 21, одинаковые = 1', () => {
-    expect(contrastRatio('#000000', '#FFFFFF')).toBeCloseTo(21);
-    expect(contrastRatio('#5C5C5C', '#5C5C5C')).toBe(1);
-  });
-
+describe('контраст WCAG — темы on-bike', () => {
   for (const themeName of Object.keys(themes) as ThemeName[]) {
     it.each(contrastPairs(themeName))(
       `${themeName}: $name ≥ $min`,
@@ -95,63 +89,51 @@ describe('контраст WCAG', () => {
     );
   }
 
-  it('пороги: текст 4.5, UI 3', () => expect(WCAG).toEqual({ text: 4.5, ui: 3 }));
-});
+  it('к парам базы добавлены пары карты on-bike', () => {
+    const names = contrastPairs('light').map((p) => p.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'text.primary / surface.default',
+        'map.route / map.background',
+        'map.corridor / map.background',
+      ]),
+    );
+  });
 
-describe('типографика', () => {
-  it('заголовок раздела — Playfair 500 28/34, вкладки 500 / 600', () => {
-    expect(typography.displayTitle).toMatchObject({
-      role: 'display',
-      weight: 500,
-      size: 28,
-      lineHeight: 34,
-    });
-    expect(typography.tabLabel.weight).toBe(500);
-    expect(typography.tabLabelActive.weight).toBe(600);
+  it('пары навигации — только у protocol', () => {
+    expect(contrastPairs('light').some((p) => p.name.startsWith('nav.'))).toBe(false);
+    expect(contrastPairs('protocol').some((p) => p.name.startsWith('nav.'))).toBe(true);
   });
 });
 
-describe('CSS для веба', () => {
-  it('классы .t-* в формате прототипов', () => {
-    const css = typographyCss();
-    expect(css).toContain(
-      '.t-display-title { font: 500 28px/34px var(--font-display); letter-spacing: -0.01em; }',
-    );
-    expect(css).toContain(
-      '.t-label { font: 600 11px/14px var(--font-text); letter-spacing: 0.14em; text-transform: uppercase; }',
-    );
-    expect(css).toContain('.t-display-numeral-44 {');
-  });
+describe('CSS для веба (обёртка с брендом on-bike)', () => {
+  const rootBlock = (css: string) => css.slice(0, css.indexOf('\n}'));
 
-  it('переменные темы: семантика, навигация только у protocol', () => {
-    expect(cssVariables('light')).toContain('--color-text-primary: #111111;');
-    expect(cssVariables('dark')).toContain('--color-text-primary: #F2F2F0;');
-    expect(cssVariables('protocol')).toContain('--nav-background: #111111;');
-    expect(cssVariables('light')).not.toContain('--nav-');
-    expect(cssVariables('light')).toContain('--size-touch-min: 44px;');
-    expect(cssVariables('light')).toContain('--inset-lg: 18px;');
-    expect(cssVariables('light')).toContain('--stroke-input: 1.5px;');
+  it('переменные темы: семантика и группы on-bike, навигация только у protocol', () => {
+    const light = designSystemCss({ theme: 'light' });
+    expect(light).toContain('--color-text-primary: #111111;');
+    expect(light).toContain('--color-map-route: #111111;');
+    expect(light).toContain('--color-surface-bar-gravel: #E2E2DF;');
+    expect(light).toContain(
+      "--font-display: 'Playfair Display', 'PT Serif', Georgia, 'Times New Roman', serif;",
+    );
+    expect(light).not.toContain('--nav-');
+    expect(designSystemCss({ theme: 'dark' })).toContain('color-scheme: dark;');
+    expect(designSystemCss({ theme: 'protocol' })).toContain('--nav-background: #111111;');
   });
 
   it('плотность — только у темы protocol', () => {
-    expect(cssVariables('protocol')).toContain('--density-control-height: 36px;');
-    expect(cssVariables('protocol')).toContain('--density-sidebar-width: 224px;');
-    expect(cssVariables('light')).not.toContain('--density-');
-  });
-
-  it('скелетон: роль surface.skeleton, пульс 1.2 с, статичный при reduce motion', () => {
-    const css = designSystemCss({ theme: 'light' });
-    expect(css).toContain('--color-surface-skeleton: #F4F4F2;');
-    expect(css).toContain('animation: skeleton-pulse 1200ms ease-in-out infinite;');
-    expect(css).toContain(
-      '@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }',
+    expect(rootBlock(designSystemCss({ theme: 'protocol' }))).toContain(
+      '--density-control-height: 36px;',
     );
+    expect(designSystemCss({ theme: 'light', darkTheme: 'dark' })).not.toContain('--density-');
   });
 
   it('тёмная тема подключается через prefers-color-scheme', () => {
     const css = designSystemCss({ theme: 'light', darkTheme: 'dark' });
+    expect(rootBlock(css)).toContain('color-scheme: light;');
     expect(css).toMatch(
-      /@media \(prefers-color-scheme: dark\) \{\s*:root \{[^}]*--color-surface-default: #0E0E0E;/,
+      /@media \(prefers-color-scheme: dark\) \{\s*:root \{[^}]*--color-surface-default: #0E0E0E;[^}]*color-scheme: dark;/,
     );
   });
 });

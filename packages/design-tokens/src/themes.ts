@@ -1,47 +1,17 @@
+import {
+  defineThemes,
+  type ColorRoles as BaseColorRoles,
+  type NavRoles,
+  type Theme as BaseTheme,
+  type ThemeOf,
+} from '@rkarakulov/design-tokens';
+
 import { color as c } from './primitives.ts';
 
-/**
- * Слой 2 — семантика: роли, а не цвета. Компоненты знают только роли;
- * значение роли в каждой теме — из CSS прототипов.
- */
-export interface ColorRoles {
-  text: {
-    primary: string;
-    secondary: string;
-    accent: string;
-    onPrimary: string;
-    /** текст поверх фото через скрим */
-    onPhoto: string;
-    placeholder: string;
-    disabled: string;
-  };
-  surface: {
-    default: string;
-    raised: string;
-    sheet: string;
-    disabled: string;
-    /** блоки скелетона загрузки (`.skel` прототипов = surface). Ставится на surface.default:
-     *  на surface.raised совпадает с фоном — внутри карточек скелетон рисуется сразу вместо карточки. */
-    skeleton: string;
-  };
-  border: {
-    subtle: string;
-    strong: string;
-    input: string;
-    focus: string;
-    sheet: string;
-  };
-  action: {
-    primary: string;
-    onPrimary: string;
-  };
-  status: {
-    success: string;
-    warning: string;
-    error: string;
-    onError: string;
-    errorTint: string;
-  };
+export type { NavRoles };
+
+/** Группы ролей on-bike поверх ролей базы: карта маршрута и полоса покрытия. */
+export interface OnBikeRoleGroups {
   map: {
     background: string;
     line: string;
@@ -54,28 +24,13 @@ export interface ColorRoles {
     gravelHatch: string;
     outline: string;
   };
-  overlay: {
-    scrim: string;
-  };
-  /** тумблер */
-  control: {
-    track: string;
-    trackOn: string;
-    thumb: string;
-    thumbOn: string;
-  };
 }
 
-/** Тёмная боковая навигация веб-панели. */
-export interface NavRoles {
-  background: string;
-  text: string;
-  textMuted: string;
-  activeBackground: string;
-  activeText: string;
-  activeIndicator: string;
-  focus: string;
-}
+/**
+ * Слой 2 — семантика: роли, а не цвета. Роли базы (`text`, `surface`, …) + группы on-bike;
+ * значение роли в каждой теме — из CSS прототипов. Порядок ключей задаёт порядок CSS-переменных.
+ */
+export type ColorRoles = BaseColorRoles & OnBikeRoleGroups;
 
 const light: ColorRoles = {
   text: {
@@ -188,13 +143,16 @@ const protocolNav: NavRoles = {
 
 /**
  * Jersey Aura — светлая мобилки и лендинга, Night Ride — тёмная,
- * Протокол — веб-панель: светлая семантика + тёмная навигация (+ плотность из primitives.density).
+ * Протокол — веб-панель: светлая семантика + тёмная навигация (+ плотность базы в CSS).
  */
-export const themes = {
+export const themes = defineThemes({
   light,
   dark,
   protocol: { ...light, nav: protocolNav },
-} as const satisfies Record<string, Theme>;
+});
 
 export type ThemeName = keyof typeof themes;
-export type Theme = ColorRoles & { nav?: NavRoles };
+/** Тема on-bike для `useTheme<OnBikeTheme>()`: роли базы + `map`, `surfaceBar`. */
+export type OnBikeTheme = ThemeOf<typeof themes>;
+/** Любая тема набора (у `protocol` есть навигация). */
+export type Theme = BaseTheme<OnBikeRoleGroups>;

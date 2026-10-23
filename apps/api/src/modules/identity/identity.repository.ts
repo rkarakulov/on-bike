@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { DB } from '@rkarakulov/api-kit';
 import { and, eq, gt, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
 
-import { DB, type Database } from '../../infra/database/database.module';
-import type { DbExecutor } from '../../infra/database/executor';
+import type { Database, DbExecutor } from '../../db';
 import {
   emailVerificationTokens,
   registrationTokens,

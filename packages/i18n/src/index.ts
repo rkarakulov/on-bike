@@ -1,19 +1,20 @@
+import { baseMessages, createI18n, mergeDictionaries, type Params } from '@rkarakulov/i18n-core';
+
 import { ru } from './ru.ts';
 
-export type Messages = typeof ru;
-export type MessageKey = keyof Messages;
-export type MessageParams = Record<string, string | number>;
+/** Строки базы (состояния загрузки, даты, поля) + строки on-bike; ключи on-bike переопределяют базу. */
+export const messages = mergeDictionaries(baseMessages.ru, ru);
 
-/** Подставляет `{name}` из `params`; неизвестный плейсхолдер остаётся видимым — так проще заметить ошибку. */
-export function interpolate(template: string, params: MessageParams): string {
-  return template.replace(/\{(\w+)\}/g, (placeholder, name: string) =>
-    name in params ? String(params[name]) : placeholder,
-  );
-}
+export type Messages = typeof messages;
+export type MessageKey = keyof Messages & string;
+export type MessageParams = Params;
 
-/** Пока один язык. Ключи типизированы: опечатка в ключе — ошибка typecheck. */
+/** Пока один язык (ru). Экземпляр нужен дизайн-системе (`configureDesignSystem({ i18n })`). */
+export const i18n = createI18n({ baseLocale: 'ru', base: messages });
+
+/** Ключи типизированы: опечатка в ключе — ошибка typecheck. */
 export function t(key: MessageKey, params?: MessageParams): string {
-  return params ? interpolate(ru[key], params) : ru[key];
+  return i18n.t(key, params);
 }
 
-export { ru };
+export { interpolate } from '@rkarakulov/i18n-core';

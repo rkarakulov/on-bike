@@ -4,6 +4,7 @@ import {
   ApiError,
   ErrorCode,
   FieldErrorCode,
+  fieldError,
   RateLimitedDetails,
   ValidationErrorDetails,
 } from './common.ts';
@@ -15,6 +16,36 @@ describe('коды ошибок', () => {
       expect(ErrorCode.parse(code)).toBe(code);
     }
     expect(ApiError.safeParse({ code: 'SOMETHING_NEW', message: 'x' }).success).toBe(false);
+  });
+
+  it('состав и порядок кодов прежние: коды базы, затем on-bike (установленные клиенты)', () => {
+    expect(ErrorCode.options).toEqual([
+      'VALIDATION_FAILED',
+      'UNAUTHORIZED',
+      'FORBIDDEN',
+      'NOT_FOUND',
+      'CONFLICT',
+      'RATE_LIMITED',
+      'INTERNAL',
+      'EMAIL_TAKEN',
+      'EMAIL_UNAVAILABLE',
+      'LINK_EXPIRED',
+    ]);
+    expect(FieldErrorCode.options).toEqual([
+      'REQUIRED',
+      'INVALID',
+      'INVALID_EMAIL',
+      'TOO_SHORT',
+      'TOO_LONG',
+      'INVALID_DATE',
+      'AGE_BELOW_18',
+      'CONSENT_REQUIRED',
+    ]);
+  });
+
+  it('fieldError — с кодами on-bike; undefined на входе — REQUIRED', () => {
+    expect(fieldError('AGE_BELOW_18')({ input: '2020-01-01' })).toBe('AGE_BELOW_18');
+    expect(fieldError('CONSENT_REQUIRED')({ input: undefined })).toBe('REQUIRED');
   });
 
   it('детали ошибок по кодам', () => {

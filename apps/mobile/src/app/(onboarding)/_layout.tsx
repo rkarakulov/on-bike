@@ -1,6 +1,5 @@
+import { useTheme } from '@rkarakulov/ui';
 import { Stack } from 'expo-router';
-
-import { useTheme } from '@/theme/theme';
 
 export const unstable_settings = { initialRouteName: 'register' };
 

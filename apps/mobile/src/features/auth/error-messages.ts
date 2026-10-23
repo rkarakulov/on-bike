@@ -1,4 +1,4 @@
-import { ApiHttpError, isNetworkError } from '@on-bike/api-client';
+import { apiErrorOf, isNetworkError } from '@on-bike/api-client';
 import {
   LinkExpiredDetails,
   PASSWORD_MIN_LENGTH,
@@ -35,7 +35,7 @@ export function fieldErrorMessage(code: string | undefined): string | undefined 
 
 /** Код ответа API: `UNKNOWN` — незнакомый код или не-API ответ; `undefined` — ответа не было. */
 export function apiErrorCode(error: unknown): ErrorCode | 'UNKNOWN' | undefined {
-  return error instanceof ApiHttpError ? error.apiError.code : undefined;
+  return apiErrorOf(error)?.code;
 }
 
 /** Текст неудачного действия (мутации) для баннера рядом с кнопкой. */
@@ -47,8 +47,9 @@ export function actionErrorMessage(error: unknown): string {
 
 /** Пауза из ответа 429 (`details.retryAfterSec`). */
 export function retryAfterSec(error: unknown): number | undefined {
-  if (apiErrorCode(error) !== 'RATE_LIMITED' || !(error instanceof ApiHttpError)) return undefined;
-  const details = RateLimitedDetails.safeParse(error.apiError.details);
+  const apiError = apiErrorOf(error);
+  if (apiError?.code !== 'RATE_LIMITED') return undefined;
+  const details = RateLimitedDetails.safeParse(apiError.details);
   return details.success ? details.data.retryAfterSec : undefined;
 }
 
@@ -57,8 +58,9 @@ export function serverFieldErrors<F extends string>(
   error: unknown,
   fields: readonly F[],
 ): { field: F; code: FieldErrorCode }[] {
-  if (apiErrorCode(error) !== 'VALIDATION_FAILED' || !(error instanceof ApiHttpError)) return [];
-  const details = ValidationErrorDetails.safeParse(error.apiError.details);
+  const apiError = apiErrorOf(error);
+  if (apiError?.code !== 'VALIDATION_FAILED') return [];
+  const details = ValidationErrorDetails.safeParse(apiError.details);
   if (!details.success) return [];
   return details.data.fields.flatMap(({ path, code }) => {
     const field = fields.find((name) => name === path);
@@ -68,7 +70,8 @@ export function serverFieldErrors<F extends string>(
 
 /** E-mail из 410 `LINK_EXPIRED` (`details.email`) — кому отправить новую ссылку. */
 export function linkExpiredEmail(error: unknown): string | undefined {
-  if (apiErrorCode(error) !== 'LINK_EXPIRED' || !(error instanceof ApiHttpError)) return undefined;
-  const details = LinkExpiredDetails.safeParse(error.apiError.details);
+  const apiError = apiErrorOf(error);
+  if (apiError?.code !== 'LINK_EXPIRED') return undefined;
+  const details = LinkExpiredDetails.safeParse(apiError.details);
   return details.success ? details.data.email : undefined;
 }

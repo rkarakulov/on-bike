@@ -1,12 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MIN_AGE_YEARS, MIN_BIRTH_DATE, RegisterRequest, minskToday } from '@on-bike/contracts';
 import { t } from '@on-bike/i18n';
+import { Banner, Button, Checkbox, DateField, TextAction, TextField } from '@rkarakulov/ui';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
 
-import { Banner, Button, Checkbox, DateField, TextAction, TextField } from '@/components/ui';
 import {
   AuthActions,
   AuthInline,

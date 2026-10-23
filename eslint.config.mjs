@@ -67,6 +67,12 @@ export default tseslint.config(
               message:
                 'Примитивы цвета — только внутри пакета; в приложениях — семантика (themes / useTheme).',
             },
+            {
+              // базовые токены без бренда (нейтральные темы, designSystemCss базы) — мимо бренда on-bike
+              name: '@rkarakulov/design-tokens',
+              message:
+                'Токены — через бренд-слой @on-bike/design-tokens (темы и CSS бренда on-bike).',
+            },
           ],
         },
       ],

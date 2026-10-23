@@ -1,8 +1,8 @@
 import { t } from '@on-bike/i18n';
+import { useTheme } from '@rkarakulov/ui';
 import { Tabs } from 'expo-router/js-tabs';
 
 import { TabBar } from '@/components/tab-bar';
-import { useTheme } from '@/theme/theme';
 
 export default function TabsLayout() {
   const theme = useTheme();

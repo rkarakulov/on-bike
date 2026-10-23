@@ -1,11 +1,11 @@
 /// <reference types="jest" />
 import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
 import type { VerificationLinkInfo } from '@on-bike/contracts';
+import { keepTogether } from '@rkarakulov/ui';
 import { onlineManager } from '@tanstack/react-query';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 import { api } from '@/lib/api';
-import { keepTogether } from '@/lib/text';
 
 import {
   EMAIL,

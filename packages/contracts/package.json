@@ -20,6 +20,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@rkarakulov/contracts-core": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -22,16 +22,18 @@ paths:
 - Строки UI — только из `@on-bike/i18n`, формальное «вы».
 - Оформление — только семантика: `useTheme()` (роли `text.*`, `surface.*`, `border.*`…), `textStyle(name)`,
   `space` / `inset` / `size` / `stroke` из `@on-bike/design-tokens`. Примитивы (`color.*`) и hex — нельзя.
-- Дизайн-система — единственный источник оформления (AGENTS.md §4.11): сначала компоненты `src/components/ui`
+- Дизайн-система — единственный источник оформления (AGENTS.md §4.11): сначала компоненты `@rkarakulov/ui`
   (Button, TextAction, TextField, Banner, Skeleton…). Чего не хватает — расширяй систему: токен/роль в
-  `@on-bike/design-tokens`, компонент в `src/components/ui` с тестом и примером на витрине `/ui-kit`.
+  `@on-bike/design-tokens` (бренд) или задачей в app-foundation (общий токен/компонент `@rkarakulov/ui` с тестом и
+  примером на витрине `UiKit`).
   Что разрешено без токенов — только раскладка, список в AGENTS.md §4.11.
 - Темы: светлая Jersey Aura, тёмная Night Ride, системная.
 - Доступность: `accessibilityLabel`/`accessibilityRole` на интерактивных элементах, `accessibilityActions`
   для drag-n-drop, поддержка reduce motion, крупного шрифта.
 - QueryClient мобилки обязан подключать `onlineManager` к `@react-native-community/netinfo`: без этого
   в RN нет `fetchStatus: 'paused'`, и `AsyncContent` покажет «Нет соединения» только после всех ретраев.
-- Состояния данных — строго по AGENTS.md §4.12, через `AsyncContent` (`src/components/async-content.tsx`) и
-  `SkeletonGroup` + `Skeleton` / `SkeletonText` / заготовки из `src/components/ui`.
+- Состояния данных — строго по AGENTS.md §4.12, через `AsyncContent` и `SkeletonGroup` + `Skeleton` /
+  `SkeletonText` / заготовки из `@rkarakulov/ui`. Дизайн-система настраивается в `src/theme/design-system.ts`
+  (`configureDesignSystem`) — первым импортом корня приложения и `jest.setup.ts`.
 - Секреты в бандл не кладём: в приложении только публичные ключи (Sentry DSN, тайлы).
 - Нативные модули — только через config plugins Expo; `ios/`/`android/` не коммитим (CNG).

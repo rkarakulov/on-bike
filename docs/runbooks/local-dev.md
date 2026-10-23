@@ -4,6 +4,15 @@
 
 ## Шаги
 
+0. Доступ к пакетам базы `@rkarakulov/*` (GitHub Packages, ADR-0004), один раз на машине:
+   `gh auth refresh -s read:packages` и в пользовательский `~/.npmrc` строку
+   `//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}` (pnpm раскрывает переменные только там, не в
+   проектном `.npmrc`). Перед `pnpm install` — `export NODE_AUTH_TOKEN=$(gh auth token)`.
+   Сам токен нигде не записывается.
+   **EAS Build** (облачная сборка) не видит ваш `~/.npmrc`: перед первой сборкой человек создаёт в EAS секрет
+   `NODE_AUTH_TOKEN` (токен с `read:packages`, видимость — secret) и хук `eas-build-pre-install` в
+   `apps/mobile/package.json`, который дописывает строку авторизации в `~/.npmrc` сборщика — тот же вид, что
+   локально. До этого EAS-сборка упадёт на установке `@rkarakulov/*` (follow-up F4, не проверено).
 1. Инфраструктура: `pnpm infra:up` — PostgreSQL 18 + PostGIS (`:5432`), Redis (`:6379`),
    Mailpit (SMTP `:1025`, веб `http://127.0.0.1:8025`).
 2. Окружение API: `cp apps/api/.env.example apps/api/.env` и заполнить секреты:

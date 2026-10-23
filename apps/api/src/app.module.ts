@@ -1,22 +1,28 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
+import {
+  API_ERROR_MESSAGES,
+  ApiExceptionFilter,
+  ClockModule,
+  ConfigModule,
+  DatabaseModule,
+  OutboxModule,
+  QueueModule,
+  RedisModule,
+} from '@rkarakulov/api-kit';
 
-import { ApiExceptionFilter } from './common/api-exception.filter';
-import { ConfigModule } from './config/config.module';
-import { ClockModule } from './infra/clock/clock.module';
-import { DatabaseModule } from './infra/database/database.module';
-import { OutboxModule } from './infra/outbox/outbox.module';
-import { QueueModule } from './infra/queue/queue.module';
-import { RedisModule } from './infra/redis/redis.module';
+import { env } from './config/env';
+import { schema } from './db';
+import { ON_BIKE_ERROR_MESSAGES } from './error-messages';
 import { HealthModule } from './modules/health';
 import { IdentityModule } from './modules/identity';
 import { TracksModule } from './modules/tracks';
 
 @Module({
   imports: [
-    ConfigModule,
+    ConfigModule.forRoot(env),
     ClockModule,
-    DatabaseModule,
+    DatabaseModule.forRoot({ schema }),
     RedisModule,
     OutboxModule,
     QueueModule,
@@ -24,7 +30,10 @@ import { TracksModule } from './modules/tracks';
     TracksModule,
     IdentityModule,
   ],
-  // единый формат ошибок ApiError для всех модулей
-  providers: [{ provide: APP_FILTER, useClass: ApiExceptionFilter }],
+  // единый формат ошибок ApiError для всех модулей; тексты кодов on-bike — рядом с фильтром
+  providers: [
+    { provide: APP_FILTER, useClass: ApiExceptionFilter },
+    { provide: API_ERROR_MESSAGES, useValue: ON_BIKE_ERROR_MESSAGES },
+  ],
 })
 export class AppModule {}

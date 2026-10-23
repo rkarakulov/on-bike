@@ -1,15 +1,13 @@
 import { isNetworkError } from '@on-bike/api-client';
 import { t } from '@on-bike/i18n';
+import { Banner, Button, keepTogether, TextAction } from '@rkarakulov/ui';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-
-import { Banner, Button, TextAction } from '@/components/ui';
 
 import { isRegistrationRejected } from './queries';
 
 import { AuthActions, AuthText, AuthTitle } from './auth-screen';
 import { useRegistrationStore } from './registration-store';
-import { keepTogether } from '@/lib/text';
 
 // Содержимое экранов (заголовок + текст + действия) — внутри AuthScreen у «Подтвердите e-mail» и у ссылки.
 

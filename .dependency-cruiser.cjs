@@ -41,10 +41,11 @@ module.exports = {
     },
     {
       name: 'contracts-pure',
-      comment: 'contracts — только zod и типы, без runtime-зависимостей фреймворков',
+      comment:
+        'contracts — только zod и ядро контрактов базы (чистый zod), без runtime-зависимостей фреймворков',
       severity: 'error',
       from: { path: '^packages/contracts/' },
-      to: { dependencyTypes: ['npm'], pathNot: 'node_modules/zod/' },
+      to: { dependencyTypes: ['npm'], pathNot: 'node_modules/(zod|@rkarakulov/contracts-core)/' },
     },
   ],
   options: {

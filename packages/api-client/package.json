@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@on-bike/contracts": "workspace:*",
+    "@rkarakulov/api-client-core": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

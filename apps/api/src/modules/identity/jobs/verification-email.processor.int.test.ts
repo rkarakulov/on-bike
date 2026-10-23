@@ -1,14 +1,14 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { RegisterResponse } from '@on-bike/contracts';
+import { OutboxPublisher, type OutboxJobData } from '@rkarakulov/api-kit';
 import type { Job, Queue } from 'bullmq';
 import { desc } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createHarness, MINUTE, type Harness } from '../../../../test/harness';
 import { call, confirm, register, resend } from '../../../../test/identity';
-import { outbox } from '../../../infra/database/schema';
-import { OutboxPublisher, type OutboxJobData } from '../../../infra/outbox/outbox.publisher';
-import { QUEUE } from '../../../infra/queue/queues';
+import { outbox } from '../../../db';
+import { QUEUE } from '../../../queues';
 import { emailVerificationTokens } from '../identity.schema';
 import { sha256 } from '../tokens';
 import { IdentityRepository } from '../identity.repository';

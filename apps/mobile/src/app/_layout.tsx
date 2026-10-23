@@ -1,3 +1,6 @@
+// дизайн-система (бренд, шрифты, i18n on-bike) — до любого модуля, который рендерит компоненты базы
+import '@/theme/design-system';
+import { useTheme } from '@rkarakulov/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -9,7 +12,6 @@ import { useRegistrationStore } from '@/features/auth/registration-store';
 import { isSignedIn, useSessionStore } from '@/features/auth/session-store';
 import { connectOnlineManager, createQueryClient } from '@/lib/query-client';
 import { fontAssets } from '@/theme/fonts';
-import { useTheme } from '@/theme/theme';
 
 // нативный splash держим, пока не загружены шрифты и не прочитана сессия — без мигания экраном входа
 void SplashScreen.preventAutoHideAsync();

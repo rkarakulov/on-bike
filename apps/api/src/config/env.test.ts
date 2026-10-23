@@ -15,11 +15,4 @@ describe('env', () => {
     expect(() => testEnv({ JWT_SECRET: 'short' })).toThrow();
     expect(() => testEnv({ EMAIL_TOKEN_SECRET: 'short' })).toThrow();
   });
-
-  it('TRUST_PROXY — число доверенных прокси; старые true/false → 1/0', () => {
-    expect(testEnv({ TRUST_PROXY: '1' }).TRUST_PROXY).toBe(1);
-    expect(testEnv({ TRUST_PROXY: 'true' }).TRUST_PROXY).toBe(1);
-    expect(testEnv({ TRUST_PROXY: 'false' }).TRUST_PROXY).toBe(0);
-    expect(() => testEnv({ TRUST_PROXY: '-1' })).toThrow();
-  });
 });
