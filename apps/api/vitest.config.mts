@@ -6,5 +6,28 @@ export default defineConfig({
   plugins: [swc.vite({ module: { type: 'es6' } })],
   // своё условие + стандартные серверные условия Vite (иначе они затираются)
   ssr: { resolve: { conditions: ['@on-bike/source', 'module', 'node', 'development|production'] } },
-  test: { include: ['src/**/*.test.ts'] },
+  test: {
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          include: ['src/**/*.test.ts'],
+          exclude: ['**/node_modules/**', 'src/**/*.int.test.ts'],
+        },
+      },
+      {
+        // реальные PostgreSQL + PostGIS (onbike_test) и Redis (db 1); файлы — по очереди, общая БД
+        extends: true,
+        test: {
+          name: 'integration',
+          include: ['src/**/*.int.test.ts'],
+          globalSetup: ['./test/global-setup.ts'],
+          fileParallelism: false,
+          testTimeout: 20_000,
+          hookTimeout: 60_000,
+        },
+      },
+    ],
+  },
 });

@@ -29,6 +29,36 @@ gamification · sharing · notifications · moderation · media
 - **Спор:** подача → ответы обвиняемого (append-only) → решение → DQ / отклонение → пересчёт.
 - **Шеринг:** запрос карточки → задача рендера (Skia / ffmpeg) → S3 → публичная ссылка → landing + OG.
 
+### Регистрация и подтверждение e-mail (модуль `identity`, ADR-0002)
+
+```
+mobile ─ POST /v1/auth/register ─► api: users + user_consents + ссылка + registration_token + outbox
+                                          (одна транзакция; Redis: пауза повтора 60 с, лимит по IP)
+worker: outbox-публикатор ─► очередь identity-email ─► захват отправки (send_claimed_at, 60 с)
+        ─► SMTP (dev — Mailpit) ─► sent_at; доставка at-least-once, дубль — с той же ссылкой
+ссылка …auth/verify/<token> ─ GET (только чтение) ─ POST confirm ─► email_verified_at
+mobile ─ POST /v1/auth/registration/poll ─► pending | verified + сессия (обмен один раз)
+worker: identity-maintenance, 03:00 Europe/Minsk ─► удаление неподтверждённых старше 7 дней
+```
+
+- Токен ссылки — HMAC от id строки (`EMAIL_TOKEN_SECRET`), в БД только sha256; ретрай письма — та же ссылка.
+- Повтор письма (`resend`): пауза 60 с и ≤ 10 за сутки (Redis, атомарно через Lua); новая ссылка
+  отменяет прежние и продлевает токен регистрации.
+- Мутации аккаунта сериализуются `SELECT … FROM users … FOR UPDATE`; сроки сравниваются с `CLOCK`
+  приложения, а не с `now()` в SQL.
+- Ошибки — единый `ApiError` из contracts (глобальный фильтр), в ответах и логах нет SQL, стеков,
+  e-mail и токенов.
+
+## Outbox и очереди
+
+- Модуль пишет событие через `OutboxWriter.append(tx, …)` в той же транзакции, что и данные; в payload —
+  только id.
+- Публикатор (`infra/outbox`, только worker) раз в ~1 с берёт пачку `FOR UPDATE SKIP LOCKED`,
+  ставит задачу `queue.add(type, { outboxEventId }, { jobId: id })` и отмечает `published_at`.
+  Маршруты тип → очередь задаёт composition root (`worker.module.ts`); `infra` о модулях не знает.
+- Задачи идемпотентны: повторная публикация не дублирует задачу (тот же `jobId`), обработчик
+  перечитывает состояние из БД. Очистка опубликованных событий outbox — отдельная задача (позже).
+
 ## Дизайн-система (`packages/design-tokens`)
 
 Источник — CSS прототипов (19 экранов, визуальный слой «Ателье»).

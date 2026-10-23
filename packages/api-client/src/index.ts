@@ -1,5 +1,18 @@
-import { HealthResponse } from '@on-bike/contracts';
-import type { z } from 'zod';
+import {
+  ApiError,
+  ConfirmVerificationResponse,
+  type ErrorCode,
+  HealthResponse,
+  RegisterResponse,
+  RegistrationPollResponse,
+  ResendVerificationResponse,
+  VerificationLinkInfo,
+  type ConfirmVerificationRequest,
+  type RegisterRequest,
+  type RegistrationPollRequest,
+  type ResendVerificationRequest,
+} from '@on-bike/contracts';
+import { z } from 'zod';
 
 export interface ApiClientOptions {
   baseUrl: string;
@@ -7,12 +20,32 @@ export interface ApiClientOptions {
   fetchImpl?: typeof fetch;
 }
 
+/** Ошибка API для UI: код из контракта или `UNKNOWN`, если сервер новее клиента или ответил не API. */
+export interface ParsedApiError {
+  code: ErrorCode | 'UNKNOWN';
+  message: string;
+  details?: unknown;
+}
+
+const LooseApiError = z.object({ message: z.string().optional() });
+
+/** Старые версии приложения живут долго: незнакомый код — не падение, а `UNKNOWN`. */
+export function parseApiError(body: unknown): ParsedApiError {
+  const known = ApiError.safeParse(body);
+  if (known.success) return known.data;
+  const loose = LooseApiError.safeParse(body);
+  return { code: 'UNKNOWN', message: (loose.success && loose.data.message) || 'Unknown error' };
+}
+
 export class ApiHttpError extends Error {
+  readonly apiError: ParsedApiError;
+
   constructor(
     readonly status: number,
     readonly body: unknown,
   ) {
     super(`API ${status}`);
+    this.apiError = parseApiError(body);
   }
 }
 
@@ -46,8 +79,23 @@ export function createApiClient({ baseUrl, getAccessToken, fetchImpl = fetch }: 
     return schema.parse(body) as z.infer<S>;
   }
 
+  const get = <S extends z.ZodType>(path: string, schema: S) =>
+    request(path, schema, { method: 'GET' });
+  const post = <S extends z.ZodType>(path: string, schema: S, body: unknown) =>
+    request(path, schema, { method: 'POST', body: JSON.stringify(body) });
+
   return {
     health: () => request('/v1/health', HealthResponse),
+    register: (body: RegisterRequest) => post('/v1/auth/register', RegisterResponse, body),
+    /** Только чтение: открытие ссылки ничего не меняет на сервере. */
+    getVerificationLink: (token: string) =>
+      get(`/v1/auth/verification/${encodeURIComponent(token)}`, VerificationLinkInfo),
+    confirmVerification: (body: ConfirmVerificationRequest) =>
+      post('/v1/auth/verification/confirm', ConfirmVerificationResponse, body),
+    resendVerification: (body: ResendVerificationRequest) =>
+      post('/v1/auth/verification/resend', ResendVerificationResponse, body),
+    pollRegistration: (body: RegistrationPollRequest) =>
+      post('/v1/auth/registration/poll', RegistrationPollResponse, body),
   };
 }
 

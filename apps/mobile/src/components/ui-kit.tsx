@@ -12,6 +12,7 @@ import {
   Button,
   Checkbox,
   Chip,
+  DateField,
   EmptyState,
   Kicker,
   Pill,
@@ -55,6 +56,7 @@ const staleData = demoQuery({ data: 'stale', isError: true, error: new ApiNetwor
 export function UiKit() {
   const theme = useTheme();
   const [email, setEmail] = useState('');
+  const [birthDate, setBirthDate] = useState<string | undefined>('1991-03-14');
   const [consent, setConsent] = useState(true);
   const [darkPreview, setDarkPreview] = useState(false);
   const [gravel, setGravel] = useState(true);
@@ -68,6 +70,7 @@ export function UiKit() {
         <Section title={t('uiKit.section.buttons')}>
           <Button label={t('uiKit.primary')} onPress={noop} />
           <Button label={t('uiKit.secondary')} variant="secondary" onPress={noop} />
+          <Button label={t('uiKit.primary')} loading onPress={noop} />
           <Button label={t('uiKit.disabled')} disabled />
           <Button label={t('uiKit.disabled')} variant="secondary" disabled />
           <TextAction label={t('uiKit.textAction')} onPress={noop} />
@@ -120,11 +123,19 @@ export function UiKit() {
             onChangeText={setEmail}
             keyboardType="email-address"
           />
-          <TextField
+          <DateField
             label={t('uiKit.fieldBirth')}
-            value="12.05.2010"
+            value={birthDate}
+            onChange={setBirthDate}
+            helper={t('uiKit.fieldBirthHelper')}
+          />
+          <DateField
+            label={t('uiKit.fieldBirth')}
+            value="2010-05-12"
+            onChange={noop}
             error={t('uiKit.fieldBirthError')}
           />
+          <DateField label={t('uiKit.fieldDisabled')} value="1991-03-14" onChange={noop} disabled />
           <TextField label={t('uiKit.fieldDisabled')} value={t('uiKit.chipGravel')} disabled />
           <Checkbox label={t('uiKit.checkbox')} checked={consent} onChange={setConsent} />
           <Checkbox label={t('uiKit.disabled')} checked={false} onChange={noop} disabled />

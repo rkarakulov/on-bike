@@ -3,6 +3,7 @@ export { Banner, type BannerProps, type BannerTone } from './banner';
 export { Button, type ButtonProps } from './button';
 export { Checkbox, type CheckboxProps } from './checkbox';
 export { Chip, type ChipProps } from './chip';
+export { DateField, type DateFieldProps } from './date-field';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { Kicker, type KickerProps } from './kicker';
 export { Pill, type PillProps, type PillTone } from './pill';

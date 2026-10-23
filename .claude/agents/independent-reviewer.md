@@ -30,7 +30,7 @@ contracts-first и совместимость со старыми клиента
 append-only аудит · миграции (expand/contract, не при старте) · идемпотентность задач BullMQ ·
 обработка ошибок · edge cases · тесты (есть, честные, без тавтологий) · соответствие acceptance ·
 лишняя сложность · i18n · Documentation Sync (раздел 10 task.md vs diff) · дизайн-система (§4.11) ·
-состояния данных (§4.12). Определения измерений и severity — в `tools/ai_review/review_contract.md`.
+состояния данных (§4.12) · все платформы (§4.13). Определения измерений и severity — в `tools/ai_review/review_contract.md`.
 
 ## Выход
 

@@ -34,6 +34,13 @@ describe('витрина компонентов', () => {
       screen.getByRole('checkbox', { name: 'Соглашаюсь на обработку персональных данных' }),
     ).toBeChecked();
     expect(screen.getByRole('switch', { name: 'Тёмная тема' })).not.toBeChecked();
+    // новые компоненты системы: DateField (значение, ошибка, disabled) и Button loading
+    expect(screen.getAllByRole('button', { name: 'Дата рождения' })[0]).toHaveAccessibilityValue({
+      text: '14 марта 1991',
+    });
+    expect(screen.getByText('Регистрация доступна с 18 лет.')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Класс велосипеда' })).toBeDisabled();
+    expect(screen.getByRole('button', { busy: true })).toBeDisabled();
     // disabled-состояния тоже показаны на витрине
     expect(screen.getByRole('checkbox', { name: 'Недоступно' })).toBeDisabled();
     expect(screen.getByRole('switch', { name: 'Недоступно' })).toBeDisabled();

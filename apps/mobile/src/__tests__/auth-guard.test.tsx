@@ -1,0 +1,81 @@
+/// <reference types="jest" />
+// разбор входящего URL тем же кодом, что у Router на устройстве (публичный путь пакета `./build/*`)
+import { extractExpoPathFromURL } from 'expo-router/build/fork/extractPathFromURL';
+import { renderRouter, screen } from 'expo-router/testing-library';
+
+import { api } from '@/lib/api';
+
+import { LINK_TOKEN, session, storePendingRegistration, storeSession } from './auth-fixtures';
+import { appRoutes } from './app-routes';
+
+jest.mock('@/lib/api');
+jest.mock('expo-font', () => ({ useFonts: jest.fn(() => [true, null]) }));
+
+describe('гард сессии (Stack.Protected)', () => {
+  it('без сессии приложение открывает регистрацию, вкладок нет', async () => {
+    const router = await renderRouter(appRoutes, { initialUrl: '/' });
+
+    expect(await screen.findByRole('header', { name: 'Создать аккаунт' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/register');
+    expect(screen.queryByRole('tab', { name: 'Главная' })).toBeNull();
+  });
+
+  it('сессия из SecureStore с живым refresh — сразу Главная, регистрация недоступна', async () => {
+    storeSession();
+    const router = await renderRouter(appRoutes, { initialUrl: '/register' });
+
+    expect(await screen.findByRole('header', { name: 'Главная' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/');
+  });
+
+  it('просроченный refresh — как без сессии', async () => {
+    storeSession({ ...session, refreshTokenExpiresAt: '2020-01-01T00:00:00.000Z' });
+    await renderRouter(appRoutes, { initialUrl: '/' });
+
+    expect(await screen.findByRole('header', { name: 'Создать аккаунт' })).toBeOnTheScreen();
+  });
+
+  it('живая регистрация после перезапуска — сразу «Подтвердите e-mail»', async () => {
+    storePendingRegistration();
+    jest.mocked(api.pollRegistration).mockResolvedValue({ state: 'pending' });
+    const router = await renderRouter(appRoutes, { initialUrl: '/' });
+
+    expect(await screen.findByRole('header', { name: 'Подтвердите e-mail' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/check-email');
+  });
+
+  it('ссылка из письма открывается и без сессии, и с сессией', async () => {
+    jest.mocked(api.getVerificationLink).mockResolvedValue({ state: 'valid', email: 'a@b.by' });
+    const router = await renderRouter(appRoutes, { initialUrl: `/auth/verify/${LINK_TOKEN}` });
+    expect(await screen.findByRole('button', { name: 'Подтвердить e-mail' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe(`/auth/verify/${LINK_TOKEN}`);
+    expect(api.getVerificationLink).toHaveBeenCalledWith(LINK_TOKEN);
+  });
+
+  it.each([
+    ['Expo Go', `exp://127.0.0.1:8081/--/auth/verify/${LINK_TOKEN}`, true],
+    ['сборка', `onbike://auth/verify/${LINK_TOKEN}`, false],
+  ])('deep link из письма (%s) открывает экран ссылки с токеном', async (_name, url, expoGo) => {
+    jest.mocked(api.getVerificationLink).mockResolvedValue({ state: 'valid', email: 'a@b.by' });
+    // Router узнаёт Expo Go по нативному модулю ExpoGo и срезает `<host>/--/`
+    const runtime = globalThis as { expo?: { modules?: Record<string, unknown> } };
+    const modules = runtime.expo?.modules ?? {};
+    runtime.expo = { ...runtime.expo, modules: { ...modules, ...(expoGo ? { ExpoGo: {} } : {}) } };
+    const path = extractExpoPathFromURL([], url);
+    runtime.expo.modules = modules;
+
+    expect(path.replace(/^\//, '')).toBe(`auth/verify/${LINK_TOKEN}`);
+    const router = await renderRouter(appRoutes, { initialUrl: `/${path.replace(/^\//, '')}` });
+
+    expect(await screen.findByRole('button', { name: 'Подтвердить e-mail' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe(`/auth/verify/${LINK_TOKEN}`);
+    expect(api.getVerificationLink).toHaveBeenCalledWith(LINK_TOKEN);
+  });
+
+  it('с сессией ссылка тоже открывается (экран вне гарда)', async () => {
+    storeSession();
+    jest.mocked(api.getVerificationLink).mockResolvedValue({ state: 'verified', email: 'a@b.by' });
+    await renderRouter(appRoutes, { initialUrl: `/auth/verify/${LINK_TOKEN}` });
+    expect(await screen.findByRole('header', { name: 'E-mail подтверждён' })).toBeOnTheScreen();
+  });
+});

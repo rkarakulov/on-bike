@@ -1,5 +1,5 @@
 import { inset, motion, size, space, stroke } from '@on-bike/design-tokens';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
 import { textStyle } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme';
@@ -9,6 +9,8 @@ export interface ButtonProps {
   onPress?: () => void;
   variant?: 'primary' | 'secondary';
   disabled?: boolean;
+  /** идёт запрос (мутация, AGENTS.md §4.12): нажатие выключено, индикатор внутри, подпись остаётся */
+  loading?: boolean;
   /** вторичная кнопка поверх фото (белая) */
   onPhoto?: boolean;
 }
@@ -19,6 +21,7 @@ export function Button({
   onPress,
   variant = 'primary',
   disabled = false,
+  loading = false,
   onPhoto = false,
 }: ButtonProps) {
   const theme = useTheme();
@@ -41,8 +44,8 @@ export function Button({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
+      disabled={disabled || loading}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
@@ -53,6 +56,9 @@ export function Button({
         },
       ]}
     >
+      {loading ? (
+        <ActivityIndicator testID="button-indicator" size="small" color={foreground} />
+      ) : null}
       <Text style={[textStyle('button'), { color: foreground }]}>{label}</Text>
     </Pressable>
   );

@@ -9,5 +9,5 @@
     "strictPropertyInitialization": false,
     "outDir": "dist"
   },
-  "include": ["src", "drizzle.config.ts", "vitest.config.mts"]
+  "include": ["src", "test", "drizzle.config.ts", "vitest.config.mts"]
 }
