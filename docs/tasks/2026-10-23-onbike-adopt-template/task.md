@@ -148,7 +148,7 @@ Architect, 2026-10-23. Проверено рендером `v0.1.2` с отве�
 
 ## 8.3 Security checklist
 Затронуты `.claude/settings.json` (deny-лист), CI, `.npmrc`, `infra/`. Deny-лист после F3b не слабее текущего (diff),
-`.npmrc` без токена, CI — те же SHA; у job `secrets` добавляется `pull-requests: read` (нужно gitleaks на PR), секретов
+`.npmrc` без токена, CI — actions закреплены по SHA (раньше были теги — усиление); у job `secrets` добавляется `pull-requests: read` (нужно gitleaks на PR), секретов
 в файлах нет (gitleaks).
 
 ## 9. Acceptance Criteria
