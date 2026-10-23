@@ -1,14 +1,14 @@
 /// <reference types="jest" />
-// Дизайн-система с настоящим брендом on-bike (темы, шрифты, i18n) — первым, до модулей экранов.
+// Дизайн-система с настоящим брендом проекта (темы, шрифты, i18n) — первым, до модулей экранов.
 import './src/theme/design-system';
-// Моки нативных модулей для всех тестов: в jest нет ни Keychain, ни NetInfo, ни нативного пикера.
+// Моки нативных модулей для всех тестов: в jest нет ни NetInfo, ни нативного пикера.
 import { onlineManager } from '@tanstack/react-query';
 
 import { resetRegistrationStore } from './src/features/auth/registration-store';
 import { resetSessionStore } from './src/features/auth/session-store';
 
+// в jest нет Keychain: in-memory хранилище; тесты читают его через jest.requireMock('expo-secure-store').__store
 jest.mock('expo-secure-store', () => {
-  // in-memory хранилище; тесты читают его через jest.requireMock('expo-secure-store').__store
   const store = new Map<string, string>();
   return {
     __store: store,
@@ -39,11 +39,12 @@ jest.mock('@react-native-community/datetimepicker', () => {
   };
 });
 
-// до теста, а не после: в afterEach экраны прошлого теста ещё смонтированы (сброс стора вне act)
+// onlineManager — синглтон модуля: каждый тест начинает как свежий запуск приложения
 beforeEach(() => {
+  onlineManager.setOnline(true);
+  // сторы сессии и регистрации — тоже синглтоны; сброс до теста, а не после: в afterEach экраны
+  // прошлого теста ещё смонтированы (сброс стора вне act)
   jest.requireMock<{ __store: Map<string, string> }>('expo-secure-store').__store.clear();
-  // сторы и onlineManager — синглтоны модулей: каждый тест начинает как свежий запуск приложения
   resetSessionStore();
   resetRegistrationStore();
-  onlineManager.setOnline(true);
 });

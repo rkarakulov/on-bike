@@ -14,7 +14,7 @@ import { schema } from './db';
 import { identityOutboxRoutes, IdentityWorkerModule } from './modules/identity';
 import { TracksWorkerModule } from './modules/tracks';
 
-/** Отдельный процесс: CPU-тяжёлые задачи (ffmpeg, Skia, гео) не блокируют API. */
+/** Отдельный процесс: задачи очередей (письма, тяжёлая обработка) не блокируют API. */
 @Module({
   imports: [
     ConfigModule.forRoot(env),
@@ -23,7 +23,7 @@ import { TracksWorkerModule } from './modules/tracks';
     QueueModule,
     MailModule,
     OutboxModule,
-    // composition root: какие события outbox в какие очереди
+    // composition root: какие события outbox в какие очереди (`{ ...<модуль>OutboxRoutes }`)
     OutboxPublisherModule.forRoot({ routes: { ...identityOutboxRoutes } }),
     TracksWorkerModule,
     IdentityWorkerModule,

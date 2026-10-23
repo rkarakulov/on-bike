@@ -9,8 +9,12 @@ export { PageQuery, RateLimitedDetails, Uuid } from '@rkarakulov/contracts-core'
 /** Коды базы: их тексты и обработку даёт инфраструктура базы (фильтр ошибок api-kit, клиент). */
 export { BASE_ERROR_CODES, type BaseErrorCode } from '@rkarakulov/contracts-core';
 
-/** Коды ошибок API: коды базы + коды on-bike (регистрация). Порядок — база первой. */
+/**
+ * Коды ошибок API: коды базы + коды проекта. Порядок — база первой, свои — только в конец списка
+ * (установленные клиенты знают прежний состав). Тексты своих кодов — apps/api/src/error-messages.ts.
+ */
 export const { ErrorCode, ApiError } = defineErrorCodes([
+  // регистрация on-bike
   'EMAIL_TAKEN',
   'EMAIL_UNAVAILABLE',
   'LINK_EXPIRED',
@@ -19,8 +23,8 @@ export type ErrorCode = z.infer<typeof ErrorCode>;
 export type ApiError = z.infer<typeof ApiError>;
 
 /**
- * Коды ошибок полей: коды базы (`REQUIRED`, `INVALID`, …) + коды on-bike. Сообщение zod-схемы = код,
- * текст для человека выбирает клиент (i18n). `fieldError` — с кодами on-bike, не базовый.
+ * Коды ошибок полей: коды базы (`REQUIRED`, `INVALID`, …) + коды проекта. Сообщение zod-схемы = код,
+ * текст для человека выбирает клиент (i18n). `fieldError` — с кодами проекта, не базовый.
  */
 export const { FieldErrorCode, ValidationErrorDetails, fieldError } = defineFieldErrorCodes([
   'AGE_BELOW_18',

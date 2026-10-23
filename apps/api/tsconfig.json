@@ -1,5 +1,5 @@
 {
-  "extends": "@on-bike/config/tsconfig.library.json",
+  "extends": "@rkarakulov/config/tsconfig.library.json",
   // Только проверка типов (сборка — SWC в CommonJS). Пакеты базы @rkarakulov/* — ESM: с NodeNext tsc
   // берёт для кода api CJS-декларации drizzle-orm (.d.cts), а для деклараций api-kit — ESM (.d.ts), и
   // типы одной библиотеки не совместимы. Bundler — одни декларации (import) для всех; в рантайме
@@ -7,6 +7,8 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    // исходники workspace-пакетов (@on-bike/*) — без сборки dist
+    "customConditions": ["@on-bike/source"],
     "types": ["node"],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,

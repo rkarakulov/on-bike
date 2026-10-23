@@ -11,3 +11,5 @@ apps/app/assets
 .claude
 .agents
 .codex
+.ai
+.copier-answers.yml

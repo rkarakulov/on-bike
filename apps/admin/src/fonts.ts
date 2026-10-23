@@ -1,4 +1,4 @@
-// Самохостинг шрифтов дизайн-системы; начертания = fontWeights из @on-bike/design-tokens.
+// Самохостинг шрифтов дизайн-системы; начертания = fontWeights пакета design-tokens проекта.
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/500.css';
 import '@fontsource/inter/600.css';

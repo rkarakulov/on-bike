@@ -1,17 +1,19 @@
-// часовой пояс тестов — явно (rules/tests.md): восточнее UTC, чтобы ловить сдвиг дат через toISOString()
+const { transformIgnorePatterns } = require('jest-expo/jest-preset');
+
+// часовой пояс тестов — явно: восточнее UTC и без перехода на летнее время, чтобы ловить сдвиг
+// дат через toISOString() и не зависеть от сезона; on-bike — Europe/Minsk (AGENTS.md §4.7)
 process.env.TZ = 'Europe/Minsk';
 
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',
   testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
-  // моки нативных модулей (secure-store, netinfo, datetimepicker) — общие для всех тестов
+  // дизайн-система проекта и моки нативных модулей — общие для всех тестов
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-  // список пресета jest-expo 58 (jest-preset.js) + пакеты базы @rkarakulov/* (ESM) — их тоже транспилируем
+  // список пресета jest-expo целиком + пакеты базы @rkarakulov/* (ESM) — их тоже транспилируем
   transformIgnorePatterns: [
-    '/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|@rkarakulov))',
-    '/node_modules/react-native-reanimated/plugin/',
-    '/node_modules/@react-native/babel-preset/',
+    transformIgnorePatterns[0].replace('(?!(', '(?!(@rkarakulov/|'),
+    ...transformIgnorePatterns.slice(1),
   ],
   // workspace-пакеты — из исходников, как в Metro
   testEnvironmentOptions: {

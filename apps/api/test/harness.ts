@@ -11,7 +11,7 @@ import { testEnv } from './test-env';
 
 export { DAY, FakeMailer, HOUR, MINUTE, TestClock, waitForLockWaiter } from '@rkarakulov/test-kit';
 
-/** Стенд API и worker on-bike на реальных PostgreSQL (`*_test`) и Redis (БД 1). */
+/** Стенд API и worker проекта на реальных PostgreSQL (`*_test`) и Redis (БД 1). */
 export type Harness = ApiHarness<Env, typeof schema>;
 
 export function createHarness(envOverrides: Parameters<typeof testEnv>[0] = {}): Promise<Harness> {

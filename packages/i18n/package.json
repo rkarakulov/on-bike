@@ -2,7 +2,7 @@
   "name": "@on-bike/i18n",
   "version": "0.0.0",
   "private": true,
-  "description": "Строки интерфейса (ru, формальное «вы»)",
+  "description": "Строки интерфейса (ru, формальное «вы») поверх словаря базы",
   "type": "module",
   "exports": {
     ".": {
@@ -23,7 +23,7 @@
     "@rkarakulov/i18n-core": "catalog:"
   },
   "devDependencies": {
-    "@on-bike/config": "workspace:*",
+    "@rkarakulov/config": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

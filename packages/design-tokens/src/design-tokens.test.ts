@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { contrastPairs, contrastRatio } from './contrast.ts';
 import { designSystemCss } from './css.ts';
-import { themes, type ThemeName } from './themes.ts';
+import { themes, type ThemeName } from './brand.ts';
 
 /** CSS-переменные прототипов (`:root,[data-theme=light]` / `[data-theme=dark]`) → семантические роли. */
 const prototype: Record<'light' | 'dark', Record<string, [string, string]>> = {
@@ -68,8 +68,8 @@ describe('семантика совпадает с CSS прототипов', ()
     }
   }
 
-  it('protocol = светлая семантика + тёмная навигация', () => {
-    const { nav, ...roles } = themes.protocol;
+  it('panel = светлая семантика + тёмная навигация', () => {
+    const { nav, ...roles } = themes.panel;
     expect(roles).toEqual(themes.light);
     expect(nav).toMatchObject({
       background: '#111111',
@@ -100,16 +100,16 @@ describe('контраст WCAG — темы on-bike', () => {
     );
   });
 
-  it('пары навигации — только у protocol', () => {
+  it('пары навигации — только у panel', () => {
     expect(contrastPairs('light').some((p) => p.name.startsWith('nav.'))).toBe(false);
-    expect(contrastPairs('protocol').some((p) => p.name.startsWith('nav.'))).toBe(true);
+    expect(contrastPairs('panel').some((p) => p.name.startsWith('nav.'))).toBe(true);
   });
 });
 
 describe('CSS для веба (обёртка с брендом on-bike)', () => {
   const rootBlock = (css: string) => css.slice(0, css.indexOf('\n}'));
 
-  it('переменные темы: семантика и группы on-bike, навигация только у protocol', () => {
+  it('переменные темы: семантика и группы on-bike, навигация только у panel', () => {
     const light = designSystemCss({ theme: 'light' });
     expect(light).toContain('--color-text-primary: #111111;');
     expect(light).toContain('--color-map-route: #111111;');
@@ -119,11 +119,11 @@ describe('CSS для веба (обёртка с брендом on-bike)', () =>
     );
     expect(light).not.toContain('--nav-');
     expect(designSystemCss({ theme: 'dark' })).toContain('color-scheme: dark;');
-    expect(designSystemCss({ theme: 'protocol' })).toContain('--nav-background: #111111;');
+    expect(designSystemCss({ theme: 'panel' })).toContain('--nav-background: #111111;');
   });
 
-  it('плотность — только у темы protocol', () => {
-    expect(rootBlock(designSystemCss({ theme: 'protocol' }))).toContain(
+  it('плотность — только у темы panel', () => {
+    expect(rootBlock(designSystemCss({ theme: 'panel' }))).toContain(
       '--density-control-height: 36px;',
     );
     expect(designSystemCss({ theme: 'light', darkTheme: 'dark' })).not.toContain('--density-');

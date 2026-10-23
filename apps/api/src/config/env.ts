@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 const Secret = z.string().min(32, 'не короче 32 символов');
 
-/** Окружение on-bike: основа базы (процесс, PostgreSQL, Redis, TRUST_PROXY) + почта и свои переменные. */
+/** Окружение проекта: основа базы (процесс, PostgreSQL, Redis, TRUST_PROXY) + почта; свои переменные — сюда. */
 export const env = defineEnv({
   ...mailEnvShape,
   /** Подпись access JWT (HS256). */

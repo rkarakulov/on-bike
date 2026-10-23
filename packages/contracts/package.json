@@ -2,7 +2,7 @@
   "name": "@on-bike/contracts",
   "version": "0.0.0",
   "private": true,
-  "description": "zod-схемы API: единый источник правды для api, admin, mobile, landing",
+  "description": "zod-схемы API: единый источник правды для api, app и admin",
   "type": "module",
   "exports": {
     ".": {
@@ -24,7 +24,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@on-bike/config": "workspace:*",
+    "@rkarakulov/config": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

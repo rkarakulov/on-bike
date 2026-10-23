@@ -1,4 +1,4 @@
-/* Значения — только переменные из @on-bike/design-tokens (installDesignSystem), без копий. */
+/* Значения — только переменные дизайн-системы проекта (installDesignSystem), без копий. */
 :root {
   font-family: var(--font-text);
   color: var(--color-text-primary);
@@ -38,7 +38,7 @@ body {
   color: var(--color-status-error);
 }
 
-/* кнопка «Протокола» (.wp-btn прототипа) */
+/* кнопка веб-панели (тема panel, плотность 36 px) */
 .button {
   min-height: var(--density-control-height);
   padding: 0 var(--inset-md);

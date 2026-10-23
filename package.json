@@ -1,6 +1,7 @@
 {
   "name": "on-bike",
   "private": true,
+  "author": "Roman Karakulov",
   "packageManager": "pnpm@11.18.0",
   "engines": {
     "node": ">=24"
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@eslint/js": "catalog:",
+    "@rkarakulov/config": "catalog:",
     "dependency-cruiser": "catalog:",
     "eslint": "catalog:",
     "eslint-config-expo": "catalog:",
