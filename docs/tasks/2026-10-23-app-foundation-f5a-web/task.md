@@ -147,6 +147,14 @@ data-loaders,middleware}, guides/progressive-web-apps).
 (серверный рендер картинки — F5b/ADR-0001).
 
 ## 8.2 Deviations from spec
+- A (ff1a294..b1cab7a): a11y-состояния 8 компонентов ui через `aria-*` (react-native-web 0.21 игнорирует
+  `accessibilityState`), `@types/react-dom` в каталоге, `tsconfig.web.json` для web-тестов, web `DateField` — `onChange('')`
+  при очистке, подсказка через `aria-description`. Приняты автором.
+- B (1ef8626..d804eba): jest-проект `server` для Express/SW; генератор SW в `apps/app/scripts`; найденные смоуком исправления
+  вне §11 — `online-manager.web` (SSR отдавал «Нет соединения» → ошибка гидрации #418), `cacheVersion` Metro с каталогом
+  проекта (loader пропадал в другой копии проекта), падение `server/main.ts` без `EXPO_PUBLIC_API_URL`, `aria-selected` в
+  TabBar, `turbo build:web` без кеша; i18n шаблона только ru; HTTP-проверки через `fetch`. Приняты автором.
+  Follow-up в ui: рассинхрон гидрации `AvatarStack` (`marginLeft` → `marginInlineStart` в react-native-web) на dev `/ui-kit`.
 - Рекомендации architect R1–R13 (§8.1) приняты автором (автономный режим, 2026-10-23), в т.ч. расширение scope:
   `CORS_ORIGINS` в API шаблона (R8 — web в dev и API на разных origin); данные экранов — TanStack Query на всех
   платформах, loader на web — только посев SSR (`useLoaderSeed`), OG — `generateMetadata` (R5); импорты в `@rkarakulov/ui`
