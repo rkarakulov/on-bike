@@ -11,7 +11,10 @@ export const IDENTITY_POLICY = {
   /** Регистрации с одного IP [ASSUMPTION: CGNAT, поэтому не меньше]. */
   registerPerIpLimit: { limit: 20, windowSec: HOUR_MS / 1000 },
   accessTokenTtlMs: 15 * MINUTE_MS,
+  /** Срок сессии от выдачи; ротация refresh его не продлевает (Q2 F5b: продление — слайс 2). */
   refreshTokenTtlMs: 30 * DAY_MS,
+  /** Ротация refresh с одного IP: перезагрузки вкладок и повторы — с запасом, перебор — нет (R6 F5b). */
+  refreshPerIpLimit: { limit: 60, windowSec: MINUTE_MS / 1000 },
   /** Неподтверждённые аккаунты удаляются через 7 дней (V-10). */
   unverifiedRetentionMs: 7 * DAY_MS,
   cleanupBatchSize: 1_000,

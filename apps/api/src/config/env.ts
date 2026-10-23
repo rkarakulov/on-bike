@@ -5,7 +5,8 @@ const Secret = z.string().min(32, 'не короче 32 символов');
 /**
  * Origin-ы, которым API разрешает запросы из браузера (CORS), через запятую: web в dev ходит с другого
  * порта (`expo start` — :8081, API — :3000). Пусто — CORS выключен: в проде web и API за одним origin
- * (обратный прокси). Только origin (схема, хост, порт) — без пути; cookie и credentials не разрешаются.
+ * (обратный прокси). Только origin (схема, хост, порт) — без пути. Этим origin-ам разрешены credentials
+ * (cookie сессии web) и они же — доверенные для CSRF-защиты (`http-app.ts`).
  */
 const corsOrigins = z
   .string()

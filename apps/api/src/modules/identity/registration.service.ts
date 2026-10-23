@@ -4,7 +4,7 @@ import {
   type RateLimitedDetails,
   type RegisterRequest,
   type RegisterResponse,
-  type RegistrationPollResponse,
+  type Session,
 } from '@on-bike/contracts';
 import { CLOCK, type Clock, ENV, isUniqueViolation, RateLimiter } from '@rkarakulov/api-kit';
 
@@ -94,7 +94,9 @@ export class RegistrationService {
   }
 
   /** `pending` до подтверждения; после — сессия ровно один раз, дальше токен не действует (401). */
-  async poll(registrationToken: string): Promise<RegistrationPollResponse> {
+  async poll(
+    registrationToken: string,
+  ): Promise<{ state: 'pending' } | { state: 'verified'; session: Session }> {
     const tokenHash = sha256(registrationToken);
     const now = this.clock.now();
     const found = await this.repository.findRegistrationByHash(this.repository.db, tokenHash);

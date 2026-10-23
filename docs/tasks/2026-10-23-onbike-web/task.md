@@ -216,6 +216,13 @@ update --defaults --vcs-ref v0.2.0 --skip-answered`). Факты:
   теряется при перезагрузке. Cookie `__Secure-onbike_rt`, `Path=/v1/auth/session`; CSRF — встроенный
   `enableCsrfProtection` NestJS 12.2 (Fetch Metadata + Origin) с `trustedOrigins` из `CORS_ORIGINS`; CORS `credentials`
   только для списка origin. Q1 (иконка бренда) — отдельная задача; Q2 (продление сессии) — слайс 2 онбординга.
+- **S4, префикс `__Secure-` в Chrome на `http://127.0.0.1` — принимается, имя `__Secure-onbike_rt` остаётся.**
+  Проверка 2026-10-23: Playwright 1.64.1 + Google Chrome 156.0.8078.48 (`channel: 'chrome'`), страница
+  `http://127.0.0.1:8099`, `fetch(..., { credentials: 'include' })` на API `http://127.0.0.1:3999` (как dev/e2e: тот же
+  хост, другой порт). Ответ `Set-Cookie: __Secure-onbike_rt=…; Max-Age=600; Path=/v1/auth/session; HttpOnly; Secure;
+  SameSite=Strict` сохранён; cookie ушла на `POST /v1/auth/session/refresh` и не ушла на `/v1/auth/register`;
+  `document.cookie` пуст. Chromium Playwright (`PW_CHANNEL=chromium`) не проверялся — браузер нужной ревизии не
+  установлен; Safari по `http` Secure-cookie не хранит (§8, runbook).
 
 ## 8.3 Security checklist
 Затронуты сессии и аутентификация (web cookie, CSRF, ротация refresh), публичные страницы (SSR, OG, ссылки с
@@ -478,3 +485,65 @@ O — как F3b.
 **Follow-ups в app-foundation:** `_commit` после `copier update` — снова тег пакета, а не `v0.2.0` (повтор F3b S5(б));
 runbook шаблона создаёт `apps/app/.env` после `pnpm build:web`, а сборка без `EXPO_PUBLIC_API_URL` уже падает —
 поменять порядок шагов.
+
+### S4 — API web-сессия (coder A, 2026-10-23)
+**Эндпоинты** (`modules/identity`):
+- `POST /v1/auth/registration/poll` — `sessionTransport: 'cookie'` → `Set-Cookie` + тело `CookieSession`;
+  без поля / `body` → прежний `Session`, без cookie (`AuthController` → `SessionCookie.deliver`).
+- `POST /v1/auth/session/refresh` (`SessionController`) — `refreshToken` в теле → ротация, ответ `Session`; иначе
+  refresh из cookie (`@Cookies(SESSION_COOKIE.name)`, `OpaqueToken.safeParse` до лимита и БД) → новая cookie +
+  `CookieSession`. 401 по cookie → `clearCookie`; 429 cookie не трогает.
+- `POST /v1/auth/session/sign-out` — 204 без тела всегда (тело или cookie; мусор/неизвестный/повтор — тоже 204);
+  по cookie — `clearCookie`.
+- `Cache-Control: no-store` — на 200/204/401 сессии (ставится до работы обработчика).
+
+**Cookie** (`session-cookie.ts`, один набор атрибутов для set/clear): `__Secure-onbike_rt=<refresh>; Max-Age=<остаток
+срока сессии, с>; Path=/v1/auth/session; HttpOnly; Secure; SameSite=Strict`, без `Domain`; имя и путь — `SESSION_COOKIE`.
+Запись — `HttpAdapterHost.httpAdapter.setCookie/clearCookie/setHeader` (NestJS 12.2, без пакетов, без подписи).
+
+**Ротация** (`SessionService.rotate` → `IdentityRepository.rotateSession`): один условный `UPDATE sessions SET
+refresh_token_hash = new WHERE hash = old AND revoked_at IS NULL AND expires_at > now AND пользователь не удалён
+RETURNING` — sid и `expires_at` прежние (срок не продлевается), гонка — ровно один 200. Access не живёт дольше
+сессии (`min(now + 15 мин, expires_at)`). Отзыв — `revokeSession` (`revoked_at`, идемпотентно). Лимит refresh —
+`IDENTITY_POLICY.refreshPerIpLimit` 60/мин по HMAC IP (`RateLimiter`), 429 + `retryAfterSec`.
+
+**HTTP** (`http-app.ts`, `main.ts`): `configureOnBikeHttp(app, env)` = `configureHttpApp` (`/v1`) + `enableCors({ origin:
+CORS_ORIGINS, credentials: true })` при непустом списке + `enableCsrfProtection({ trustedOrigins: CORS_ORIGINS })`
+глобально. JSDoc `CORS_ORIGINS` в `config/env.ts` — по R8.
+
+**Тесты (Security checklist §8.3):**
+- п. 1 AuthN/AuthZ — `session.int.test.ts`: refresh по cookie/телу, старый токен → 401, отозванная/истёкшая/удалённый
+  пользователь → 401, гонка 5 refresh → `[200, 401×4]`, sign-out → refresh 401; атрибуты cookie poll/refresh;
+  `http-app.test.ts`: cross-site и form-POST → 403 `FORBIDDEN` (`ApiError`), same-site с недоверенного порта → 403,
+  старый браузер (Origin ≠ Host) → 403, same-origin / native без заголовков / trusted dev-origin → 200, в проде
+  dev-origin → 403, GET cross-site → 200; preflight CORS: `Allow-Origin` + `Allow-Credentials` для списка, чужому
+  origin — без `Allow-Origin`, пустой список — без CORS.
+- п. 2 Входные данные — `sessionTransport` вне enum → 400; `refreshToken` в теле не по схеме → 400;
+  `session.controller.test.ts`: нет cookie / мусор / 42 символа → 401 и сброс без вызова сервиса (ни лимита, ни БД).
+- п. 3 Данные наружу — тело web без `refreshToken` (poll и refresh, точный набор ключей); sign-out — 204 без тела;
+  `no-store`; `session-cookie.test.ts` — точные атрибуты set/clear, без `Domain`.
+- п. 4 Злоупотребления — 60 refresh → 61-й 429 с `retryAfterSec`, без сброса cookie; шесть причин 401 — один и тот
+  же ответ (без оракула).
+- п. 5 Секреты — в БД после ротации только `sha256(новый refresh)`; токены не логируются (контроллер/сервис не пишут
+  логов, фильтр api-kit не логирует тела).
+- п. 6 Аудит — `revoked_at` при выходе, смена хеша при ротации (тесты выше).
+- Мутационная проверка: без условия «пользователь не удалён» в `rotateSession` int-тест падает.
+
+**Проверки:** `pnpm --filter @on-bike/api typecheck` — EXIT 0; `pnpm exec eslint apps/api` — EXIT 0 (скрипта `lint`
+у пакета нет — линт из корня); `prettier --check apps/api` — ok; `pnpm arch:check` — 0 нарушений (212 модулей);
+`pnpm --filter @on-bike/api test` — 20 файлов, 99 тестов (было 66). Полный `pnpm check` — оркестратор после S3b.
+
+**Отклонения:** (1) `@fastify/cors` шлёт `Access-Control-Allow-Credentials: true` и чужому origin (без
+`Allow-Origin` — браузер ответ не отдаёт); тест проверяет отсутствие `Allow-Origin`. (2) Атрибуты cookie — константа
+в `session-cookie.ts`, из `IDENTITY_POLICY` — только срок (`Max-Age` = остаток `refreshTokenTtlMs`) и лимит refresh.
+(3) Access ограничен сроком сессии (`min`) — сверх таблицы, чтобы access не переживал сессию после ротации в конце срока.
+(4) Конструктор `SessionService` += `RateLimiter` (unit-тест обновлён аргументом).
+
+**Для S3b:** web — `pollRegistration` с `sessionTransport: 'cookie'`, `refreshSession()`/`signOut()` с `{}` и
+`credentials: 'include'`; 401 refresh приходит с `clearCookie` — signedOut; 429 — не выход (повтор позже).
+Dev web — `http://127.0.0.1:8081` (в `CORS_ORIGINS` `.env.example` уже есть). **Для S5:** e2e — `CORS_ORIGINS` API
+должен содержать origin web-сервера смоука (`http://127.0.0.1:8090`/`8091` — в `.env.example` есть; в CI задать явно),
+иначе POST с web — 403 CSRF; Playwright — `channel: 'chrome'` (Chromium нужной ревизии `__Secure-` не проверялся).
+**Follow-ups в app-foundation:** хук `configureApp` в `createApiHarness` (int-тесты identity идут без CSRF/CORS — CSRF
+проверен unit-тестом `http-app.test.ts`); опция `credentials` CORS в шаблоне — когда сессия появится в базе.
+**Слайс 2:** reuse detection refresh, продление сессии, native-клиент refresh/sign-out.
