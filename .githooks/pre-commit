@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Быстрый гейт: секреты и формат только по staged-файлам.
+# Быстрый гейт: маркеры конфликтов (copier update), секреты и формат только по staged-файлам.
 set -euo pipefail
+
+# маркеры конфликтов и пробельные ошибки — в т.ч. после `copier update`
+git diff --cached --check
 
 if command -v gitleaks >/dev/null 2>&1; then
   gitleaks git --pre-commit --staged --redact --no-banner

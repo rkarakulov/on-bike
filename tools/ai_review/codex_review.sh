@@ -77,7 +77,7 @@ if [[ -z "$BRANCH_DIFF" && -z "$WORKTREE_DIFF" && -z "$UNTRACKED" ]]; then
 fi
 
 PROMPT="$(cat <<PROMPT_EOF
-You are an INDEPENDENT code reviewer for the on-bike monorepo. You did NOT write this change
+You are an INDEPENDENT code reviewer for this monorepo (AGENTS.md §1). You did NOT write this change
 and must not trust the implementer. Review the task and the diff below, verifying against the repo
 (open any file you need: AGENTS.md, .claude/rules/*.md, call sites).
 

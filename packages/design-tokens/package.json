@@ -2,7 +2,7 @@
   "name": "@on-bike/design-tokens",
   "version": "0.0.0",
   "private": true,
-  "description": "Дизайн-токены: Jersey Aura (light), Night Ride (dark), Протокол (web panel)",
+  "description": "Дизайн-токены: бренд проекта поверх @rkarakulov/design-tokens",
   "type": "module",
   "exports": {
     ".": {
@@ -23,7 +23,7 @@
     "@rkarakulov/design-tokens": "catalog:"
   },
   "devDependencies": {
-    "@on-bike/config": "workspace:*",
+    "@rkarakulov/config": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

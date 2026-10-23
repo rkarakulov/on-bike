@@ -3,7 +3,7 @@ import { ApiError, BASE_ERROR_CODES, ErrorCode } from '@on-bike/contracts';
 import { ApiExceptionFilter, isDomainError, type ApiErrorMessages } from '@rkarakulov/api-kit';
 import { describe, expect, it } from 'vitest';
 
-import { domainError, ON_BIKE_ERROR_MESSAGES } from './error-messages';
+import { domainError, PROJECT_ERROR_MESSAGES } from './error-messages';
 
 /** Ответ фильтра ошибок базы со словарём on-bike — как в AppModule. */
 function respond(error: unknown) {
@@ -23,7 +23,7 @@ function respond(error: unknown) {
   const host = {
     switchToHttp: () => ({ getResponse: () => reply, getRequest: () => ({}) }),
   } as unknown as ArgumentsHost;
-  new ApiExceptionFilter(ON_BIKE_ERROR_MESSAGES).catch(error, host);
+  new ApiExceptionFilter(PROJECT_ERROR_MESSAGES).catch(error, host);
   return { status, body: ApiError.parse(body) };
 }
 
@@ -32,7 +32,7 @@ describe('сообщения кодов ошибок on-bike', () => {
     const projectCodes = ErrorCode.options.filter(
       (code) => !(BASE_ERROR_CODES as readonly string[]).includes(code),
     );
-    const messages: ApiErrorMessages = ON_BIKE_ERROR_MESSAGES;
+    const messages: ApiErrorMessages = PROJECT_ERROR_MESSAGES;
     expect(projectCodes).not.toEqual([]);
     for (const code of projectCodes) {
       expect(messages[code], code).toMatch(/\S/);

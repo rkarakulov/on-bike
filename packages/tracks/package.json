@@ -21,7 +21,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@on-bike/config": "workspace:*",
+    "@rkarakulov/config": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

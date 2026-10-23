@@ -63,16 +63,13 @@
       "Read(./**/.env.stage)"
     ]
   },
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/completion-gate.sh"
-          }
-        ]
-      }
-    ]
+  "extraKnownMarketplaces": {
+    "app-foundation": {
+      "source": { "source": "github", "repo": "rkarakulov/app-foundation" }
+    }
+  },
+  "enabledPlugins": {
+    "app-dev-kit@app-foundation": true,
+    "superpowers@claude-plugins-official": true
   }
 }

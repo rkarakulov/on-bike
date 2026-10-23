@@ -2,10 +2,10 @@ import type { BaseErrorCode, ErrorCode } from '@on-bike/contracts';
 import { DomainError } from '@rkarakulov/api-kit';
 
 /**
- * Тексты кодов ошибок on-bike для фильтра ошибок базы (`API_ERROR_MESSAGES` в AppModule).
- * Коды базы фильтр озвучивает сам; без записи здесь код on-bike получил бы общий текст по статусу.
+ * Тексты кодов ошибок проекта для фильтра ошибок базы (`API_ERROR_MESSAGES` в AppModule).
+ * Коды базы фильтр озвучивает сам; новый код в контракте без записи здесь — ошибка typecheck.
  */
-export const ON_BIKE_ERROR_MESSAGES = {
+export const PROJECT_ERROR_MESSAGES = {
   EMAIL_TAKEN: 'E-mail уже зарегистрирован',
   EMAIL_UNAVAILABLE: 'E-mail недоступен для регистрации',
   LINK_EXPIRED: 'Ссылка устарела',

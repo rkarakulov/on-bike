@@ -19,7 +19,9 @@ export function App() {
         <span className="t-meta muted">{t('admin.apiStatus')}</span>
         {health.data !== undefined ? (
           <>
-            <span className="t-meta">{health.data.status}</span>
+            <span className="t-meta">
+              {t(health.data.status === 'ok' ? 'apiStatus.ok' : 'apiStatus.degraded')}
+            </span>
             {health.isError ? (
               <span role="status" className="status-error">
                 <span className="t-meta">{t('state.staleTitle')}</span>

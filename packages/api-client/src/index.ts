@@ -26,13 +26,12 @@ export {
   parseApiError,
 } from '@rkarakulov/api-client-core';
 
-/** Ошибка API для UI: код из контракта on-bike или `UNKNOWN`, если сервер новее клиента или ответил не API. */
+/** Ошибка API для UI: код из контракта проекта или `UNKNOWN`, если сервер новее клиента или ответил не API. */
 export type ParsedApiError = BaseParsedApiError<ErrorCode>;
 
 /**
- * Разобранная ошибка ответа сервера по кодам on-bike; `undefined` — ответа не было (сеть, прочее).
+ * Разобранная ошибка ответа сервера по кодам проекта; `undefined` — ответа не было (сеть, прочее).
  * Разбирает `body` заново: код не зависит от того, кто создал `ApiHttpError` (клиент, тест, другой пакет).
- * Подкласс `ApiHttpError` здесь — ловушка: клиент базы создаёт экземпляры базового класса.
  */
 export function apiErrorOf(error: unknown): ParsedApiError | undefined {
   return error instanceof ApiHttpError ? parseApiError(error.body, ApiError) : undefined;

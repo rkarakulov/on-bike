@@ -13,7 +13,7 @@ import {
 
 import { env } from './config/env';
 import { schema } from './db';
-import { ON_BIKE_ERROR_MESSAGES } from './error-messages';
+import { PROJECT_ERROR_MESSAGES } from './error-messages';
 import { HealthModule } from './modules/health';
 import { IdentityModule } from './modules/identity';
 import { TracksModule } from './modules/tracks';
@@ -30,10 +30,10 @@ import { TracksModule } from './modules/tracks';
     TracksModule,
     IdentityModule,
   ],
-  // единый формат ошибок ApiError для всех модулей; тексты кодов on-bike — рядом с фильтром
+  // единый формат ошибок ApiError для всех модулей; тексты кодов проекта — рядом с фильтром
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
-    { provide: API_ERROR_MESSAGES, useValue: ON_BIKE_ERROR_MESSAGES },
+    { provide: API_ERROR_MESSAGES, useValue: PROJECT_ERROR_MESSAGES },
   ],
 })
 export class AppModule {}

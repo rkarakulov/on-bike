@@ -38,7 +38,6 @@ catalog:
   '@nestjs/core': ^12.2.0
   '@nestjs/platform-fastify': ^12.2.0
   '@nestjs/testing': ^12.2.0
-  '@nestjs/config': ^12.0.1
   '@nestjs/bullmq': ^12.0.0
   bullmq: ^6.4.0
   ioredis: ^6.0.0
@@ -50,14 +49,15 @@ catalog:
   rxjs: ^7.8.2
   unplugin-swc: ^2.0.0
   '@swc/core': ^1.16.18
-  # база app-foundation (ADR-0004): точная версия, обновление — осознанно
-  '@rkarakulov/api-kit': 0.1.1
-  '@rkarakulov/test-kit': 0.1.1
-  '@rkarakulov/contracts-core': 0.1.1
-  '@rkarakulov/api-client-core': 0.1.1
-  '@rkarakulov/i18n-core': 0.1.1
-  '@rkarakulov/design-tokens': 0.1.1
-  '@rkarakulov/ui': 0.1.1
+  # база app-foundation (ADR-0004): точная версия, обновление — `copier update` (версия приходит из шаблона)
+  '@rkarakulov/config': 0.1.2
+  '@rkarakulov/api-kit': 0.1.2
+  '@rkarakulov/test-kit': 0.1.2
+  '@rkarakulov/contracts-core': 0.1.2
+  '@rkarakulov/api-client-core': 0.1.2
+  '@rkarakulov/i18n-core': 0.1.2
+  '@rkarakulov/design-tokens': 0.1.2
+  '@rkarakulov/ui': 0.1.2
 
 allowBuilds:
   '@parcel/watcher': false

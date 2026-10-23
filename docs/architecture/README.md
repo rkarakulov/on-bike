@@ -5,7 +5,7 @@
 ## Контейнеры
 
 ```
-mobile (Expo) ─┐
+app (Expo)    ─┐
 admin (Vite)  ─┼─ HTTPS ─ Caddy ─ api (NestJS) ─┬─ PostgreSQL 18 + PostGIS
 landing (Astro)┘                                ├─ Redis (BullMQ, rate-limit)
                                                 └─ S3 (треки, фото, карточки, бэкапы)
@@ -32,12 +32,12 @@ gamification · sharing · notifications · moderation · media
 ### Регистрация и подтверждение e-mail (модуль `identity`, ADR-0002)
 
 ```
-mobile ─ POST /v1/auth/register ─► api: users + user_consents + ссылка + registration_token + outbox
+app ─ POST /v1/auth/register ─► api: users + user_consents + ссылка + registration_token + outbox
                                           (одна транзакция; Redis: пауза повтора 60 с, лимит по IP)
 worker: outbox-публикатор ─► очередь identity-email ─► захват отправки (send_claimed_at, 60 с)
         ─► SMTP (dev — Mailpit) ─► sent_at; доставка at-least-once, дубль — с той же ссылкой
 ссылка …auth/verify/<token> ─ GET (только чтение) ─ POST confirm ─► email_verified_at
-mobile ─ POST /v1/auth/registration/poll ─► pending | verified + сессия (обмен один раз)
+app ─ POST /v1/auth/registration/poll ─► pending | verified + сессия (обмен один раз)
 worker: identity-maintenance, 03:00 Europe/Minsk ─► удаление неподтверждённых старше 7 дней
 ```
 
@@ -63,19 +63,20 @@ worker: identity-maintenance, 03:00 Europe/Minsk ─► удаление неп�
 
 Источник — CSS прототипов (19 экранов, визуальный слой «Ателье»).
 
-- **Слой 1 — примитивы** (`primitives.ts`): нейтральная шкала и акценты, шрифты, `space`, `inset`, `size`,
-  `stroke`, `radius` (квадратная эстетика: скругление только у тумблера), `motion` (пульс скелетона 1.2 с),
-  плотность веб-панели (`density.compact`).
-- **Слой 2 — семантика** (`themes.ts`): роли `text.*`, `surface.*`, `border.*`, `action.*`, `status.*`,
+- **Бренд** (`brand.ts`, единственное место палитры): палитра прототипов (внутри файла, не экспортируется),
+  шрифты (Playfair Display + Inter) и роли `text.*`, `surface.*`, `border.*`, `action.*`, `status.*`,
   `map.*`, `surfaceBar.*`, `control.*`, `surface.skeleton` для тем `light` (Jersey Aura), `dark` (Night Ride),
-  `protocol` (светлая семантика + `nav.*` тёмной навигации веб-панели).
-- **Типографика** (`typography.ts`): шкала `.t-*` прототипов; вес связан с ролью шрифта на уровне типов.
+  `panel` (веб-панель «Протокол»: светлая семантика + `nav.*` тёмной навигации).
+- **Структурные токены** — из базы `@rkarakulov/design-tokens`: `space`, `inset`, `size`, `stroke`, `radius`
+  (квадратная эстетика: скругление только у тумблера), `motion` (пульс скелетона 1.2 с), плотность веб-панели
+  (`density.compact`).
+- **Типографика** (база): шкала `.t-*` прототипов; вес связан с ролью шрифта на уровне типов.
 - **Контраст** (`contrast.ts`): пары ролей каждой темы проверяются тестом по WCAG (текст 4.5, UI 3).
 
 | Клиент | Как подключает |
 |---|---|
-| mobile | `configureDesignSystem` (`src/theme/design-system.ts`); `useTheme()` → семантика; `textStyle(name)`; компоненты `@rkarakulov/ui`; данные — `AsyncContent` + `Skeleton*`; витрина `/ui-kit` = `UiKit` базы (dev) |
-| admin | `installDesignSystem()` → `designSystemCss({ theme: 'protocol' })` в `<head>`; классы `.t-*`, `.skeleton`; шрифты `src/fonts.ts` |
+| app | `configureDesignSystem` (`src/theme/design-system.ts`); `useTheme()` → семантика; `textStyle(name)`; компоненты `@rkarakulov/ui`; данные — `AsyncContent` + `Skeleton*`; витрина `/ui-kit` = `UiKit` базы (dev) |
+| admin | `installDesignSystem()` → `designSystemCss({ theme: 'panel' })` в `<head>`; классы `.t-*`, `.skeleton`; шрифты `src/fonts.ts` |
 | landing | `designSystemCss({ theme: 'light', darkTheme: 'dark' })` и шрифты в `Base.astro`; классы `.t-*`, `.skeleton` |
 
 Шрифты на вебе — самохостинг `@fontsource/*` (без внешних CDN). Состояния данных — AGENTS.md §4.12.

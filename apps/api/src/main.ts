@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 
+import { API_VERSION } from '@on-bike/contracts';
 import { NestFactory } from '@nestjs/core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { API_VERSION } from '@on-bike/contracts';
 import { configureHttpApp, createFastifyAdapter } from '@rkarakulov/api-kit';
 
 import { AppModule } from './app.module';

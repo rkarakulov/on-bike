@@ -2,7 +2,7 @@ import { baseMessages, createI18n, mergeDictionaries, type Params } from '@rkara
 
 import { ru } from './ru.ts';
 
-/** Строки базы (состояния загрузки, даты, поля) + строки on-bike; ключи on-bike переопределяют базу. */
+/** Строки базы (состояния загрузки, даты, поля, витрина) + строки проекта; ключи проекта переопределяют базу. */
 export const messages = mergeDictionaries(baseMessages.ru, ru);
 
 export type Messages = typeof messages;

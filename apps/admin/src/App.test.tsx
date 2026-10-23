@@ -46,7 +46,14 @@ describe('статус API (AGENTS.md §4.12)', () => {
 
     expect(await screen.findByText(/Проверьте подключение к интернету/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
-    expect(await screen.findByText('ok')).toBeTruthy();
+    expect(await screen.findByText('Работает')).toBeTruthy();
+  });
+
+  it('статус API — текстом словаря, а не кодом ответа', async () => {
+    health.mockResolvedValueOnce({ ...ok, status: 'degraded', checks: { database: 'down' } });
+    renderApp();
+    expect(await screen.findByText('Работает с ограничениями')).toBeTruthy();
+    expect(screen.queryByText('degraded')).toBeNull();
   });
 
   it('ответ неожиданной формы — тоже сервер, не сеть', async () => {
@@ -67,11 +74,11 @@ describe('статус API (AGENTS.md §4.12)', () => {
       .mockRejectedValueOnce(new ApiNetworkError(new TypeError('offline')))
       .mockResolvedValueOnce(ok);
     const client = renderApp();
-    expect(await screen.findByText('ok')).toBeTruthy();
+    expect(await screen.findByText('Работает')).toBeTruthy();
 
     await client.refetchQueries({ queryKey: ['health'] }).catch(() => undefined);
     expect(await screen.findByText('Данные могли устареть')).toBeTruthy();
-    expect(screen.getByText('ok')).toBeTruthy();
+    expect(screen.getByText('Работает')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     expect(health).toHaveBeenCalledTimes(3);

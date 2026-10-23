@@ -1,4 +1,6 @@
 {
-  "extends": "@on-bike/config/tsconfig.library.json",
+  "extends": "@rkarakulov/config/tsconfig.library.json",
+  // исходники workspace-пакетов (@on-bike/*) — без сборки dist
+  "compilerOptions": { "customConditions": ["@on-bike/source"] },
   "include": ["src"]
 }

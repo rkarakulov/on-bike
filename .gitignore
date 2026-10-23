@@ -11,6 +11,8 @@ coverage/
 .env
 .env.*
 !.env.example
+# исходник шаблона: в репозитории базы это файл copier, в проекте — .env.example
+!.env.example.jinja
 *.pem
 *.p12
 *.key
@@ -18,14 +20,17 @@ key.json
 
 # Expo
 .expo/
-apps/mobile/ios/
-apps/mobile/android/
+apps/app/ios/
+apps/app/android/
 expo-env.d.ts
 
-# Astro
+# Astro (до F5)
 .astro/
 
 # AI: локальные настройки и временные артефакты (сам AI-конфиг коммитится)
 .claude/settings.local.json
 .claude/worktrees/
 .codex/*.local.toml
+
+# copier update: отклонённые куски — разрешить и удалить
+*.rej

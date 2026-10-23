@@ -12,17 +12,17 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@fontsource/inter": "catalog:",
-    "@fontsource/playfair-display": "catalog:",
     "@on-bike/api-client": "workspace:*",
     "@on-bike/design-tokens": "workspace:*",
     "@on-bike/i18n": "workspace:*",
+    "@fontsource/inter": "catalog:",
+    "@fontsource/playfair-display": "catalog:",
     "@tanstack/react-query": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
   "devDependencies": {
-    "@on-bike/config": "workspace:*",
+    "@rkarakulov/config": "catalog:",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/node": "catalog:",

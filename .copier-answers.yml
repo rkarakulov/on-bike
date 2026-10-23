@@ -1,0 +1,10 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v0.1.2
+_src_path: gh:rkarakulov/app-foundation
+app_scheme: onbike
+author: Roman Karakulov
+bundle_id: by.onbike.app
+npm_scope: on-bike
+project_name: on-bike
+project_slug: on-bike
+use_postgis: true

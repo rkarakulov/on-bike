@@ -16,13 +16,13 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@on-bike/contracts": "workspace:*",
+    "@on-bike/tracks": "workspace:*",
     "@nestjs/bullmq": "catalog:",
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-fastify": "catalog:",
     "@node-rs/argon2": "^2.2.2",
-    "@on-bike/contracts": "workspace:*",
-    "@on-bike/tracks": "workspace:*",
     "@rkarakulov/api-kit": "catalog:",
     "bullmq": "catalog:",
     "drizzle-orm": "catalog:",
@@ -36,7 +36,7 @@
   "devDependencies": {
     "@nestjs/cli": "^12.0.10",
     "@nestjs/testing": "catalog:",
-    "@on-bike/config": "workspace:*",
+    "@rkarakulov/config": "catalog:",
     "@rkarakulov/test-kit": "catalog:",
     "@swc/cli": "^0.8.0",
     "@swc/core": "catalog:",

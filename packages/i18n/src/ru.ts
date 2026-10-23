@@ -1,12 +1,16 @@
+/**
+ * Строки проекта (формальное «вы»). Строки базы (`state.*`, `field.*`, `uiKit.*`, …) не повторяйте:
+ * они уже в словаре через `mergeDictionaries`; ключ базы здесь — осознанное переопределение текста.
+ */
 export const ru = {
   'app.name': 'on-bike',
   'app.tagline': 'Гонки, маршруты, кофе-райды и календарь стартов в одном профиле',
-  'home.title': 'Главная',
   'tabs.home': 'Главная',
   'tabs.races': 'Гонки',
   'tabs.rides': 'Райды',
   'tabs.routes': 'Маршруты',
   'tabs.calendar': 'Календарь',
+  'home.title': 'Главная',
   'section.races': 'Гонки',
   'section.rides': 'Кофе-райды',
   'section.routes': 'Маршруты',
@@ -78,6 +82,8 @@ export const ru = {
   'auth.gone.title': 'Ссылка больше не действует',
   'auth.gone.message': 'Возможно, аккаунт не подтвердили вовремя. Зарегистрируйтесь ещё раз.',
   'auth.gone.toRegister': 'К регистрации',
+  'apiStatus.ok': 'Работает',
+  'apiStatus.degraded': 'Работает с ограничениями',
   'admin.title': 'Панель организатора',
   'admin.apiStatus': 'Статус API',
   'landing.openInApp': 'Открыть в приложении',

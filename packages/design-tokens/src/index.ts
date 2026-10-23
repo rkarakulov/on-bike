@@ -1,7 +1,10 @@
+import type { Theme as BaseTheme, ThemeOf } from '@rkarakulov/design-tokens';
+
+import type { OnBikeRoleGroups, themes } from './brand.ts';
+
 /**
- * Дизайн-система on-bike поверх базы `@rkarakulov/design-tokens`: бренд (палитра, гарнитуры, темы
- * Jersey Aura / Night Ride / «Протокол», группы ролей `map` и `surfaceBar`) + структурные токены базы.
- * Приложения используют семантику, типографику и размеры; палитра `color` — только внутри пакета и в тестах.
+ * Дизайн-система проекта поверх базы `@rkarakulov/design-tokens`: бренд (`brand.ts`) + структурные токены
+ * базы. Приложения используют темы, типографику и размеры; палитра — только внутри `brand.ts`.
  * Реэкспорт базы — только явный: у базы `contrastPairs`/`designSystemCss` с другими сигнатурами.
  */
 export {
@@ -14,21 +17,19 @@ export {
   space,
   stroke,
   typography,
+  type ColorRoles,
   type FontFace,
   type FontRole,
   type FontWeight,
+  type NavRoles,
   type TextStyleName,
   type TextStyleToken,
 } from '@rkarakulov/design-tokens';
-export { color, font, fontStack } from './primitives.ts';
-export {
-  themes,
-  type ColorRoles,
-  type NavRoles,
-  type OnBikeRoleGroups,
-  type OnBikeTheme,
-  type Theme,
-  type ThemeName,
-} from './themes.ts';
+export { font, fontStack, themes, type OnBikeRoleGroups, type ThemeName } from './brand.ts';
 export { contrastPairs, contrastRatio, WCAG, type ContrastPair } from './contrast.ts';
 export { designSystemCss, skeletonCss, typographyCss, type DesignSystemCssOptions } from './css.ts';
+
+/** Тема проекта для `useTheme<AppTheme>()`: роли базы (+ свои группы ролей бренда). */
+export type AppTheme = ThemeOf<typeof themes>;
+/** Любая тема набора (у `panel` есть навигация); группы ролей on-bike — `map`, `surfaceBar`. */
+export type Theme = BaseTheme<OnBikeRoleGroups>;

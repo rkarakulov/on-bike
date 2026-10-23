@@ -9,30 +9,29 @@
    `//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}` (pnpm раскрывает переменные только там, не в
    проектном `.npmrc`). Перед `pnpm install` — `export NODE_AUTH_TOKEN=$(gh auth token)`.
    Сам токен нигде не записывается.
-   **EAS Build** (облачная сборка) не видит ваш `~/.npmrc`: перед первой сборкой человек создаёт в EAS секрет
-   `NODE_AUTH_TOKEN` (токен с `read:packages`, видимость — secret) и хук `eas-build-pre-install` в
-   `apps/mobile/package.json`, который дописывает строку авторизации в `~/.npmrc` сборщика — тот же вид, что
-   локально. До этого EAS-сборка упадёт на установке `@rkarakulov/*` (follow-up F4, не проверено).
 1. Инфраструктура: `pnpm infra:up` — PostgreSQL 18 + PostGIS (`:5432`), Redis (`:6379`),
    Mailpit (SMTP `:1025`, веб `http://127.0.0.1:8025`).
 2. Окружение API: `cp apps/api/.env.example apps/api/.env` и заполнить секреты:
    `JWT_SECRET` и `EMAIL_TOKEN_SECRET` — случайные строки не короче 32 символов
    (`openssl rand -hex 32`). Файл `.env` в git не попадает.
 3. Миграции (отдельный шаг, при старте API не выполняются): `pnpm --filter @on-bike/api db:migrate`.
-4. Запуск: `pnpm dev --filter=@on-bike/api` (HTTP `:3000`) и `pnpm dev:worker` (outbox → BullMQ,
-   письма, очистка по расписанию). Без worker письма не уходят — события копятся в `outbox`.
+4. Запуск: `pnpm dev --filter=@on-bike/api` (HTTP `:3000`) и `pnpm dev:worker` (outbox → BullMQ, письма).
+   Без worker письма не уходят — события копятся в `outbox`.
+5. Приложение: `pnpm --filter @on-bike/app dev` (QR → Expo Go, `i` / `a` — симуляторы).
+   Админка: `pnpm dev --filter=@on-bike/admin` (`http://127.0.0.1:5173`, `/v1` проксируется на API).
+   Лендинг (до F5): `pnpm dev --filter=@on-bike/landing` (`http://127.0.0.1:4321`).
 
 ## Переменные API
 
 | Переменная | Dev-значение | Назначение |
 |---|---|---|
-| `DATABASE_URL` | `postgres://onbike:onbike@127.0.0.1:5432/onbike` | основная БД |
+| `DATABASE_URL` | `postgres://on_bike:on_bike@127.0.0.1:5432/on_bike` | основная БД |
 | `REDIS_URL` | `redis://127.0.0.1:6379` | BullMQ, rate-limit |
-| `TRUST_PROXY` | `0` | `1` за Caddy: доверять одному прокси в `X-Forwarded-For` |
+| `TRUST_PROXY` | `0` | `1` за обратным прокси: доверять одному прокси в `X-Forwarded-For` |
+| `SMTP_URL` | `smtp://127.0.0.1:1025` | Mailpit |
 | `JWT_SECRET` | случайная строка ≥ 32 | подпись access JWT |
 | `EMAIL_TOKEN_SECRET` | случайная строка ≥ 32 | HMAC токенов ссылок в письмах (ADR-0002) |
-| `SMTP_URL` | `smtp://127.0.0.1:1025` | Mailpit |
-| `MAIL_FROM` | `on-bike <no-reply@on-bike.by>` | отправитель писем |
+| `MAIL_FROM` | `'on-bike <no-reply@on-bike.by>'` | отправитель писем (в кавычках) |
 | `APP_LINK_BASE` | `exp://127.0.0.1:8081/--/` | база ссылок в письмах, со слешем в конце |
 | `AGREEMENT_VERSION` | `2026-10-draft` | версия соглашения, записывается в `user_consents` |
 
@@ -52,18 +51,50 @@ Expo Go не открывает схему `onbike://`. Для проверки 
 ## Проверка
 
 - `curl http://127.0.0.1:3000/v1/health` → `{"status":"ok",…}`.
-- Регистрация: `POST /v1/auth/register` → письмо в Mailpit (`http://127.0.0.1:8025`,
-  API: `GET http://127.0.0.1:8025/api/v1/messages`) со ссылкой `…auth/verify/<token>`.
+- Письма — в Mailpit: `http://127.0.0.1:8025` (API: `GET http://127.0.0.1:8025/api/v1/messages`).
+- Регистрация: `POST /v1/auth/register` → письмо в Mailpit со ссылкой `…auth/verify/<token>`.
 
 ## Тесты
 
 `pnpm test` поднимает интеграционные тесты API на реальных PostgreSQL и Redis:
 
-- `DATABASE_URL_TEST` (по умолчанию `postgres://onbike:onbike@127.0.0.1:5432/onbike_test`) —
+- `DATABASE_URL_TEST` (по умолчанию `postgres://on_bike:on_bike@127.0.0.1:5432/on_bike_test`) —
   база **пересоздаётся** перед прогоном и мигрируется; имя обязано оканчиваться на `_test`;
 - `REDIS_URL_TEST` (по умолчанию `redis://127.0.0.1:6379/1`) — db 1, очищается перед каждым тестом.
 
 Только unit: `pnpm --filter @on-bike/api exec vitest run --project unit`.
+
+## CI и сборки
+
+- **GitHub Actions** читает `@rkarakulov/*` токеном `GITHUB_TOKEN` только после того, как владелец пакетов
+  откроет доступ репозиторию проекта: в настройках **каждого** из 8 пакетов (`config`, `design-tokens`, `ui`,
+  `i18n-core`, `contracts-core`, `api-client-core`, `api-kit`, `test-kit`) → Manage Actions access → репозиторий
+  проекта, роль Read. Без этого `pnpm install` в CI падает с 403.
+- **EAS Build** (облачная сборка) не видит ваш `~/.npmrc`: перед первой сборкой создайте в EAS секрет
+  `NODE_AUTH_TOKEN` (токен с `read:packages`, видимость — secret) и хук `eas-build-pre-install` в
+  `apps/app/package.json`, который дописывает строку авторизации в `~/.npmrc` сборщика — тот же вид, что
+  локально. До этого EAS-сборка упадёт на установке `@rkarakulov/*` (шаблон хук пока не поставляет).
+
+## Обновление шаблона
+
+`uvx copier update --defaults` в чистом рабочем дереве: переносит изменения шаблона app-foundation
+трёхсторонним слиянием и поднимает версию `@rkarakulov/*` в каталоге `pnpm-workspace.yaml`. Конфликты — маркеры
+в файлах и `*.rej`; разрешить, удалить `*.rej`, затем `pnpm install && pnpm check`. Проверить наличие новой
+версии — `uvx copier check-update`.
+
+## Переход существующего тома на БД `on_bike` (F3b)
+
+С F3b dev-БД, CI и тесты используют имя шаблона `on_bike` (было `onbike`). Том `pgdata`, созданный раньше,
+не пересоздаётся: роль и база добавляются в него, старая база `onbike` остаётся как есть.
+
+```bash
+docker compose -f infra/docker-compose.dev.yml exec postgres psql -U onbike -d onbike \
+  -c "CREATE ROLE on_bike LOGIN SUPERUSER PASSWORD 'on_bike';" -c "CREATE DATABASE on_bike OWNER on_bike;"
+DATABASE_URL=postgres://on_bike:on_bike@127.0.0.1:5432/on_bike pnpm --filter @on-bike/api db:migrate
+```
+
+Потом в своём `apps/api/.env` — тот же `DATABASE_URL` и `MAIL_FROM` в кавычках (как в `.env.example`).
+Порядок важен: без явного `DATABASE_URL` миграции уйдут в старую базу `onbike`, а `on_bike` останется пустой. Тестовая база `on_bike_test` создаётся сама при `pnpm test`.
 
 ## Откат
 
