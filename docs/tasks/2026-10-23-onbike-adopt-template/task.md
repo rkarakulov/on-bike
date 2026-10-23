@@ -136,6 +136,15 @@ Architect, 2026-10-23. Проверено рендером `v0.1.2` с отве�
   порядок инвариантов §4 — как в шаблоне, CI — плюс `pnpm turbo run build`, `.prettierrc.json` on-bike до F5,
   выравнивание продуктовых пакетов (R9: `brand.ts`, тема `panel`, `PROJECT_ERROR_MESSAGES`, статус API в админке через
   словарь), пакеты базы 0.1.2, TZ jest `Europe/Minsk`. AC1 заменяется проверками (а)–(в) из S5.
+- Реализация (coder, 2026-10-23), мелкие отклонения от пофайловой таблицы — в сторону меньшего расхождения с
+  шаблоном: `apps/admin/src/design-system.test.ts` — рендер как есть (проверка `themes.panel.nav?.background`
+  вместо hex бренда, локальная правка не нужна); описания `packages/*/package.json` — из рендера; демо-ключи
+  `ru.ts` шаблона (`tabs.section`, `home.lead`, `section.*`, `apiStatus.title`) в on-bike не берутся (экрана-демо
+  нет, N); `harness.int.test.ts` — on-bike (L), как в таблице.
+- S5 (б): после `copier update` на ту же версию `git status` не пуст ровно в одной строке — copier
+  переписывает `_commit: v0.1.2` на `'@rkarakulov/api-client-core@0.1.2'` (`git describe` выбирает тег пакета на
+  том же коммите, R2); файлы проекта не меняются («Keeping template version 0.1.2»). Это поведение базы
+  (README базы: «`_commit` может показывать тег пакета — это та же версия») — follow-up в app-foundation.
 
 ## 8.3 Security checklist
 Затронуты `.claude/settings.json` (deny-лист), CI, `.npmrc`, `infra/`. Deny-лист после F3b не слабее текущего (diff),
@@ -316,4 +325,71 @@ app-foundation: сборка всех приложений в CI шаблона 
 настоящем on-bike на новый тег.
 
 ## 12. Outcome
-Заполняет coder.
+Coder, 2026-10-23. Коммиты: S1 `03fc72e`, S2 `985cbbb`, S3 `36d7a7c`, S4 `cc4b2a8`, S5 `e1d8c57`, S6 — этот.
+
+### Локальные отличия от рендера `v0.1.2` (сверено скриптовым `diff -rq`, S5 (а))
+**До F5 (Astro-лендинг):** `.gitignore` (`.astro/`), `.prettierignore` (`.astro`), `.prettierrc.json` (конфиг
+on-bike = опции пресета + `prettier-plugin-astro`), `.dependency-cruiser.cjs` (`\\.astro` в exclude),
+`eslint.config.mjs` (`'**/.astro/**'` в ignores, `landing` в `designSystemOnly`), `package.json` и
+`pnpm-workspace.yaml` (`prettier-plugin-astro`), `apps/landing/**` (вне шаблона).
+
+**Корень и CI:** `.copier-answers.yml` (`_commit: v0.1.2`, `_src_path: gh:…`, R2); `.github/workflows/ci.yml`
+(`pnpm turbo run build` — все приложения, R6); `pnpm-workspace.yaml` (`@fontsource/playfair-display`);
+`README.md` (`_skip_if_exists`, свой); `AGENTS.md` (§0 п.5, §1, §2, §3 landing, §4.1, §4.7 Europe/Minsk, §4.9,
+§4.10 перечень аудита on-bike, §4.11 «значения из прототипов», §4.13 ADR-0003, §8 + `onbike-*.md`, §9);
+`CLAUDE.md` (строка навигации on-bike, Astro/MapLibre в context7).
+
+**AI:** `.claude/rules/onbike-{backend,db,contracts,app,web,security,tests}.md` (только on-bike, R4); правила,
+`.ai/dev-kit`, `.agents`, `.codex`, `.claude/settings.json` = рендер.
+
+**API:** `.env.example` (секреты JWT/EMAIL_TOKEN, `APP_LINK_BASE`, `AGREEMENT_VERSION`, `MAIL_FROM` on-bike.by);
+`package.json` (`@node-rs/argon2`, `jose`, `@on-bike/tracks`); `app.module.ts`, `worker.module.ts` (Tracks,
+Identity, outbox-маршруты identity); `queues.ts`, `config/env.ts`, `error-messages.ts` (очереди, переменные, коды
+on-bike); `test/test-env.ts` (переменные on-bike); тесты продукта `config/env.test.ts`, `error-messages.test.ts`,
+`test/harness.int.test.ts`; миграции `drizzle/**` on-bike (0000–0003); `modules/{identity,tracks}`,
+`trust-proxy.int.test.ts`, `test/identity.ts` (O).
+
+**App:** `package.json` (Playfair, `@hookform/resolvers`, `expo-secure-store`, `react-hook-form`, `zustand`,
+`build:testflight`/`build:play-internal`, description); `app.json` (`ios.icon` `expo.icon`, splash
+`splash-route-{light,dark}.png` 160); `jest.config.js` (TZ `Europe/Minsk`); `jest.setup.ts` (мок
+`expo-secure-store`, сброс сторов); `src/theme/{design-system,fonts,fonts.test}.ts` (Playfair Display);
+L-файлы оболочки: `src/app/{_layout,(tabs)/_layout,(tabs)/index}.tsx`, `src/components/screen-placeholder.tsx`,
+`src/__tests__/{app-routes.ts,root-layout.test.tsx,tabs.test.tsx}`; O: `features/**`, `(onboarding)`, `auth/**`,
+вкладки races/rides/routes/calendar, `lib/countdown*`, тесты регистрации, ассеты бренда, `.vscode/`.
+
+**Admin:** `index.html` (заголовок «Панель организатора»), `package.json` (Playfair, description),
+`public/favicon.svg`, `src/App.test.tsx` (заголовок), `src/fonts.ts` (Playfair).
+
+**Пакеты:** `contracts/src/{common,index}.ts` (коды и схемы auth), `contracts/src/auth/**`;
+`api-client/src/index.ts` (эндпоинты регистрации); `i18n/src/ru.ts` (строки on-bike + `apiStatus.ok/degraded`);
+`design-tokens/src/brand.ts` (палитра, роли `map`/`surfaceBar`, Jersey Aura / Night Ride / panel «Протокол»,
+Playfair), `index.ts` (`OnBikeRoleGroups`, `Theme = BaseTheme<OnBikeRoleGroups>`), `contrast.ts` (пары карты);
+тесты продукта `*.test.ts`; `packages/tracks/**` (O).
+
+**Docs:** `docs/README.md`, `docs/runbooks/local-dev.md` (identity-переменные, Expo Go, регистрация, переход тома
+на `on_bike`, ADR-0004 вместо `0001-stack.md`); `docs/{adr,architecture,product,runbooks/README}` (O).
+**Infra (O):** `infra/{.env.example,docker-compose.prod.yml,Caddyfile}`.
+
+### Файлы шаблона, удалённые в on-bike (N: правки шаблона в них при update теряются молча, R3)
+`docs/adr/0001-stack.md`, `apps/api/drizzle/0000_init.sql` (+ `meta/0000_snapshot.json`, `_journal.json` — свои),
+`apps/app/src/app/(tabs)/section.tsx`, `apps/app/src/__tests__/{section.test.tsx,query-wrapper.tsx}`,
+`apps/app/assets/images/splash-icon.png`. Удалены из on-bike (D): `packages/config/**`,
+`packages/design-tokens/src/{primitives,themes}.ts`, `.claude/{commands,agents,skills,hooks}/**`,
+`.claude/{ai-runtime,task-template,architecture-review-template}.md`, `.claude/rules/mobile.md`.
+
+### Проверки
+См. отчёт coder (команды и вывод): `pnpm check`, `pnpm build` + загрузка `dist`, `db:generate` без изменений,
+`expo export --platform android`, интеграционные тесты API на `on_bike_test`, API + worker из `dist`
+(`/v1/health` 200, письмо регистрации в Mailpit), ESLint-guard через stdin, deny/allow JSON-diff — пусто,
+`codex debug prompt-input` (16 скилов из `.agents/skills`, ссылки `.ai/dev-kit`), S5 (а)–(в), AC5-grep, gitleaks.
+NOT VERIFIED: `actionlint` (не установлен), CI на PR (PR откроет оркестратор).
+
+### Действия автора
+- Свой `apps/api/.env`: `DATABASE_URL=postgres://on_bike:on_bike@127.0.0.1:5432/on_bike` (роль и БД `on_bike` в
+  томе уже созданы, миграции применены) и `MAIL_FROM` в кавычках; перезапустить API/worker dev.
+- Expo dev-сервер, запущенный из `apps/mobile`, — перезапустить из `apps/app` (каталог переименован).
+- §8.3: CI раньше ссылался на actions по тегам, теперь — по SHA (усиление), не «те же SHA».
+
+### Follow-ups для app-foundation
+CI шаблона — сборка всех приложений (R6); вопрос `db_name` (R1-C); хук `eas-build-pre-install` (R11); закрепление
+версии плагина (R12); `_commit` после `copier update` — тег `v*`, а не тег пакета (S5 (б)).
