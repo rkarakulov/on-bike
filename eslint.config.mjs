@@ -46,6 +46,33 @@ export default tseslint.config(
     rules: { 'import/no-unresolved': 'off' },
   },
   {
+    // цвета — только семантика @on-bike/design-tokens (тесты сравнивают с токенами, а не с hex)
+    files: ['apps/{mobile,admin,landing}/src/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]',
+          message: 'Hex-цвет в коде приложения: используйте роль темы из @on-bike/design-tokens.',
+        },
+      ],
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@on-bike/design-tokens',
+              importNames: ['color'],
+              message:
+                'Примитивы цвета — только внутри пакета; в приложениях — семантика (themes / useTheme).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['apps/api/**/*.ts'],
     rules: {
       // NestJS DI опирается на runtime-импорты классов

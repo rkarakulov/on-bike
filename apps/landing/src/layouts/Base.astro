@@ -1,5 +1,13 @@
 ---
-import { palette, toCssVariables } from '@on-bike/design-tokens';
+// шрифты дизайн-системы (самохостинг); начертания = fontWeights из @on-bike/design-tokens
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+import '@fontsource/playfair-display/500.css';
+import '@fontsource/playfair-display/600.css';
+
+import { designSystemCss, themes } from '@on-bike/design-tokens';
 
 interface Props {
   title: string;
@@ -8,7 +16,8 @@ interface Props {
 }
 
 const { title, description, ogImage } = Astro.props;
-const cssVariables = toCssVariables('jerseyAura');
+// переменные и классы .t-* генерирует пакет; гостевые страницы следуют системной теме
+const css = designSystemCss({ theme: 'light', darkTheme: 'dark' });
 ---
 
 <!doctype html>
@@ -16,14 +25,23 @@ const cssVariables = toCssVariables('jerseyAura');
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content={palette.jerseyAura.bg} />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content={themes.light.surface.default}
+    />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content={themes.dark.surface.default}
+    />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     {ogImage && <meta property="og:image" content={ogImage} />}
-    <style set:html={`:root{${cssVariables}}`}></style>
+    <style set:html={css}></style>
   </head>
   <body>
     <slot />
@@ -33,9 +51,18 @@ const cssVariables = toCssVariables('jerseyAura');
 <style is:global>
   body {
     margin: 0;
-    padding: 20px;
-    font-family: Inter, system-ui, sans-serif;
-    color: var(--color-ink);
-    background: var(--color-bg);
+    padding: var(--size-gutter);
+    font-family: var(--font-text);
+    color: var(--color-text-primary);
+    background: var(--color-surface-default);
+  }
+
+  h1,
+  p {
+    margin: 0 0 var(--space-s3);
+  }
+
+  .muted {
+    color: var(--color-text-secondary);
   }
 </style>

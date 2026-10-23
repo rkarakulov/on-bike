@@ -1,14 +1,8 @@
-/* Токены синхронизированы с @on-bike/design-tokens (palette.jerseyAura) */
+/* Значения — только переменные из @on-bike/design-tokens (installDesignSystem), без копий. */
 :root {
-  --color-bg: #ffffff;
-  --color-ink: #111111;
-  --color-ink2: #5c5c5c;
-  --color-accent: #c2410c;
-  --color-border: #e2e2df;
-  color-scheme: light;
-  font-family: Inter, system-ui, sans-serif;
-  color: var(--color-ink);
-  background: var(--color-bg);
+  font-family: var(--font-text);
+  color: var(--color-text-primary);
+  background: var(--color-surface-default);
 }
 
 body {
@@ -16,11 +10,45 @@ body {
 }
 
 .shell {
-  max-width: 1440px;
+  max-width: var(--density-content-max-width);
   margin: 0 auto;
-  padding: 24px;
+  padding: var(--space-s5);
 }
 
 .muted {
-  color: var(--color-ink2);
+  color: var(--color-text-secondary);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s3);
+}
+
+/* место под значение статуса — ширина короткого слова */
+.status-value {
+  display: inline-block;
+  width: var(--size-skeleton-word);
+}
+
+.status-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s3);
+  color: var(--color-status-error);
+}
+
+/* кнопка «Протокола» (.wp-btn прототипа) */
+.button {
+  min-height: var(--density-control-height);
+  padding: 0 var(--inset-md);
+  border: var(--stroke-hairline) solid var(--color-text-primary);
+  background: var(--color-surface-default);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.button:focus-visible {
+  outline: var(--stroke-indicator) solid var(--color-border-focus);
+  outline-offset: var(--stroke-indicator);
 }

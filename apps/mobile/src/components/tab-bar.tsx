@@ -1,4 +1,4 @@
-import { size, space } from '@on-bike/design-tokens';
+import { size, space, stroke } from '@on-bike/design-tokens';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -6,8 +6,8 @@ import { textStyle } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme';
 
 /**
- * Панель вкладок по прототипу: активная — ink-метка 600 и 2 px ink-полоса по верхнему краю,
- * неактивная — ink-2. Accent во вкладках не используется.
+ * Панель вкладок по прототипу: активная — метка 600 и 2 px полоса text.primary по верхнему краю,
+ * неактивная — метка 500 text.secondary. Accent во вкладках не используется.
  */
 export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const theme = useTheme();
@@ -18,7 +18,11 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
       testID="tab-bar"
       style={[
         styles.bar,
-        { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: insets.bottom },
+        {
+          backgroundColor: theme.surface.default,
+          borderTopColor: theme.border.subtle,
+          paddingBottom: insets.bottom,
+        },
       ]}
     >
       {state.routes.map((route, index) => {
@@ -46,11 +50,17 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
           >
             <View
               testID={`tab-indicator-${route.name}`}
-              style={[styles.indicator, { backgroundColor: focused ? theme.ink : 'transparent' }]}
+              style={[
+                styles.indicator,
+                { backgroundColor: focused ? theme.text.primary : 'transparent' },
+              ]}
             />
             <Text
               numberOfLines={1}
-              style={[textStyle('tab'), { color: focused ? theme.ink : theme.ink2 }]}
+              style={[
+                textStyle(focused ? 'tabLabelActive' : 'tabLabel'),
+                { color: focused ? theme.text.primary : theme.text.secondary },
+              ]}
             >
               {label}
             </Text>
@@ -62,7 +72,7 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth },
+  bar: { flexDirection: 'row', borderTopWidth: stroke.hairline },
   tab: {
     flex: 1,
     alignItems: 'center',
@@ -70,5 +80,5 @@ const styles = StyleSheet.create({
     paddingBottom: space.s2,
     gap: space.s2,
   },
-  indicator: { alignSelf: 'stretch', height: size.tabIndicator },
+  indicator: { alignSelf: 'stretch', height: stroke.indicator },
 });

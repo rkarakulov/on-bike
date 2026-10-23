@@ -10,7 +10,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       // фон сцены — цвет темы, чтобы ленивая вкладка не мигала белым в Night Ride
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: theme.bg } }}
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: theme.surface.default } }}
       tabBar={(props) => <TabBar {...props} />}
     >
       <Tabs.Screen name="index" options={{ title: t('tabs.home') }} />

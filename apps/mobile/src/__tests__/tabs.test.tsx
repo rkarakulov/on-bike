@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import { palette, size } from '@on-bike/design-tokens';
+import { stroke, themes } from '@on-bike/design-tokens';
 import { fireEvent, renderRouter, screen, within } from 'expo-router/testing-library';
 import { useColorScheme } from 'react-native';
 
@@ -35,33 +35,40 @@ describe('нижние вкладки', () => {
     expect(screen.getByRole('tab', { name: 'Главная' })).not.toBeSelected();
   });
 
-  it('заголовок раздела — Playfair Display, активная вкладка — ink 600 с полосой', async () => {
+  it('заголовок раздела — Playfair Display, активная вкладка — 600 с полосой, неактивная — 500', async () => {
     await renderRouter(tabRoutes);
 
     expect(screen.getByRole('header', { name: 'Главная' })).toHaveStyle({
-      fontFamily: 'PlayfairDisplay_600SemiBold',
+      fontFamily: 'PlayfairDisplay_500Medium',
     });
-    const light = palette.jerseyAura;
+    const light = themes.light;
     expect(screen.getByTestId('tab-indicator-index')).toHaveStyle({
-      backgroundColor: light.ink,
-      height: size.tabIndicator,
+      backgroundColor: light.text.primary,
+      height: stroke.indicator,
     });
     expect(screen.getByTestId('tab-indicator-races')).toHaveStyle({
       backgroundColor: 'transparent',
     });
     const activeLabel = within(screen.getByRole('tab', { name: 'Главная' })).getByText('Главная');
-    expect(activeLabel).toHaveStyle({ fontFamily: 'Inter_600SemiBold', color: light.ink });
+    expect(activeLabel).toHaveStyle({ fontFamily: 'Inter_600SemiBold', color: light.text.primary });
     const inactiveLabel = within(screen.getByRole('tab', { name: 'Гонки' })).getByText('Гонки');
-    expect(inactiveLabel).toHaveStyle({ color: light.ink2 });
+    expect(inactiveLabel).toHaveStyle({
+      fontFamily: 'Inter_500Medium',
+      color: light.text.secondary,
+    });
   });
 
   it('тёмная системная тема → Night Ride на экране и панели вкладок', async () => {
     colorScheme.mockReturnValue('dark');
     await renderRouter(tabRoutes);
 
-    const dark = palette.nightRide;
-    expect(screen.getByTestId('tab-bar')).toHaveStyle({ backgroundColor: dark.bg });
-    expect(screen.getByTestId('tab-indicator-index')).toHaveStyle({ backgroundColor: dark.ink });
-    expect(screen.getByRole('header', { name: 'Главная' })).toHaveStyle({ color: dark.ink });
+    const dark = themes.dark;
+    expect(screen.getByTestId('tab-bar')).toHaveStyle({ backgroundColor: dark.surface.default });
+    expect(screen.getByTestId('tab-indicator-index')).toHaveStyle({
+      backgroundColor: dark.text.primary,
+    });
+    expect(screen.getByRole('header', { name: 'Главная' })).toHaveStyle({
+      color: dark.text.primary,
+    });
   });
 });

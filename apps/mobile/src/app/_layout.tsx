@@ -28,7 +28,12 @@ export default function RootLayout() {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg } }} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.surface.default },
+        }}
+      />
       <StatusBar style="auto" />
     </>
   );
