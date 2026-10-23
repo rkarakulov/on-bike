@@ -50,7 +50,7 @@ module.exports = {
   ],
   options: {
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: '(node_modules|dist|\\.expo|\\.astro|\\.turbo|drizzle/meta)' },
+    exclude: { path: '(node_modules|dist|\\.expo|\\.turbo|drizzle/meta)' },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.depcruise.json' },
     enhancedResolveOptions: {

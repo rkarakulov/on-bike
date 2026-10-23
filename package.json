@@ -39,7 +39,6 @@
     "eslint-plugin-react-hooks": "catalog:",
     "globals": "catalog:",
     "prettier": "catalog:",
-    "prettier-plugin-astro": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:"

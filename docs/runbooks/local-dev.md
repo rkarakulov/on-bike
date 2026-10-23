@@ -20,7 +20,6 @@
 5. Приложение: `pnpm --filter @on-bike/app dev` (QR → Expo Go, `i` / `a` — симуляторы, `w` — браузер,
    `http://localhost:8081`; web — раздел «Web»).
    Админка: `pnpm dev --filter=@on-bike/admin` (`http://127.0.0.1:5173`, `/v1` проксируется на API).
-   Лендинг (до F5): `pnpm dev --filter=@on-bike/landing` (`http://127.0.0.1:4321`).
 
 ## Переменные API
 

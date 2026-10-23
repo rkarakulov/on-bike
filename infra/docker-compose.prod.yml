@@ -10,7 +10,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - admin-dist:/srv/admin:ro
       - caddy-data:/data
-    depends_on: [api, landing]
+    depends_on: [api, web]
     restart: unless-stopped
   api:
     image: ghcr.io/rkarakulov/on-bike-api:${APP_VERSION:-latest}
@@ -24,9 +24,16 @@ services:
     env_file: .env
     depends_on: [postgres, redis]
     restart: unless-stopped
-  landing:
-    image: ghcr.io/rkarakulov/on-bike-landing:${APP_VERSION:-latest}
-    environment: { HOST: 0.0.0.0, PORT: '4321' }
+  # web/PWA с SSR (expo-server, apps/app/server) — то же приложение, что iOS/Android (ADR-0003)
+  web:
+    image: ghcr.io/rkarakulov/on-bike-web:${APP_VERSION:-latest}
+    environment:
+      HOST: 0.0.0.0
+      PORT: '8080'
+      EXPO_PUBLIC_API_URL: https://${PUBLIC_HOST}
+      API_INTERNAL_URL: http://api:3000
+      WEB_ORIGIN: https://${PUBLIC_HOST}
+    depends_on: [api]
     restart: unless-stopped
   postgres:
     image: postgis/postgis:18-3.6

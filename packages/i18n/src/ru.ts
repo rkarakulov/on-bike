@@ -90,5 +90,4 @@ export const ru = {
   'status.description': 'Текущее состояние сервиса и его API.',
   'admin.title': 'Панель организатора',
   'admin.apiStatus': 'Статус API',
-  'landing.openInApp': 'Открыть в приложении',
 } as const;

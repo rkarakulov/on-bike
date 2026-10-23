@@ -2,8 +2,8 @@
 
 Платформа для велосипедистов Беларуси: гонки по GPS-коридору, кофе-райды, маршруты, календарь стартов.
 
-Монорепо: `apps/api` (NestJS + воркер BullMQ), `apps/admin` (Vite + React), `apps/landing` (Astro SSR),
-`apps/app` (Expo, iOS + Android), общие `packages/*`. Правила для людей и агентов — [AGENTS.md](AGENTS.md),
+Монорепо: `apps/api` (NestJS + воркер BullMQ), `apps/admin` (Vite + React),
+`apps/app` (Expo: iOS, Android и web/PWA с SSR), общие `packages/*`. Правила для людей и агентов — [AGENTS.md](AGENTS.md),
 решения — [docs/adr](docs/adr/README.md), обоснование стека — [docs/proposal-stack-architecture.md](docs/proposal-stack-architecture.md).
 
 ## Быстрый старт
@@ -23,7 +23,6 @@ pnpm dev                                # все приложения
 | ---------------- | ------------------------------------ | ------------------------------------ |
 | API              | `pnpm dev --filter=@on-bike/api`     | http://localhost:3000/v1/health      |
 | Панель           | `pnpm dev --filter=@on-bike/admin`   | http://localhost:5173                |
-| Лендинг          | `pnpm dev --filter=@on-bike/landing` | http://localhost:4321                |
 | Приложение (app) | `pnpm --filter @on-bike/app dev`     | QR → Expo Go, `i` / `a` — симуляторы |
 
 Воркер очередей: `pnpm dev:worker`. Запускайте приложения через `pnpm dev` / `pnpm dev:worker` (turbo):

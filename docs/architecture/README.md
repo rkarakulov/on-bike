@@ -7,7 +7,7 @@
 ```
 app (Expo)    ─┐
 admin (Vite)  ─┼─ HTTPS ─ Caddy ─ api (NestJS) ─┬─ PostgreSQL 18 + PostGIS
-landing (Astro)┘                                ├─ Redis (BullMQ, rate-limit)
+web (app, SSR)─┘                                ├─ Redis (BullMQ, rate-limit)
                                                 └─ S3 (треки, фото, карточки, бэкапы)
                          worker (NestJS, BullMQ) ─ те же PG / Redis / S3; ffmpeg, Skia
 ```
@@ -27,7 +27,7 @@ gamification · sharing · notifications · moderation · media
   результат, кластер, флаги правдоподобия → пересчёт мест → уведомление in-app.
 - **Протокол:** чек-лист публикации → публикация → финальные результаты → пересчёт сезона.
 - **Спор:** подача → ответы обвиняемого (append-only) → решение → DQ / отклонение → пересчёт.
-- **Шеринг:** запрос карточки → задача рендера (Skia / ffmpeg) → S3 → публичная ссылка → landing + OG.
+- **Шеринг:** запрос карточки → задача рендера (Skia / ffmpeg) → S3 → публичная ссылка → публичный экран приложения (web: SSR + OG).
 
 ### Регистрация и подтверждение e-mail (модуль `identity`, ADR-0002)
 
@@ -77,7 +77,6 @@ worker: identity-maintenance, 03:00 Europe/Minsk ─► удаление неп�
 |---|---|
 | app | `configureDesignSystem` (`src/theme/design-system.ts`); `useTheme()` → семантика; `textStyle(name)`; компоненты `@rkarakulov/ui`; данные — `AsyncContent` + `Skeleton*`; витрина `/ui-kit` = `UiKit` базы (dev) |
 | admin | `installDesignSystem()` → `designSystemCss({ theme: 'panel' })` в `<head>`; классы `.t-*`, `.skeleton`; шрифты `src/fonts.ts` |
-| landing | `designSystemCss({ theme: 'light', darkTheme: 'dark' })` и шрифты в `Base.astro`; классы `.t-*`, `.skeleton` |
 
 Шрифты на вебе — самохостинг `@fontsource/*` (без внешних CDN). Состояния данных — AGENTS.md §4.12.
 

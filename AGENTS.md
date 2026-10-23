@@ -65,7 +65,7 @@ outbox, очереди, лимитер, почта, HTTP, ошибки), тес�
 |---|---|
 | `pnpm install` | установка зависимостей (нужен `NODE_AUTH_TOKEN`, `docs/runbooks/local-dev.md`) |
 | `pnpm dev` | все приложения в dev через turbo (сначала собирает `packages/*`) |
-| `pnpm dev --filter=@on-bike/<app>` | одно приложение в dev (api / admin / landing) |
+| `pnpm dev --filter=@on-bike/<app>` | одно приложение в dev (api / admin) |
 | `pnpm --filter @on-bike/app dev` | приложение Expo (Expo Go, симуляторы) |
 | `pnpm dev:worker` | воркер очередей BullMQ в dev |
 | `pnpm build` | production-сборка |
@@ -178,10 +178,10 @@ finishing-a-development-branch). Если его нет — выполни ту 
 | `.claude/rules/db.md` | миграции, Drizzle-схемы, PostGIS |
 | `.claude/rules/contracts.md` | `packages/contracts/**`, `packages/api-client/**` |
 | `.claude/rules/app.md` | `apps/app/**` |
-| `.claude/rules/web.md` | `apps/admin/**` (landing — `onbike-web.md`) |
+| `.claude/rules/web.md` | `apps/admin/**` |
 | `.claude/rules/tests.md` | все тесты |
 | `.claude/rules/security.md` | конфиг и инфраструктура API, CI, реестр пакетов, секреты |
-| `.claude/rules/onbike-*.md` | домен on-bike поверх правил шаблона: `onbike-backend`, `onbike-db`, `onbike-contracts`, `onbike-app`, `onbike-web` (+ landing), `onbike-security` (identity, media, удаление аккаунта), `onbike-tests` |
+| `.claude/rules/onbike-*.md` | домен on-bike поверх правил шаблона: `onbike-backend`, `onbike-db`, `onbike-contracts`, `onbike-app`, `onbike-web` (admin), `onbike-security` (identity, media, удаление аккаунта), `onbike-tests` |
 
 Команды, агенты и скилы зон (`backend-nest`, `mobile-expo`, `web-ui`) — плагин `app-dev-kit`
 (`.claude/settings.json`). Codex: адаптеры `.agents/skills/`, роли `.codex/agents/`, тексты — `.ai/dev-kit/`;

@@ -24,9 +24,6 @@ apps/app/ios/
 apps/app/android/
 expo-env.d.ts
 
-# Astro (до F5)
-.astro/
-
 # AI: локальные настройки и временные артефакты (сам AI-конфиг коммитится)
 .claude/settings.local.json
 .claude/worktrees/

@@ -64,7 +64,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # completion gate: format, lint, arch:check, typecheck, test (AGENTS.md §3)
       - run: pnpm check
-      # on-bike: собираются все приложения и пакеты (admin, landing — до F5), не только API
+      # on-bike: собираются все приложения и пакеты (admin), не только API; web — job `web`
       - run: pnpm turbo run build
       # dist API — CommonJS поверх ESM-пакетов базы (require(esm), две сборки drizzle): typecheck и vitest
       # этого не видят, поэтому модули dist загружаются отдельно
