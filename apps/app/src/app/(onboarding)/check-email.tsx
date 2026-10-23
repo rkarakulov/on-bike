@@ -1,5 +1,14 @@
+import { size } from '@on-bike/design-tokens';
 import { t } from '@on-bike/i18n';
-import { Banner, Button, keepTogether, TextAction } from '@rkarakulov/ui';
+import {
+  Banner,
+  Button,
+  keepTogether,
+  Skeleton,
+  SkeletonGroup,
+  SkeletonText,
+  TextAction,
+} from '@rkarakulov/ui';
 import { Redirect, useRouter } from 'expo-router';
 import { useState } from 'react';
 
@@ -8,6 +17,7 @@ import {
   AuthInline,
   AuthMeta,
   AuthScreen,
+  AuthStack,
   AuthText,
 } from '@/features/auth/auth-screen';
 import { actionErrorMessage, retryAfterSec } from '@/features/auth/error-messages';
@@ -26,9 +36,26 @@ import { useSignInWhenVerified } from '@/features/auth/use-sign-in-when-verified
 import { formatCountdown, useSecondsLeft } from '@/lib/countdown';
 
 export default function CheckEmailScreen() {
+  const hydrated = useRegistrationStore((state) => state.hydrated);
   const pending = useRegistrationStore((state) => state.pending);
+  // регистрация читается из хранилища после монтирования (SSR и первый кадр web — ещё нет): скелетон, а не
+  // редирект; адрес и отсчёт повтора (от Date.now()) — только на клиенте, без рассинхрона гидрации
+  if (!hydrated) return <CheckEmailSkeleton />;
   if (!pending) return <Redirect href="/register" />;
   return <CheckEmail pending={pending} />;
+}
+
+function CheckEmailSkeleton() {
+  return (
+    <AuthScreen kicker={t('auth.kicker')} title={t('auth.checkEmail.title')}>
+      <SkeletonGroup>
+        <AuthStack>
+          <SkeletonText lines={3} />
+          <Skeleton height={size.buttonHeight} />
+        </AuthStack>
+      </SkeletonGroup>
+    </AuthScreen>
+  );
 }
 
 type ResendNotice = 'resent' | 'tooMany' | null;

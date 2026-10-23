@@ -2,10 +2,16 @@ import { t } from '@on-bike/i18n';
 import { useTheme } from '@rkarakulov/ui';
 import { Tabs } from 'expo-router/js-tabs';
 
+import { ShellSkeleton } from '@/components/shell-skeleton';
 import { TabBar } from '@/components/tab-bar';
+import { useSessionStore } from '@/features/auth/session-store';
 
 export default function TabsLayout() {
   const theme = useTheme();
+  // сессия ещё неизвестна (SSR, восстановление при запуске): гард пускает сюда, но контент — только после входа
+  const sessionUnknown = useSessionStore((state) => state.status === 'unknown');
+
+  if (sessionUnknown) return <ShellSkeleton />;
 
   return (
     <Tabs

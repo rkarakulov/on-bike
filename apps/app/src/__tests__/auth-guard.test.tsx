@@ -2,6 +2,7 @@
 // разбор входящего URL тем же кодом, что у Router на устройстве (публичный путь пакета `./build/*`)
 import { extractExpoPathFromURL } from 'expo-router/build/fork/extractPathFromURL';
 import { renderRouter, screen } from 'expo-router/testing-library';
+import * as SecureStore from 'expo-secure-store';
 
 import { api } from '@/lib/api';
 
@@ -18,6 +19,26 @@ describe('гард сессии (Stack.Protected)', () => {
     expect(await screen.findByRole('header', { name: 'Создать аккаунт' })).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/register');
     expect(screen.queryByRole('tab', { name: 'Главная' })).toBeNull();
+  });
+
+  it('пока сессия не прочитана — на месте вкладок скелетон оболочки, без редиректа (SSR, R2)', async () => {
+    // и сессия, и регистрация ещё читаются из хранилища
+    const never = new Promise<string | null>(() => undefined);
+    jest.mocked(SecureStore.getItemAsync).mockReturnValueOnce(never).mockReturnValueOnce(never);
+    const router = await renderRouter(appRoutes, { initialUrl: '/' });
+
+    expect(await screen.findByRole('progressbar', { name: 'Загрузка' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/');
+    expect(screen.queryByRole('header', { name: 'Создать аккаунт' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Главная' })).toBeNull();
+  });
+
+  it('пока сессия не прочитана — регистрация открывается сразу (публичный экран, SSR)', async () => {
+    jest.mocked(SecureStore.getItemAsync).mockReturnValueOnce(new Promise(() => undefined));
+    const router = await renderRouter(appRoutes, { initialUrl: '/register' });
+
+    expect(await screen.findByRole('header', { name: 'Создать аккаунт' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/register');
   });
 
   it('сессия из SecureStore с живым refresh — сразу Главная, регистрация недоступна', async () => {

@@ -11,8 +11,10 @@ import {
   TextAction,
 } from '@rkarakulov/ui';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import type { GenerateMetadataFunction } from 'expo-router/server';
 import { useState } from 'react';
 
+import { DocumentTitle } from '@/components/document-title';
 import {
   AuthActions,
   AuthMeta,
@@ -44,6 +46,16 @@ import {
   VerifiedSigningIn,
 } from '@/features/auth/verification-states';
 import { formatCountdown, useSecondsLeft } from '@/lib/countdown';
+import { publicPageMetadata } from '@/lib/page-metadata';
+
+/**
+ * Публичный экран (SSR web): нейтральный заголовок без e-mail и без `og:url` — в пути токен. `loader` нет:
+ * адрес в HTML не попадает, состояние ссылки экран берёт из API после гидрации.
+ */
+export const generateMetadata: GenerateMetadataFunction = () =>
+  publicPageMetadata({ title: t('auth.verify.title'), description: t('app.tagline') });
+
+const DOCUMENT_TITLE = `${t('auth.verify.title')} — ${t('app.name')}`;
 
 type LinkView = { state: VerificationLinkState | 'gone'; email: string };
 
@@ -62,6 +74,7 @@ export default function VerifyEmailScreen() {
   if (override?.state === 'gone' || isGone(link.error)) {
     return (
       <AuthScreen kicker={t('auth.kicker')}>
+        <DocumentTitle title={DOCUMENT_TITLE} />
         <LinkGone />
       </AuthScreen>
     );
@@ -70,6 +83,7 @@ export default function VerifyEmailScreen() {
   // шапка сценария видна сразу; заголовок зависит от состояния ссылки — до ответа на его месте скелетон
   return (
     <AuthScreen kicker={t('auth.kicker')}>
+      <DocumentTitle title={DOCUMENT_TITLE} />
       <AsyncContent query={link} skeleton={<LinkSkeleton />}>
         {(info) => {
           const view = override ?? info;

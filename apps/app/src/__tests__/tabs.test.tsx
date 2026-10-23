@@ -4,11 +4,15 @@ import { fireEvent, renderRouter, screen, within } from 'expo-router/testing-lib
 import { useColorScheme } from 'react-native';
 
 import { tabRoutes } from './app-routes';
+import { signInForTest } from './auth-fixtures';
 
 // jest-пресет React Native подменяет useColorScheme на jest.fn(() => 'light')
 const colorScheme = jest.mocked(useColorScheme);
 
 afterEach(() => colorScheme.mockReturnValue('light'));
+
+// вкладки — только после входа (гард и скелетон оболочки — auth-guard.test)
+beforeEach(signInForTest);
 
 describe('нижние вкладки', () => {
   it('пять вкладок в порядке прототипа, Главная выбрана', async () => {

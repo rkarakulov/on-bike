@@ -36,11 +36,12 @@ describe('корневой layout: splash и шрифты', () => {
     expect(SplashScreen.hideAsync).not.toHaveBeenCalled();
   });
 
-  it('пока сессия не прочитана из SecureStore — splash не скрыт и экран не рендерится', async () => {
+  it('пока сессия не прочитана из SecureStore — splash не скрыт, контента нет (скелетон оболочки)', async () => {
     mockedUseFonts.mockReturnValue([true, null]);
     jest.mocked(SecureStore.getItemAsync).mockReturnValueOnce(new Promise(() => undefined));
     await renderRouter(app);
 
+    expect(await screen.findByRole('progressbar', { name: 'Загрузка' })).toBeOnTheScreen();
     expect(screen.queryByRole('header')).toBeNull();
     expect(SplashScreen.hideAsync).not.toHaveBeenCalled();
   });

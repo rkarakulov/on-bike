@@ -3,8 +3,12 @@ import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 import UiKitScreen from '../app/ui-kit';
 import { tabRoutes } from './app-routes';
+import { signInForTest } from './auth-fixtures';
 
 const app = { ...tabRoutes, 'ui-kit': UiKitScreen };
+
+// вкладки — только после входа (гард и скелетон оболочки — auth-guard.test)
+beforeEach(signInForTest);
 
 // __DEV__ в типах RN — константа; в тестах переключаем как глобальное значение
 const setDev = (value: boolean) => Object.assign(globalThis, { __DEV__: value });

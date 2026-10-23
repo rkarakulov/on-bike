@@ -547,3 +547,52 @@ Dev web — `http://127.0.0.1:8081` (в `CORS_ORIGINS` `.env.example` уже е�
 **Follow-ups в app-foundation:** хук `configureApp` в `createApiHarness` (int-тесты identity идут без CSRF/CORS — CSRF
 проверен unit-тестом `http-app.test.ts`); опция `credentials` CORS в шаблоне — когда сессия появится в базе.
 **Слайс 2:** reuse detection refresh, продление сессии, native-клиент refresh/sign-out.
+
+### S3b — web-варианты приложения (coder B, 2026-10-23)
+**Спайк Stack.Protected на SSR** (expo-router 58.0.24, по исходникам `build/layouts/withLayoutContext.js`,
+`build/useScreens.js` и сборке): `guard` — обычный проп, вычисляется в рендере и на сервере; экран, не прошедший
+гард, рендерит `<Redirect>` — он срабатывает в `useFocusEffect`, на сервере это `null`. Значит, гарды, допускающие
+`unknown`, дают SSR контент, план Б не нужен. Проверка — `build:web` + `start:web` + curl с гардами R2:
+`/register` — форма, `/status` — как шаблон, `/auth/verify/<43>` — кикер + скелетон, `/` — скелетон.
+
+**Сделано (R2, R10):**
+- `_layout.tsx` — корень ждёт только шрифты; splash скрывается, когда шрифты + сессия + регистрация известны;
+  гарды `(tabs)`: `unknown || signedIn`, `(onboarding)`: `!signedIn` (срок refresh проверяется, как раньше).
+  `(tabs)/_layout` при `unknown` — `ShellSkeleton` (`components/shell-skeleton.tsx`, раскладка `ScreenPlaceholder`).
+- `check-email` — до гидрации регистрации скелетон (заголовок виден), без редиректа: адрес и отсчёт (`Date.now()`)
+  рендерятся только на клиенте, SSR их не видит (R13 F5a) — `useSecondsLeft` не менялся.
+- Хранилище: `secure-storage.web.ts` — `sessionStorage`, try/catch, SSR-безопасно (нет хранилища → `null`/no-op,
+  сбой записи — `console.warn` с именем ошибки); общий `readJson` вынесен в `read-json.ts`.
+- Сессия: `session-persistence.ts` (native: SecureStore, как было; без `refreshToken` — не сохраняет) /
+  `.web.ts` (`restoreSession` = `api.refreshSession()` без тела под `navigator.locks` `onbike.session-refresh`,
+  ответ — `CookieSession.parse` (refresh в память не попадает); 401/сеть → `undefined`, cookie не трогаем;
+  `persistSession` — no-op; `clearSession` = `api.signOut()`, сбой — warn). `session-expiry.ts` — `isSessionAlive`.
+  Стор: `session: CookieSession | null`, `signIn(AnySession)`, гидрация не затирает вход, случившийся во время неё.
+  `use-sign-in-when-verified.ts` — без `Session.safeParse` и TODO.
+- Клиент: `lib/api-platform.ts` (`{}`) / `.web.ts` (`credentials: 'include'`, `sessionTransport: 'cookie'`) →
+  `lib/api.ts`.
+- Мета: `lib/page-metadata.ts` (`publicPageMetadata`: title, description, OG; `og:url` только из `WEB_ORIGIN` и только
+  при переданном `path`); `register` — «Регистрация — on-bike», `og:url` `/register`; `auth/verify/[token]` —
+  «Подтвердите e-mail — on-bike», без `og:url`, без `loader`; оба — `DocumentTitle`. Ключи — существующие
+  (`auth.kicker`, `auth.verify.title`, `app.tagline`), `packages/i18n` не менялся.
+
+**Тесты:** native — гард при `unknown`: скелетон, без редиректа (`/`), регистрация открывается сразу (`/register`);
+`check-email` до гидрации — скелетон без отсчёта; без регистрации — к «Создать аккаунт»; `root-layout` — скелетон
+вместо Главной; `public-metadata.test.ts`; `api-platform.test.ts`. Web — `secure-storage.web`, `session-persistence.web`
+(refresh без тела, `refreshToken` отброшен, 401, сеть без sign-out, Web Lock, гонка с входом, хранилища пусты,
+sign-out), `use-sign-in-when-verified.web` (вход по `CookieSession`), `api-platform.web`. `tabs`/`ui-kit` —
+`signInForTest()` (вкладки рендерят контент только при известной сессии).
+
+**Проверки:** TDD — 9 падающих наборов до реализации; `pnpm --filter @on-bike/app typecheck` — exit 0; `eslint
+apps/app --max-warnings=0` — 0 (в app нет скрипта `lint`, корневой `pnpm lint` = eslint); prettier — ok; depcruise
+apps/app — 0 нарушений; `pnpm --filter @on-bike/app test` — 27 наборов, 120 тестов (native + web + server);
+`EXPO_PUBLIC_API_URL=http://127.0.0.1:3000 build:web` — `Exported: dist`; `start:web` (`WEB_ORIGIN` задан) + curl:
+`/register` — `<title>Регистрация — on-bike</title>`, OG, форма; `/auth/verify/<43>` — 200, title/OG, кикер + скелетон,
+ни e-mail, ни токена в HTML; `/check-email` — скелетон; `/` — скелетон; Chrome (Playwright, API замокан `page.route`):
+`/` → `/register` после 401 refresh, ошибок гидрации и `pageerror` нет, `sessionStorage`/`localStorage` пусты;
+`expo export -p android` — `Exported: dist` (перезаписывает web `dist` — перед e2e пересобрать).
+
+**Исполнителю S5:** (1) аноним на каждой загрузке шлёт `POST /v1/auth/session/refresh` → 401, Chrome пишет
+«Failed to load resource: 401» как `console.error` — фильтр в смоуке (или решение по API: 204 без cookie — вне S3b);
+(2) `/check-email` при SSR содержит и форму регистрации (начальный экран стека `(onboarding)`) — ожидаемо;
+(3) `dist` после `expo export -p android` — Android, перед `e2e:web` — `build:web`.

@@ -3,10 +3,12 @@ import { MIN_AGE_YEARS, MIN_BIRTH_DATE, RegisterRequest, minskToday } from '@on-
 import { t } from '@on-bike/i18n';
 import { Banner, Button, Checkbox, DateField, TextAction, TextField } from '@rkarakulov/ui';
 import { useRouter } from 'expo-router';
+import type { GenerateMetadataFunction } from 'expo-router/server';
 import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
 
+import { DocumentTitle } from '@/components/document-title';
 import {
   AuthActions,
   AuthInline,
@@ -22,6 +24,7 @@ import {
 } from '@/features/auth/error-messages';
 import { useRegister } from '@/features/auth/queries';
 import { useRegistrationStore } from '@/features/auth/registration-store';
+import { publicPageMetadata } from '@/lib/page-metadata';
 
 /** Значения формы до проверки: согласие может быть не отмечено, дата — не выбрана. */
 type RegisterForm = z.input<typeof RegisterRequest>;
@@ -32,6 +35,10 @@ const EMAIL_REFUSALS = ['EMAIL_TAKEN', 'EMAIL_UNAVAILABLE'] as const;
 
 const isEmailRefusal = (code: string | undefined): code is (typeof EMAIL_REFUSALS)[number] =>
   EMAIL_REFUSALS.some((refusal) => refusal === code);
+
+/** Публичный экран (SSR web): мета и OG без данных формы. */
+export const generateMetadata: GenerateMetadataFunction = () =>
+  publicPageMetadata({ title: t('auth.kicker'), description: t('app.tagline'), path: '/register' });
 
 /** Пикер пустой даты открывается на «ровно 18 лет назад», а не на сегодня. */
 const adultSince = (today: string) =>
@@ -101,6 +108,8 @@ export default function RegisterScreen() {
 
   return (
     <AuthScreen title={t('auth.register.title')} lead={t('auth.register.lead')}>
+      {/* заголовок вкладки после клиентской навигации (web); при SSR — из generateMetadata */}
+      <DocumentTitle title={`${t('auth.kicker')} — ${t('app.name')}`} />
       <Controller
         control={control}
         name="email"

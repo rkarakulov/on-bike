@@ -1,5 +1,7 @@
 import { createApiClient } from '@on-bike/api-client';
 
+import { apiPlatformOptions } from './api-platform';
+
 /** dev по умолчанию: телефон ходит на API компьютера через `adb reverse tcp:3000 tcp:3000` (Android) / симулятор. */
 const DEV_API_URL = 'http://127.0.0.1:3000';
 
@@ -13,4 +15,5 @@ function apiBaseUrl(): string {
   throw new Error('EXPO_PUBLIC_API_URL не задан для сборки');
 }
 
-export const api = createApiClient({ baseUrl: apiBaseUrl() });
+// опции платформы: web — cookie сессии (`api-platform.web.ts`), native — сессия в теле ответа
+export const api = createApiClient({ baseUrl: apiBaseUrl(), ...apiPlatformOptions });
