@@ -37,6 +37,11 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
  * ошибку, стор показывает «сессию проверить не удалось» с повтором. Cookie при сбое не трогаем.
  */
 export async function restoreSession(_now: number): Promise<CookieSession | undefined> {
+  // выход не дошёл до сервера (сеть, 5xx): cookie, возможно, жива — аккаунт не восстанавливаем, отзыв повторяем
+  if (isSignOutPending()) {
+    await revokeOnServer();
+    return undefined;
+  }
   for (let attempt = 1; ; attempt += 1) {
     try {
       // refreshToken в памяти web не держим, даже если сервер ответил телом
@@ -56,16 +61,54 @@ export async function revalidateSession(_now: number): Promise<Revalidation> {
   return { status: 'unchanged' };
 }
 
-/** Cookie уже выставил сервер (ответ poll/refresh), сохранять на клиенте нечего. */
-export async function persistSession(_session: AnySession): Promise<boolean> {
-  return true;
+/**
+ * Признак незавершённого выхода (в `localStorage`, общий для вкладок): выход показан, а отзыв на сервере не
+ * подтверждён — httpOnly cookie JS стереть не может, и перезагрузка иначе вернула бы в аккаунт. Не токен и не данные
+ * сессии. Хранилище недоступно (приватный режим, запрет) — без признака, не падаем.
+ */
+const SIGN_OUT_PENDING = 'onbike.signOutPending';
+
+function setSignOutPending(pending: boolean): void {
+  try {
+    if (pending) localStorage.setItem(SIGN_OUT_PENDING, '1');
+    else localStorage.removeItem(SIGN_OUT_PENDING);
+  } catch {
+    // без хранилища — без признака
+  }
 }
 
-/** Выход: сервер отзывает сессию и снимает cookie. Не бросает: локально выход состоится в любом случае. */
-export async function clearSession(): Promise<void> {
+function isSignOutPending(): boolean {
+  try {
+    return localStorage.getItem(SIGN_OUT_PENDING) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** Отзыв сессии по cookie; подтверждён — признак незавершённого выхода снимается. Не бросает. */
+async function revokeOnServer(): Promise<void> {
   try {
     await withSessionLock(() => api.signOut());
+    setSignOutPending(false);
   } catch (error) {
     console.warn(`sign-out failed: ${(error as Error).name}`);
   }
+}
+
+/**
+ * Cookie уже выставил сервер (ответ входа или poll — под замком сессии), сохранять на клиенте нечего; явный вход
+ * отменяет незавершённый выход.
+ */
+export async function persistSession(_session: AnySession): Promise<boolean> {
+  setSignOutPending(false);
+  return true;
+}
+
+/**
+ * Выход: сервер отзывает сессию и снимает cookie. Не бросает: локально выход состоится в любом случае; не дошёл
+ * до сервера — признак незавершённого выхода, повтор отзыва при следующем запуске.
+ */
+export async function clearSession(): Promise<void> {
+  setSignOutPending(true);
+  await revokeOnServer();
 }

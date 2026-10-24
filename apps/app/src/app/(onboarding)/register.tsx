@@ -2,9 +2,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { MIN_AGE_YEARS, MIN_BIRTH_DATE, RegisterRequest, minskToday } from '@on-bike/contracts';
 import { t } from '@on-bike/i18n';
 import { Banner, Button, Checkbox, DateField, TextAction, TextField } from '@rkarakulov/ui';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type { GenerateMetadataFunction } from 'expo-router/server';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
 
@@ -71,6 +71,15 @@ export default function RegisterScreen() {
   });
   const consent = useWatch({ control, name: 'personalDataConsent' });
   const emailCode = errors.email?.message;
+
+  // возврат к уже смонтированной форме (например, «Создать аккаунт» со входа): адрес мог смениться в черновике —
+  // поле берёт его; defaultValues действуют только при первом монтировании
+  useFocusEffect(
+    useCallback(() => {
+      const { email } = useRegistrationStore.getState().draft;
+      if (email !== undefined && email !== getValues('email')) setValue('email', email);
+    }, [getValues, setValue]),
+  );
 
   // приложение перезапущено, пока жив токен регистрации, — сразу к «Подтвердите e-mail»
   useEffect(() => {

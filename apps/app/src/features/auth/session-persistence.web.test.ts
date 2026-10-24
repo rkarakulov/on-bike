@@ -318,4 +318,91 @@ describe('сессия web: refresh в httpOnly cookie, access в памяти',
       session: cookieSession,
     });
   });
+
+  describe('выход при сбое API (сеть, 5xx): cookie жива — перезагрузка не возвращает в аккаунт', () => {
+    async function signOutFailing(error: unknown) {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      await useSessionStore.getState().signIn(cookieSession);
+      signOut.mockRejectedValueOnce(error);
+      await useSessionStore.getState().signOut();
+      warn.mockRestore();
+    }
+
+    it.each([
+      ['нет сети', offline()],
+      ['5xx', new ApiHttpError(503, null)],
+    ])(
+      '%s: после перезагрузки — не вошёл, refresh не зовётся, отзыв повторяется',
+      async (_case, error) => {
+        await signOutFailing(error);
+        expect(useSessionStore.getState().status).toBe('signedOut');
+
+        // перезагрузка страницы: память пуста, cookie (по мнению браузера) жива
+        resetSessionStore();
+        refresh.mockResolvedValue(cookieSession);
+        signOut.mockResolvedValue(undefined);
+        await useSessionStore.getState().hydrate(NOW);
+
+        expect(useSessionStore.getState().status).toBe('signedOut');
+        expect(refresh).not.toHaveBeenCalled();
+        expect(signOut).toHaveBeenCalledTimes(2);
+
+        // отзыв подтверждён — дальше обычное восстановление
+        resetSessionStore();
+        refresh.mockRejectedValue(unauthorized());
+        await useSessionStore.getState().hydrate(NOW);
+        expect(refresh).toHaveBeenCalledTimes(1);
+        expect(signOut).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    it('сервер всё ещё недоступен при перезагрузке — по-прежнему не вошёл, признак выхода остаётся', async () => {
+      await signOutFailing(offline());
+
+      resetSessionStore();
+      signOut.mockRejectedValue(offline());
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      await useSessionStore.getState().hydrate(NOW);
+      resetSessionStore();
+      await useSessionStore.getState().hydrate(NOW);
+      warn.mockRestore();
+
+      expect(useSessionStore.getState().status).toBe('signedOut');
+      expect(refresh).not.toHaveBeenCalled();
+      expect(signOut).toHaveBeenCalledTimes(3);
+    });
+
+    it('явный вход снимает признак: следующая перезагрузка восстанавливает сессию', async () => {
+      await signOutFailing(offline());
+      signIn.mockResolvedValue({ state: 'signedIn', session: cookieSession });
+      await requestSignIn({ email: 'rider@example.com', password: 'velo-secret' });
+
+      resetSessionStore();
+      refresh.mockResolvedValue(cookieSession);
+      await useSessionStore.getState().hydrate(NOW);
+
+      expect(useSessionStore.getState()).toMatchObject({
+        status: 'signedIn',
+        session: cookieSession,
+      });
+      expect(localStorage.length).toBe(0);
+    });
+
+    it('хранилище браузера недоступно — выход и запуск не падают', async () => {
+      const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('SecurityError');
+      });
+      const getItem = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('SecurityError');
+      });
+      await signOutFailing(offline());
+      resetSessionStore();
+      refresh.mockRejectedValue(unauthorized());
+      await useSessionStore.getState().hydrate(NOW);
+
+      expect(useSessionStore.getState().status).toBe('signedOut');
+      setItem.mockRestore();
+      getItem.mockRestore();
+    });
+  });
 });

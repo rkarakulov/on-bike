@@ -170,6 +170,24 @@ describe('«Вход»', () => {
   });
 });
 
+describe('регистрация ↔ вход: e-mail через черновик', () => {
+  it('регистрация с адресом A → вход → адрес B → «Создать аккаунт» (назад к смонтированной форме) — в форме B', async () => {
+    const router = await renderRouter(appRoutes, { initialUrl: '/register' });
+    await screen.findByRole('header', { name: 'Создать аккаунт' });
+    await fireEvent.changeText(screen.getByLabelText('E-mail'), EMAIL);
+    await fireEvent.press(screen.getByRole('button', { name: 'Войти' }));
+    await screen.findByRole('header', { name: 'Вход' });
+
+    await fireEvent.changeText(screen.getByLabelText('E-mail'), 'other@mail.by');
+    await fireEvent.press(screen.getByRole('button', { name: 'Создать аккаунт' }));
+
+    expect(await screen.findByRole('header', { name: 'Создать аккаунт' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/register');
+    expect(screen.getByLabelText('E-mail')).toHaveDisplayValue('other@mail.by');
+    expect(screen.queryByDisplayValue(EMAIL)).toBeNull();
+  });
+});
+
 describe('выход', () => {
   it('«Выйти» на Главной → сервер отзывает сессию, SecureStore и кеш запросов пусты, экран «Вход» (не регистрация)', async () => {
     const clear = jest.spyOn(QueryClient.prototype, 'clear');

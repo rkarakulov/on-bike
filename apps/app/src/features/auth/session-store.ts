@@ -2,12 +2,7 @@ import { type AnySession, CookieSession } from '@on-bike/contracts';
 import { create } from 'zustand';
 
 import { isSessionAlive } from './session-expiry';
-import {
-  clearSession,
-  persistSession,
-  restoreSession,
-  revalidateSession,
-} from './session-persistence';
+import { clearSession, restoreSession, revalidateSession } from './session-persistence';
 
 /**
  * `unknown` — до восстановления сессии при запуске (native: SecureStore; web: refresh по cookie);
@@ -43,8 +38,9 @@ type Restored = Pick<SessionState, 'status' | 'session' | 'restoreError'>;
 async function restore(now: number): Promise<Restored> {
   try {
     const session = await restoreSession(now);
+    // в памяти — без refresh (native: он только в SecureStore)
     return session
-      ? { status: 'signedIn', session, restoreError: null }
+      ? { status: 'signedIn', session: CookieSession.parse(session), restoreError: null }
       : { status: 'signedOut', session: null, restoreError: null };
   } catch (error) {
     // native не бросает; web — временный сбой после повторов: сессия, может быть, жива — не выход
@@ -74,17 +70,16 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     // ответ относится только к проверенной сессии: выход или новый вход за это время не затираем
     set((state) => {
       if (state.session !== checked || state.status !== 'signedIn') return state;
-      if (result.status === 'rotated') return { session: result.session };
+      if (result.status === 'rotated') return { session: CookieSession.parse(result.session) };
       if (result.status === 'signedOut')
         return { status: 'signedOut', session: null, returning: true };
       return state;
     });
   },
-  // сначала память (вход состоялся), затем хранилище — сбой записи вход не отменяет
+  // только память: сессию уже сохранил тот, кто её получил, — под замком сессии (`requestSignIn`, poll), иначе
+  // поздняя запись SecureStore после выхода вернула бы её. В памяти — без refresh (native: он в SecureStore)
   signIn: async (session) => {
-    // в памяти — без refresh (web: его и не должно быть; native: он в SecureStore)
     set({ status: 'signedIn', session: CookieSession.parse(session) });
-    await persistSession(session);
   },
   signOut: async () => {
     await clearSession();

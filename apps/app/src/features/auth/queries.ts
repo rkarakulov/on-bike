@@ -11,6 +11,8 @@ import { api } from '@/lib/api';
 
 import { apiErrorCode } from './error-messages';
 import { withSessionLock } from './session-lock';
+import { persistSession } from './session-persistence';
+import { useSessionStore } from './session-store';
 
 /** Интервал опроса подтверждения на экране «Подтвердите e-mail». */
 export const POLL_INTERVAL_MS = 3000;
@@ -32,11 +34,19 @@ export function useRegister() {
 export type SignInCredentials = Omit<SignInRequest, 'sessionTransport'>;
 
 /**
- * Вход по паролю. Ответ на web выставляет cookie сессии (и отзывает прежнюю) — поэтому под замком сессии, как
- * refresh и выход; на native — под замком приложения (одна сессионная операция за раз).
+ * Вход по паролю — одна сессионная операция: запрос, сохранение refresh (native — SecureStore) и вход в памяти.
+ * Ответ на web выставляет cookie сессии (и отзывает прежнюю) — поэтому под замком сессии, как refresh и выход; на
+ * native — под замком приложения: выход, нажатый сразу после входа, ждёт записи и отзывает уже сохранённый refresh.
  */
 export function requestSignIn(body: SignInCredentials): Promise<SignInResponse> {
-  return withSessionLock(() => api.signIn(body));
+  return withSessionLock(async () => {
+    const response = await api.signIn(body);
+    if (response.state === 'signedIn') {
+      await persistSession(response.session);
+      await useSessionStore.getState().signIn(response.session);
+    }
+    return response;
+  });
 }
 
 export function useSignIn() {
@@ -69,7 +79,12 @@ export function useResendVerification() {
 export function fetchRegistrationPoll(
   registrationToken: string,
 ): Promise<RegistrationPollResponse> {
-  return withSessionLock(() => api.pollRegistration({ registrationToken }));
+  return withSessionLock(async () => {
+    const response = await api.pollRegistration({ registrationToken });
+    // сессия выдаётся один раз — сохраняем в той же операции, до выхода или следующей ротации
+    if (response.state === 'verified') await persistSession(response.session);
+    return response;
+  });
 }
 
 /**

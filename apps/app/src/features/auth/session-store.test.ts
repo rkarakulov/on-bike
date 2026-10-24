@@ -1,18 +1,25 @@
 /// <reference types="jest" />
 import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
-import type { Session } from '@on-bike/contracts';
+import { CookieSession, type Session } from '@on-bike/contracts';
 import * as SecureStore from 'expo-secure-store';
 
 import { api } from '@/lib/api';
 import { NOW, session } from '@/__tests__/auth-fixtures';
 
+import { requestSignIn } from './queries';
 import { withSessionLock } from './session-lock';
 import { isSignedIn, resetSessionStore, useSessionStore } from './session-store';
 
-jest.mock('@/lib/api', () => ({ api: { refreshSession: jest.fn(), signOut: jest.fn() } }));
+jest.mock('@/lib/api', () => ({
+  api: { refreshSession: jest.fn(), signOut: jest.fn(), signIn: jest.fn() },
+}));
 
 const refresh = jest.mocked(api.refreshSession);
 const signOut = jest.mocked(api.signOut);
+const signInApi = jest.mocked(api.signIn);
+
+/** Сессия в памяти стора — без refresh (он только в SecureStore). */
+const inMemory = (value: Session) => CookieSession.parse(value);
 
 const stored = () =>
   jest.requireMock<{ __store: Map<string, string> }>('expo-secure-store').__store;
@@ -50,14 +57,17 @@ describe('сессия', () => {
     expect(useSessionStore.getState().status).toBe('signedOut');
   });
 
-  it('вход сохраняет сессию в SecureStore, гидрация после перезапуска её восстанавливает', async () => {
-    await useSessionStore.getState().signIn(session);
+  it('вход сохраняет сессию в SecureStore, гидрация после перезапуска её восстанавливает (в памяти — без refresh)', async () => {
+    signInApi.mockResolvedValue({ state: 'signedIn', session });
+    await requestSignIn({ email: 'a@b.by', password: 'x' });
+    expect(useSessionStore.getState().session).toEqual(inMemory(session));
     expect(JSON.parse(stored().get('onbike.session') ?? '')).toEqual(session);
     expect(isSignedIn(useSessionStore.getState(), NOW.getTime())).toBe(true);
 
     resetSessionStore();
     await useSessionStore.getState().hydrate(NOW.getTime());
-    expect(useSessionStore.getState()).toMatchObject({ status: 'signedIn', session });
+    expect(useSessionStore.getState().status).toBe('signedIn');
+    expect(useSessionStore.getState().session).toEqual(inMemory(session));
   });
 
   it('гард: вошедшим считается только непросроченный refresh (access 15 мин не важен)', async () => {
@@ -99,7 +109,8 @@ describe('native: фоновая проверка сессии после лок
 
     expect(refresh).toHaveBeenCalledWith({ refreshToken: session.refreshToken });
     expect(JSON.parse(stored().get('onbike.session') ?? '')).toEqual(rotated);
-    expect(useSessionStore.getState()).toMatchObject({ status: 'signedIn', session: rotated });
+    expect(useSessionStore.getState().status).toBe('signedIn');
+    expect(useSessionStore.getState().session).toEqual(inMemory(rotated));
   });
 
   it('401 (отозвана, reuse, выход на другом устройстве) — локальный выход, SecureStore пуст, гард ведёт на «Вход»', async () => {
@@ -124,7 +135,8 @@ describe('native: фоновая проверка сессии после лок
     await settle();
 
     expect(refresh).toHaveBeenCalledTimes(2);
-    expect(useSessionStore.getState()).toMatchObject({ status: 'signedIn', session });
+    expect(useSessionStore.getState().status).toBe('signedIn');
+    expect(useSessionStore.getState().session).toEqual(inMemory(session));
     expect(JSON.parse(stored().get('onbike.session') ?? '')).toEqual(session);
   });
 
@@ -136,7 +148,7 @@ describe('native: фоновая проверка сессии после лок
     await settle();
 
     expect(refresh).toHaveBeenCalledTimes(2);
-    expect(useSessionStore.getState().session).toEqual(rotated);
+    expect(useSessionStore.getState().session).toEqual(inMemory(rotated));
   });
 
   it.each([
@@ -153,12 +165,14 @@ describe('native: фоновая проверка сессии после лок
     await settle();
 
     expect(refresh).toHaveBeenCalledTimes(1);
-    expect(useSessionStore.getState()).toMatchObject({ status: 'signedIn', session });
+    expect(useSessionStore.getState().status).toBe('signedIn');
+    expect(useSessionStore.getState().session).toEqual(inMemory(session));
   });
 });
 
 describe('native: выход', () => {
   it('сервер отзывает сессию по refresh из SecureStore, хранилище пусто, гард ведёт на «Вход»', async () => {
+    stored().set('onbike.session', JSON.stringify(session));
     await useSessionStore.getState().signIn(session);
 
     await useSessionStore.getState().signOut();
@@ -175,6 +189,7 @@ describe('native: выход', () => {
   it('офлайн — локальный выход всё равно', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     signOut.mockRejectedValue(offline());
+    stored().set('onbike.session', JSON.stringify(session));
     await useSessionStore.getState().signIn(session);
 
     await useSessionStore.getState().signOut();
@@ -206,6 +221,29 @@ describe('native: выход', () => {
     expect(stored().has('onbike.session')).toBe(false);
     // запоздалый результат ротации не возвращает вошедшее состояние
     await settle();
+    expect(useSessionStore.getState()).toMatchObject({ status: 'signedOut', session: null });
+  });
+
+  it('выход сразу после входа ждёт записи SecureStore: поздняя запись не возвращает сессию, сервер её отзывает', async () => {
+    const write = deferred<void>();
+    jest.mocked(SecureStore.setItemAsync).mockImplementationOnce(async (key, value) => {
+      await write.promise;
+      stored().set(key, value);
+    });
+    signInApi.mockResolvedValue({ state: 'signedIn', session });
+
+    const signingIn = requestSignIn({ email: 'a@b.by', password: 'x' });
+    const out = useSessionStore.getState().signOut();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // запись ещё идёт — выход стоит в очереди замка
+    expect(signOut).not.toHaveBeenCalled();
+
+    write.resolve();
+    await signingIn;
+    await out;
+
+    expect(signOut).toHaveBeenCalledWith({ refreshToken: session.refreshToken });
+    expect(stored().has('onbike.session')).toBe(false);
     expect(useSessionStore.getState()).toMatchObject({ status: 'signedOut', session: null });
   });
 });

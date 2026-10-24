@@ -18,7 +18,6 @@ import {
 } from '@/features/auth/error-messages';
 import { type SignInCredentials, useSignIn } from '@/features/auth/queries';
 import { useRegistrationStore } from '@/features/auth/registration-store';
-import { useSessionStore } from '@/features/auth/session-store';
 import { formatCountdown, useSecondsLeft } from '@/lib/countdown';
 import { publicPageMetadata } from '@/lib/page-metadata';
 
@@ -73,8 +72,7 @@ export default function SignInScreen() {
         router.push('/check-email');
         return;
       }
-      // гард сам переключит стек на вкладки
-      await useSessionStore.getState().signIn(result.session);
+      // вход уже в сторе (requestSignIn) — гард сам переключит стек на вкладки
       await useRegistrationStore.getState().clear();
     } catch (error) {
       const wait = retryAfterSec(error);
