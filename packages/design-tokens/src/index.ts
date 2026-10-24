@@ -8,6 +8,7 @@ import type { OnBikeRoleGroups, themes } from './brand.ts';
  * Реэкспорт базы — только явный: у базы `contrastPairs`/`designSystemCss` с другими сигнатурами.
  */
 export {
+  autofillCss,
   density,
   fontWeights,
   inset,

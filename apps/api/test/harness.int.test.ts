@@ -7,9 +7,11 @@ import { users } from '../src/modules/identity/identity.schema';
 import { createHarness, type Harness } from './harness';
 import { register } from './identity';
 
+const WEB = 'http://127.0.0.1:8081';
+
 let h: Harness;
 beforeAll(async () => {
-  h = await createHarness({ TRUST_PROXY: '1' });
+  h = await createHarness({ TRUST_PROXY: '1', CORS_ORIGINS: WEB });
 });
 beforeEach(async () => {
   await h.reset();
@@ -22,6 +24,21 @@ describe('стенд on-bike (обёртка createApiHarness)', () => {
   it('HTTP API on-bike под префиксом версии контракта', async () => {
     const res = await h.app.inject({ method: 'GET', url: '/v1/health' });
     expect(res.statusCode).toBe(200);
+  });
+
+  it('HTTP-настройка проекта (configureHttp, как в main.ts): CORS только для CORS_ORIGINS', async () => {
+    const fromWeb = await h.app.inject({
+      method: 'GET',
+      url: '/v1/health',
+      headers: { origin: WEB },
+    });
+    expect(fromWeb.headers['access-control-allow-origin']).toBe(WEB);
+    const foreign = await h.app.inject({
+      method: 'GET',
+      url: '/v1/health',
+      headers: { origin: 'https://evil.example' },
+    });
+    expect(foreign.headers['access-control-allow-origin']).toBeUndefined();
   });
 
   it('окружение тестов с переопределениями — в ENV API и worker; MAILER worker — FakeMailer стенда', () => {

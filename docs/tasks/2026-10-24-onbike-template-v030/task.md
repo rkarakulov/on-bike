@@ -171,3 +171,18 @@ README «Обновление проекта»); (2) смоук «без API» �
   `brand.md` — `local-dev.md` и автозамена на сервере.
 - Проверки: `pnpm check` EXIT 0 (typecheck 8/8, test 13/13); `shellcheck` `deploy.sh` `bootstrap.sh` — EXIT 0; `actionlint`
   — EXIT 0; `bash -n` — ok; симуляция блока миграций на слитом `deploy.sh` — как выше; маркеров конфликта нет.
+
+### v0.3.2 (рамка фокуса и автозаполнение web)
+- `uvx copier@9.19.1 update --vcs-ref v0.3.2 --trust --defaults`: `_commit: v0.3.2`, `.rej` нет; PNG on-bike (иконки PWA,
+  favicon) снова перезаписаны рендером — возвращены из HEAD (follow-up (1) актуален).
+- Конфликты: `apps/api/src/http-app{,.test}.ts` — реализация on-bike (CSRF, CORS с credentials, предупреждение
+  `CORS_ORIGINS`), в JSDoc — что та же настройка идёт в стенд int-тестов. Без конфликта: `test/harness.ts` —
+  `configureApp: (app) => configureHttp(app, env)`; `harness.int.test.ts` — тест CORS стенда; `+html.tsx` —
+  `autofillCss({ theme: themes.light, darkTheme: themes.dark })`; `autofillCss` — в реэкспорте `@on-bike/design-tokens`.
+- `@rkarakulov/*` 0.3.2 — каталог и lockfile (`@rkarakulov/ui` 0.3.2: `outline` 0 у TextField/DateField на web).
+- Проверки: `pnpm check` EXIT 0 (typecheck 8/8, test 13/13; api 105, app 135; первый прогон — таймаут
+  `document-title.web.test.tsx` на холодном кеше jest, повтор зелёный); `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000
+  pnpm build:web` — EXIT 0, `sw.js: 35 файлов`; `pnpm e2e:web` без API — 7 passed, 1 skipped.
+- Визуально: Chrome headless (`channel: 'chrome'`, Pixel 7), собранный `dist`, `/register`, фокус в e-mail: у `input`
+  `outline: solid 0px` (рамки браузера нет), остаются граница поля 1 px и кольцо фокуса FieldFrame 2 px с отступом —
+  по дизайну `@rkarakulov/ui`; стиль `:-webkit-autofill` в `<head>` есть.

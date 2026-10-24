@@ -1,4 +1,4 @@
-import { themes } from '@on-bike/design-tokens';
+import { autofillCss, themes } from '@on-bike/design-tokens';
 import { i18n } from '@on-bike/i18n';
 import { ScrollViewStyleReset, useServerDocumentContext } from 'expo-router/html';
 import type { ReactNode } from 'react';
@@ -9,6 +9,9 @@ html, body { background-color: ${themes.light.surface.default}; }
 @media (prefers-color-scheme: dark) {
   html, body { background-color: ${themes.dark.surface.default}; }
 }`;
+
+// автозаполнение браузера (:-webkit-autofill) — фон и текст поля темы вместо голубой заливки браузера
+const autofill = autofillCss({ theme: themes.light, darkTheme: themes.dark });
 
 // service worker (кеш статики, scripts/service-worker.ts) — только в production: в dev он кешировал бы бандлы Metro
 const registerServiceWorker = `
@@ -44,6 +47,7 @@ export default function RootHtml({ children }: { children: ReactNode }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
         <style dangerouslySetInnerHTML={{ __html: documentBackground }} />
+        <style dangerouslySetInnerHTML={{ __html: autofill }} />
         <ScrollViewStyleReset />
         {headNodes}
       </head>
