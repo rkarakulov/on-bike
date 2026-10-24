@@ -67,20 +67,25 @@ export class SignInService implements OnModuleInit {
   }
 
   /**
-   * Попытка входа списывается со всех трёх счётчиков (R1б, R2а: считаются все попытки). Отказ любого — 429 с
-   * наибольшей паузой, одинаково для существующих и несуществующих адресов; пароль не проверяется.
+   * Счётчики по очереди — IP → e-mail+IP → e-mail (R1б, R2а: считаются все попытки), до первого отказа: отказанная
+   * попытка дальше не списывается. Иначе ошибки с одного адреса сверх его лимита копили бы общий счётчик e-mail, и
+   * один IP блокировал бы владельца везде. Отказ — 429 с паузой отказавшего правила, одинаково для существующих и
+   * несуществующих адресов; пароль не проверяется.
    */
   private async takeAttempt(email: string, ip: string, now: Date): Promise<void> {
     const keys = signInLimitKeys(this.env.EMAIL_TOKEN_SECRET, email, ip);
     const limits = IDENTITY_POLICY.signInLimits;
-    const results = await Promise.all([
-      this.rateLimiter.consume(keys.ip, limits.ip, now),
-      this.rateLimiter.consume(keys.emailIp, limits.emailIp, now),
-      this.rateLimiter.consume(keys.email, limits.email, now),
-    ]);
-    const waits = results.flatMap((result) => (result.allowed ? [] : [result.retryAfterSec]));
-    if (waits.length === 0) return;
-    const details: RateLimitedDetails = { retryAfterSec: Math.max(...waits) };
-    throw domainError('RATE_LIMITED', 429, details);
+    const rules = [
+      [keys.ip, limits.ip],
+      [keys.emailIp, limits.emailIp],
+      [keys.email, limits.email],
+    ] as const;
+    for (const [key, rule] of rules) {
+      const result = await this.rateLimiter.consume(key, rule, now);
+      if (!result.allowed) {
+        const details: RateLimitedDetails = { retryAfterSec: result.retryAfterSec };
+        throw domainError('RATE_LIMITED', 429, details);
+      }
+    }
   }
 }

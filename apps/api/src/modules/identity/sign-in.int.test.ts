@@ -259,6 +259,39 @@ describe('лимиты попыток (AC3, Q1/Q2)', () => {
     expect((await signIn({ email: EMAIL, password: 'x' }, '203.0.113.200')).status).toBe(429);
   });
 
+  it('попытки сверх лимита e-mail+IP с одного адреса не списываются с e-mail: владелец входит с другого IP (R1б)', async () => {
+    await verifiedAccount();
+    for (let i = 0; i < email.limit; i += 1) {
+      await signIn({ email: EMAIL, password: 'wrong-password' }, '198.51.100.66');
+    }
+
+    expect((await signIn({ email: EMAIL, password: PASSWORD }, '198.51.100.2')).status).toBe(200);
+  });
+
+  it('отказ по IP — тело и retryAfterSec отказавшего правила; e-mail-счётчики не списываются', async () => {
+    for (let i = 0; i < ip.limit; i += 1) {
+      await signIn({ email: `rider${i}@example.com`, password: 'x' });
+    }
+    h.clock.advance(MINUTE);
+
+    const blocked = await signIn({ email: EMAIL, password: 'x' });
+
+    expect(blocked.status).toBe(429);
+    const details = RateLimitedDetails.parse((blocked.body as { details: unknown }).details);
+    expect(details.retryAfterSec).toBe(ip.windowSec - 60);
+    expect(await h.redis.keys('rl:signin-email*')).toHaveLength(2 * ip.limit);
+  });
+
+  it('IPv6: адреса одной /64 — один счётчик IP (смена суффикса лимит не обходит)', async () => {
+    for (let i = 0; i < ip.limit; i += 1) {
+      await signIn({ email: `rider${i}@example.com`, password: 'x' }, `2001:db8:1:2::${i + 1}`);
+    }
+    expect((await signIn({ email: EMAIL, password: 'x' }, '2001:db8:1:2:ffff::9')).status).toBe(
+      429,
+    );
+    expect((await signIn({ email: EMAIL, password: 'x' }, '2001:db8:1:3::1')).status).toBe(401);
+  });
+
   it(`IP: ${ip.limit} попыток по разным адресам за окно, дальше 429`, async () => {
     for (let i = 0; i < ip.limit; i += 1) {
       expect((await signIn({ email: `rider${i}@example.com`, password: 'x' })).status).toBe(401);
