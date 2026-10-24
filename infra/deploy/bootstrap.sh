@@ -3,16 +3,22 @@
 #   1. каталог стека ${ON_BIKE_DIR} (700);
 #   2. .env (600): недостающие ключи из env.template дописываются, @secret генерируется здесь же
 #      (openssl rand) — значения не печатаются и не покидают сервер; существующие значения не меняются,
-#      кроме управляемых деплоем PUBLIC_HOST, WEB_ORIGIN, APP_LINK_BASE, ON_BIKE_TAG и MAIL_FROM, равного
-#      прежнему умолчанию шаблона (migrate_mail_from);
+#      кроме управляемых деплоем PUBLIC_HOST, WEB_ORIGIN, APP_LINK_BASE, ON_BIKE_TAG, MAIL_RELAY_RECIPIENTS,
+#      MAILPIT_RELAY_* и MAIL_FROM, равного прежнему умолчанию шаблона (migrate_mail_from);
+#   2a. relay Mailpit → внешний SMTP (Amazon SES, Gmail): ${ON_BIKE_DIR}/mailpit-relay.yml (600) из MAIL_RELAY_*
+#      .env; получатели MAIL_RELAY_RECIPIENTS — точные адреса (регулярку для Mailpit собирает этот скрипт) или «*»
+#      (relay всех писем); без логина, пароля или получателей — relay выключен (письма только в Mailpit);
 #   3. vhost nginx хоста /etc/nginx/sites-available/on-bike (+ ссылка в sites-enabled): nginx -t перед reload,
 #      ошибка — откат своего файла; чужие сайты не трогаются;
 #   4. сертификат Let's Encrypt (certbot --webroot /var/www/html) — только если домен ведёт на этот сервер;
 #      иначе (или certbot не смог) vhost только на :80 и предупреждение, деплой не падает.
 #      UI Mailpit /mail/ — только в https-vhost (пароль basic-auth не идёт открытым текстом).
 # Env: PUBLIC_HOST (обязательно), ON_BIKE_TAG, ON_BIKE_DIR (~/on-bike), CERTBOT_EMAIL (необязательно),
+#      MAIL_RELAY_RECIPIENTS_STDIN=1 — получатели relay (адреса через запятую или «*») первой строкой stdin: в .env,
+#      пустая строка выключает relay; без флага — прежние из .env,
 #      ON_BIKE_{API,WEB,ADMIN,MAIL_UI}_PORT, ON_BIKE_SKIP_NGINX=1 — без шагов 3–4 (локальная проверка).
-# Пишет строку `ONBIKE_TLS=https|http` для сводки деплоя; `::warning::` — аннотации GitHub Actions.
+# Пишет строки `ONBIKE_TLS=https|http` и `ONBIKE_MAIL_RELAY=list|all|off` для сводки деплоя; `::warning::` — аннотации
+# GitHub Actions.
 set -euo pipefail
 umask 077
 
@@ -27,7 +33,9 @@ SITE_NAME="on-bike"
 SITE_FILE="/etc/nginx/sites-available/${SITE_NAME}"
 SITE_LINK="/etc/nginx/sites-enabled/${SITE_NAME}"
 WEBROOT="/var/www/html"
-MANAGED_KEYS="PUBLIC_HOST WEB_ORIGIN APP_LINK_BASE ON_BIKE_TAG"
+RELAY_FILE="${ON_BIKE_DIR}/mailpit-relay.yml"
+MANAGED_KEYS="PUBLIC_HOST WEB_ORIGIN APP_LINK_BASE ON_BIKE_TAG MAIL_RELAY_RECIPIENTS"
+MANAGED_KEYS="${MANAGED_KEYS} MAILPIT_RELAY_CONFIG MAILPIT_RELAY_ALL MAILPIT_RELAY_MATCHING MAILPIT_RELAY_REV"
 
 log() { printf '[bootstrap] %s\n' "$*"; }
 warn() { printf '::warning::%s\n' "$*"; }
@@ -46,6 +54,59 @@ for port in "${API_PORT}" "${WEB_PORT}" "${ADMIN_PORT}" "${MAIL_PORT}"; do
   [[ "${port}" =~ ^[0-9]{2,5}$ ]] || die "порт не число: '${port}'"
 done
 
+# Получатели relay (секрет DEV_MAIL_RELAY_RECIPIENTS): ровно «*» — relay всех писем, иначе точные адреса через
+# запятую: не больше 20, каждый — простой e-mail из безопасного набора символов (пробелы по краям и пустые элементы
+# отбрасываются). Та же проверка — preflight deploy-dev.yml. parse_recipients задаёт RELAY_RECIPIENTS («*» или
+# нормализованный список) или падает с номером элемента — без значений (адреса тестировщиков не попадают в лог).
+RELAY_EMAIL_RE='^[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})+$'
+RELAY_MAX_RECIPIENTS=20
+parse_recipients() {
+  local raw="$1" item n=0 items=()
+  RELAY_RECIPIENTS=""
+  [[ ! "${raw}" =~ [[:cntrl:]] ]] || die "получатели relay: управляющие символы (перевод строки?)"
+  item="${raw#"${raw%%[![:space:]]*}"}"
+  if [[ "${item%"${item##*[![:space:]]}"}" == "*" ]]; then
+    RELAY_RECIPIENTS="*"
+    return 0
+  fi
+  IFS=, read -r -a items <<<"${raw}"
+  for item in "${items[@]+"${items[@]}"}"; do
+    item="${item#"${item%%[![:space:]]*}"}"
+    item="${item%"${item##*[![:space:]]}"}"
+    [[ -n "${item}" ]] || continue
+    n=$((n + 1))
+    [[ ${#item} -le 254 && "${item}" =~ ${RELAY_EMAIL_RE} ]] ||
+      die "получатели relay: элемент ${n} — не простой e-mail (латиница, цифры, . _ + -; без пробелов и кавычек)"
+    RELAY_RECIPIENTS="${RELAY_RECIPIENTS:+${RELAY_RECIPIENTS},}${item}"
+  done
+  [[ ${n} -le ${RELAY_MAX_RECIPIENTS} ]] || die "получатели relay: ${n} адресов, допустимо не больше ${RELAY_MAX_RECIPIENTS}"
+}
+
+# Якорная регулярка RE2 для Mailpit из точных адресов: (?i)^(a@x\.com|b@y\.org)$ — «.» и «+» экранируются (другие
+# спецсимволы RE2 parse_recipients не пропускает), регистр не важен (домен e-mail регистронезависим).
+recipients_regex() {
+  local list="$1" out="" c i
+  for ((i = 0; i < ${#list}; i++)); do
+    c="${list:i:1}"
+    case "${c}" in
+      [.+]) out="${out}\\${c}" ;;
+      ,) out="${out}|" ;;
+      *) out="${out}${c}" ;;
+    esac
+  done
+  printf '(?i)^(%s)$' "${out}"
+}
+
+if [[ "${MAIL_RELAY_RECIPIENTS_STDIN:-0}" == "1" ]]; then
+  relay_input=""
+  IFS= read -r relay_input || true
+  parse_recipients "${relay_input}"
+  unset relay_input
+  RELAY_RECIPIENTS_GIVEN=1
+else
+  RELAY_RECIPIENTS_GIVEN=0
+fi
+
 # ---------- 1–2. каталог и .env ----------
 
 # значение ключа из .env (без вывода); пусто — ключа нет
@@ -55,18 +116,33 @@ env_get() {
     "${ENV_FILE}"
 }
 
+# то же без одной пары внешних кавычек ('…' или "…"), как их снимает docker compose
+env_value() {
+  local value
+  value="$(env_get "$1")"
+  if [[ ${#value} -ge 2 && "${value:0:1}" == "${value: -1}" && ( "${value:0:1}" == "'" || "${value:0:1}" == '"' ) ]]; then
+    value="${value:1:${#value}-2}"
+  fi
+  printf '%s' "${value}"
+}
+
 env_has() {
   [[ -f "${ENV_FILE}" ]] && grep -q "^$1=" "${ENV_FILE}"
 }
 
-# Бренд «Покатим» (docs/product/brand.md): MAIL_FROM, равный прежнему умолчанию шаблона, меняется на текущее
-# умолчание env.template; значение, заданное руками, не трогается. Значения в лог не выводятся.
-LEGACY_MAIL_FROM="'on-bike dev <no-reply@on-bike.by>'"
+# MAIL_FROM, равный одному из прежних умолчаний шаблона (бренд «Покатим» — docs/product/brand.md; домен отправителя,
+# проверенный в SES), меняется на текущее умолчание env.template; значение, заданное руками, не трогается.
+# Значения в лог не выводятся.
+LEGACY_MAIL_FROM=("'on-bike dev <no-reply@on-bike.by>'" "'Покатим dev <no-reply@on-bike.by>'")
 migrate_mail_from() {
-  [[ "$(env_get MAIL_FROM)" == "${LEGACY_MAIL_FROM}" ]] || return 0
-  local value tmp
+  local current legacy value tmp found=""
+  current="$(env_get MAIL_FROM)"
+  for legacy in "${LEGACY_MAIL_FROM[@]}"; do
+    [[ "${current}" != "${legacy}" ]] || found=1
+  done
+  [[ -n "${found}" ]] || return 0
   value="$(awk 'index($0, "MAIL_FROM=") == 1 { sub(/^[^=]*=/, ""); print; exit }' "${TEMPLATE}")"
-  [[ -n "${value}" && "${value}" != "${LEGACY_MAIL_FROM}" ]] || return 0
+  [[ -n "${value}" && "${value}" != "${current}" ]] || return 0
   tmp="$(mktemp "${ON_BIKE_DIR}/.env.XXXXXX")"
   awk -v line="MAIL_FROM=${value}" 'index($0, "MAIL_FROM=") == 1 { print line; next } { print }' \
     "${ENV_FILE}" >"${tmp}"
@@ -100,9 +176,10 @@ ensure_env() {
   [[ -z "${added}" ]] || log "в .env добавлены ключи:${added}"
   migrate_mail_from
 
-  # управляемые деплоем ключи — всегда из параметров (смена домена, новый тег)
+  # управляемые деплоем ключи — всегда из параметров (смена домена, новый тег, регулярка relay)
   PREVIOUS_HOST="$(env_get PUBLIC_HOST)"
   local tag="${ON_BIKE_TAG:-$(env_get ON_BIKE_TAG)}"
+  configure_mail_relay
   local tmp
   tmp="$(mktemp "${ON_BIKE_DIR}/.env.XXXXXX")"
   awk -v keys="${MANAGED_KEYS}" '
@@ -114,10 +191,90 @@ ensure_env() {
     printf 'WEB_ORIGIN=https://%s\n' "${PUBLIC_HOST}"
     printf 'APP_LINK_BASE=https://%s/\n' "${PUBLIC_HOST}"
     [[ -z "${tag}" ]] || printf 'ON_BIKE_TAG=%s\n' "${tag}"
+    # одинарные кавычки — без подстановки ${…} в compose (в регулярке бывает «$»)
+    printf "MAIL_RELAY_RECIPIENTS='%s'\n" "${RELAY_RECIPIENTS}"
+    printf "MAILPIT_RELAY_MATCHING='%s'\n" "${RELAY_ACTIVE_MATCHING}"
+    # конфиг relay — только при включённом relay: matching/all без конфига Mailpit не принимает
+    if [[ "${RELAY_MODE}" == "off" ]]; then
+      printf 'MAILPIT_RELAY_CONFIG=\nMAILPIT_RELAY_ALL=false\n'
+    else
+      printf 'MAILPIT_RELAY_CONFIG=/etc/mailpit/relay.yml\nMAILPIT_RELAY_ALL=%s\n' \
+        "$([[ "${RELAY_MODE}" == "all" ]] && echo true || echo false)"
+    fi
+    printf 'MAILPIT_RELAY_REV=%s\n' "${RELAY_REV}"
   } >>"${tmp}"
   chmod 600 "${tmp}"
   mv -f "${tmp}" "${ENV_FILE}"
   log ".env: PUBLIC_HOST=${PUBLIC_HOST}${tag:+, ON_BIKE_TAG=${tag}} (секреты не выводятся)"
+}
+
+# ---------- 2a. relay Mailpit → внешний SMTP (Amazon SES, Gmail) ----------
+
+# строка YAML в одинарных кавычках ('' внутри)
+yaml_quote() {
+  local q="'"
+  printf "'%s'" "${1//${q}/${q}${q}}"
+}
+
+# Пишет ${RELAY_FILE} (всегда: compose монтирует файл) и задаёт RELAY_RECIPIENTS (для .env), RELAY_MODE
+# (off|list|all), RELAY_ACTIVE_MATCHING (регулярка в режиме list, иначе пусто) и RELAY_REV (хеш файла: смена
+# логина/пароля/получателей пересоздаёт mailpit).
+# Логин и пароль — только в переменных этого процесса и в файле 600: не в argv, не в лог, не в env контейнера.
+# Набор символов логина и пароля ограничен: значение безопасно в .env (с кавычками и без) и в YAML.
+RELAY_CRED_RE='^[A-Za-z0-9._@+/=-]+$'
+configure_mail_relay() {
+  # без флага stdin — прежний список из .env (ручной запуск deploy.sh)
+  [[ "${RELAY_RECIPIENTS_GIVEN}" == "1" ]] || parse_recipients "$(env_value MAIL_RELAY_RECIPIENTS)"
+  RELAY_ACTIVE_MATCHING=""
+  RELAY_MODE=off
+  local host port username password missing="" tmp matching=""
+  host="$(env_value MAIL_RELAY_HOST)"
+  port="$(env_value MAIL_RELAY_PORT)"
+  username="$(env_value MAIL_RELAY_USERNAME)"
+  password="$(env_value MAIL_RELAY_PASSWORD)"
+  [[ -n "${RELAY_RECIPIENTS}" ]] || missing="${missing} MAIL_RELAY_RECIPIENTS"
+  [[ -n "${username}" ]] || missing="${missing} MAIL_RELAY_USERNAME"
+  [[ -n "${password}" ]] || missing="${missing} MAIL_RELAY_PASSWORD"
+
+  tmp="$(mktemp "${ON_BIKE_DIR}/.relay.XXXXXX")"
+  if [[ -n "${missing}" ]]; then
+    printf '# relay выключен: генерирует bootstrap.sh (нет%s в .env)\n' "${missing}" >"${tmp}"
+    log "почта: relay выключен (нет${missing}) — письма только в Mailpit"
+  else
+    [[ "${host}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] ||
+      die "MAIL_RELAY_HOST в .env не похож на имя хоста"
+    [[ "${port}" =~ ^[1-9][0-9]{0,4}$ && "${port}" -le 65535 ]] || die "MAIL_RELAY_PORT в .env не порт"
+    [[ "${username}" =~ ${RELAY_CRED_RE} ]] ||
+      die "MAIL_RELAY_USERNAME в .env: допустимы латиница, цифры и . _ @ + / = - (без пробелов и кавычек внутри)"
+    [[ "${password}" =~ ${RELAY_CRED_RE} ]] ||
+      die "MAIL_RELAY_PASSWORD в .env: допустимы латиница, цифры и . _ @ + / = - (без пробелов и кавычек внутри)"
+    if [[ "${RELAY_RECIPIENTS}" == "*" ]]; then
+      RELAY_MODE=all
+    else
+      RELAY_MODE=list
+      matching="$(recipients_regex "${RELAY_RECIPIENTS}")"
+    fi
+    # STARTTLS обязателен, сертификат проверяется (allow-insecure: false); в режиме list allowed-recipients
+    # ограничивает и ручной «Release» из UI той же регуляркой (в режиме all не задаётся — наружу уходит всё)
+    {
+      printf '# relay Mailpit: генерирует bootstrap.sh из .env (MAIL_RELAY_*) — правки руками перезапишутся\n'
+      printf 'host: %s\nport: %s\nstarttls: true\ntls: false\nallow-insecure: false\nauth: plain\n' \
+        "$(yaml_quote "${host}")" "${port}"
+      printf 'username: %s\n' "$(yaml_quote "${username}")"
+      printf 'password: %s\n' "$(yaml_quote "${password}")"
+      [[ -z "${matching}" ]] || printf 'allowed-recipients: %s\n' "$(yaml_quote "${matching}")"
+    } >"${tmp}"
+    RELAY_ACTIVE_MATCHING="${matching}"
+    if [[ "${RELAY_MODE}" == "all" ]]; then
+      log "почта: relay включён через ${host}:${port} (STARTTLS) — ВСЕМ получателям, копия в Mailpit"
+    else
+      log "почта: relay включён через ${host}:${port} (STARTTLS) — только адресам из MAIL_RELAY_RECIPIENTS, копия в Mailpit"
+    fi
+  fi
+  chmod 600 "${tmp}"
+  mv -f "${tmp}" "${RELAY_FILE}"
+  RELAY_REV="$(openssl dgst -sha256 -r <"${RELAY_FILE}" | cut -c1-16)"
+  echo "ONBIKE_MAIL_RELAY=${RELAY_MODE}"
 }
 
 # ---------- 3–4. nginx и сертификат ----------

@@ -46,6 +46,9 @@ jobs:
           DEV_SSH_KNOWN_HOSTS: ${{ secrets.DEV_SSH_KNOWN_HOSTS }}
           # публичный хост стенда; смена домена — переменная DEV_PUBLIC_HOST окружения dev и повторный деплой
           DEV_PUBLIC_HOST: ${{ vars.DEV_PUBLIC_HOST }}
+          # кому письма стенда реально уходят (relay Mailpit → внешний SMTP): точные адреса через запятую или ровно «*»
+          # (всем); секрет — маскируется в логе; нет или пусто — relay выключен
+          DEV_MAIL_RELAY_RECIPIENTS: ${{ secrets.DEV_MAIL_RELAY_RECIPIENTS }}
           INPUT_TAG: ${{ inputs.image_tag }}
         run: |
           set -euo pipefail
@@ -66,6 +69,32 @@ jobs:
           fi
           if ! [[ "${DEV_PUBLIC_HOST}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]]; then
             echo "::error::DEV_PUBLIC_HOST не похож на имя хоста: '${DEV_PUBLIC_HOST}'"
+            exit 1
+          fi
+          # та же проверка — bootstrap.sh (parse_recipients): «*» или ≤ 20 простых e-mail через запятую; в лог — только
+          # номер элемента, не значение
+          relay_trimmed="${DEV_MAIL_RELAY_RECIPIENTS#"${DEV_MAIL_RELAY_RECIPIENTS%%[![:space:]]*}"}"
+          relay_trimmed="${relay_trimmed%"${relay_trimmed##*[![:space:]]}"}"
+          relay_email_re='^[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})+$'
+          if [[ "${DEV_MAIL_RELAY_RECIPIENTS}" =~ [[:cntrl:]] ]]; then
+            echo "::error::DEV_MAIL_RELAY_RECIPIENTS: управляющие символы (перевод строки?) — адреса через запятую в одну строку"
+            exit 1
+          fi
+          relay_n=0
+          relay_items=()
+          [ "${relay_trimmed}" = "*" ] || IFS=, read -r -a relay_items <<<"${DEV_MAIL_RELAY_RECIPIENTS}"
+          for relay_item in "${relay_items[@]+"${relay_items[@]}"}"; do
+            relay_item="${relay_item#"${relay_item%%[![:space:]]*}"}"
+            relay_item="${relay_item%"${relay_item##*[![:space:]]}"}"
+            [ -n "${relay_item}" ] || continue
+            relay_n=$((relay_n + 1))
+            if ! [[ ${#relay_item} -le 254 && "${relay_item}" =~ ${relay_email_re} ]]; then
+              echo "::error::DEV_MAIL_RELAY_RECIPIENTS: элемент ${relay_n} — не простой e-mail (латиница, цифры, . _ + -; без пробелов и кавычек)"
+              exit 1
+            fi
+          done
+          if [ "${relay_n}" -gt 20 ]; then
+            echo "::error::DEV_MAIL_RELAY_RECIPIENTS: ${relay_n} адресов, допустимо не больше 20"
             exit 1
           fi
           if [ "${GITHUB_REF}" != "refs/heads/develop" ]; then
@@ -219,20 +248,24 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CERTBOT_EMAIL: ${{ vars.DEV_CERTBOT_EMAIL }}
+          # получатели relay (проверены в preflight); секрет — источник истины: нет или пусто — relay выключен
+          MAIL_RELAY_RECIPIENTS: ${{ secrets.DEV_MAIL_RELAY_RECIPIENTS }}
         run: |
           set -euo pipefail
-          remote_env="$(printf 'ON_BIKE_TAG=%q PUBLIC_HOST=%q GHCR_USER=%q CERTBOT_EMAIL=%q GHCR_TOKEN_STDIN=1' \
+          remote_env="$(printf 'ON_BIKE_TAG=%q PUBLIC_HOST=%q GHCR_USER=%q CERTBOT_EMAIL=%q GHCR_TOKEN_STDIN=1 MAIL_RELAY_RECIPIENTS_STDIN=1' \
             "${TAG}" "${DEV_PUBLIC_HOST}" "${GITHUB_ACTOR}" "${CERTBOT_EMAIL:-}")"
-          # токен — только stdin (не аргумент и не env удалённой команды: не виден в ps и логах);
-          # remote_env раскрывается здесь намеренно — значения уже экранированы %q
+          # токен и получатели relay — только stdin, по строке (не аргументы и не env удалённой команды: не видны в
+          # ps и логах); remote_env раскрывается здесь намеренно — значения уже экранированы %q
           # shellcheck disable=SC2029
-          printf '%s\n' "${GHCR_TOKEN}" | ssh dev "${remote_env} bash on-bike/deploy.sh" 2>&1 | tee deploy.log
+          printf '%s\n%s\n' "${GHCR_TOKEN}" "${MAIL_RELAY_RECIPIENTS:-}" |
+            ssh dev "${remote_env} bash on-bike/deploy.sh" 2>&1 | tee deploy.log
 
       - name: Сводка
         if: always()
         run: |
           tls="$(grep -oE '^ONBIKE_TLS=[a-z]+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
           deployed="$(grep -oE '^ONBIKE_DEPLOYED=.+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
+          relay="$(grep -oE '^ONBIKE_MAIL_RELAY=[a-z]+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
           scheme="https"; [ "${tls}" = "https" ] || scheme="http"
           {
             echo "## deploy-dev"
@@ -242,6 +275,13 @@ jobs:
             echo "- Сайт: ${scheme}://${DEV_PUBLIC_HOST}/ · админка: ${scheme}://${DEV_PUBLIC_HOST}/admin/ · API: ${scheme}://${DEV_PUBLIC_HOST}/v1/health"
             if [ "${tls:-}" = "https" ]; then
               echo "- Письма (Mailpit): https://${DEV_PUBLIC_HOST}/mail/ — логин \`dev\`, пароль на сервере (runbook «Почта»)"
+            fi
+            if [ "${relay:-}" = "all" ]; then
+              echo "- Почта наружу: relay: всем — каждое письмо уходит адресату, копия в Mailpit (runbook «Почта»)"
+            elif [ "${relay:-}" = "list" ]; then
+              echo "- Почта наружу: relay включён — только адресам из секрета \`DEV_MAIL_RELAY_RECIPIENTS\`, копия в Mailpit (runbook «Почта»)"
+            elif [ "${relay:-}" = "off" ]; then
+              echo "- Почта наружу: relay выключен — письма только в Mailpit (runbook «Почта»)"
             fi
             if [ "${tls:-}" = "http" ]; then
               echo "- **Внимание:** сертификата нет — сайт только по http, web-сессия (cookie \`__Secure-\`) не работает. Причина — в логе шага «Деплой» (runbook «TLS»)."

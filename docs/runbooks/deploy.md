@@ -71,6 +71,8 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 4
    # необязательно: e-mail для Let's Encrypt (уведомления об истечении); пользователь SSH, если не ubuntu
    gh variable set DEV_CERTBOT_EMAIL --env dev --body '<e-mail>'
    gh variable set DEV_SSH_USER --env dev --body 'ubuntu'
+   # необязательно: реальная доставка писем разрешённым адресам (раздел «Почта»)
+   gh secret set DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/on-bike --env dev --body '<адрес>,<адрес>'   # или '*'
    ```
 
    Все четыре — `DEV_SSH_HOST`, `DEV_SSH_KEY`, `DEV_SSH_KNOWN_HOSTS`, `DEV_PUBLIC_HOST` — обязательны: без них preflight
@@ -114,8 +116,14 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 4
   (`openssl rand -hex 32`) при первом деплое (новый ключ — при первом деплое после его появления в шаблоне); в лог,
   git и GitHub не попадают; повторные деплои их не меняют.
 - Недостающие ключи шаблона дописываются, существующие значения не трогаются (правка руками сохраняется).
-  Исключение — `MAIL_FROM`, равный прежнему умолчанию `'on-bike dev <…>'`: заменяется на текущее из шаблона
-  (бренд «Покатим», `docs/product/brand.md`); своё значение остаётся.
+  Исключение — `MAIL_FROM`, равный прежнему умолчанию (`'on-bike dev <no-reply@on-bike.by>'` или
+  `'Покатим dev <no-reply@on-bike.by>'`): заменяется на текущее из шаблона (`'Покатим dev <no-reply@limedolphin.com>'`,
+  домен проверяется в SES); своё значение остаётся.
+- `MAIL_RELAY_HOST`/`MAIL_RELAY_PORT` (умолчание — SES `email-smtp.eu-north-1.amazonaws.com:587`),
+  `MAIL_RELAY_USERNAME`/`MAIL_RELAY_PASSWORD` (пусто) — relay почты, вписываются руками (раздел «Почта»).
+- `MAIL_RELAY_RECIPIENTS` (адреса или `*`) — из секрета `DEV_MAIL_RELAY_RECIPIENTS` каждого деплоя (нет — очищается);
+  `MAILPIT_RELAY_*` и файл `~/on-bike/mailpit-relay.yml` (600) вычисляет `bootstrap.sh` —
+  руками не править.
 - `PUBLIC_HOST`, `WEB_ORIGIN` (`https://<хост>`), `APP_LINK_BASE` (`https://<хост>/`), `ON_BIKE_TAG` — **всегда** из
   деплоя (переменная окружения `dev` и тег).
 - `CORS_ORIGINS` пусто (web и API — один origin за nginx), `TRUST_PROXY=1` (один прокси — nginx хоста; он
@@ -187,8 +195,9 @@ PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U on_b
 
 ## Почта
 
-Письма стенда (подтверждение e-mail и др.) ловит Mailpit: **наружу они не уходят** — relay и forward не настроены,
-выпуск письма («Release») из UI недоступен.
+Письма стенда (подтверждение e-mail и др.) ловит Mailpit — **все** видны в `https://<хост>/mail/`. Наружу письма
+уходят, только если relay включён (ниже): Mailpit пересылает их через внешний SMTP адресатам из списка
+`DEV_MAIL_RELAY_RECIPIENTS` или всем (`*`). Без relay наружу не уходит ничего, «Release» в UI недоступен.
 
 - **Открыть:** `https://<хост>/mail/`, логин `dev` (basic-auth самого Mailpit; без пароля — 401). Ссылка — и в Summary
   прогона `deploy-dev`. Только по https: пока сертификата нет, `/mail/` → 404 (пароль не идёт открытым текстом).
@@ -215,6 +224,100 @@ PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U on_b
   ```bash
   ssh -N -L 8125:127.0.0.1:8125 ubuntu@<сервер>   # письма: http://127.0.0.1:8125/mail/
   ```
+
+### Реальная доставка (relay)
+
+Включён, когда заданы все три: секрет `DEV_MAIL_RELAY_RECIPIENTS` (окружение `dev`) и `MAIL_RELAY_USERNAME` +
+`MAIL_RELAY_PASSWORD` в `~/on-bike/.env`. Чего-то нет — relay выключен, деплой не падает, в логе — строка
+`почта: relay выключен (нет …)` (имена ключей, без значений).
+
+Два режима — по значению секрета:
+
+| Секрет | Режим | Кому уходит | Summary |
+|---|---|---|---|
+| `a@x.com,b@y.org` | список | только этим адресам | «relay включён — только адресам из секрета …» |
+| `*` (ровно звёздочка) | всем | каждому адресату любого письма | «relay: всем — каждое письмо уходит адресату …» |
+| нет секрета / пусто | выключен | никому | «relay выключен — письма только в Mailpit» |
+
+- **Как работает:** штатный relay Mailpit; письмо всегда сохраняется в Mailpit, копия уходит наружу.
+  - Список — auto-relay по регулярке (`MP_SMTP_RELAY_MATCHING`): `bootstrap.sh` собирает из адресов якорную
+    `(?i)^(a@x\.com|b@y\.org)$`; она же — `allowed-recipients` для ручного «Release» из UI.
+  - Всем — `MP_SMTP_RELAY_ALL=true` («relay all»), без ограничения адресатов (и для «Release» тоже).
+  - Хост, порт, логин и пароль — в `~/on-bike/mailpit-relay.yml` (600, генерирует `bootstrap.sh`), не в env
+    контейнера. STARTTLS обязателен, сертификат сервера проверяется.
+  - Ошибка внешнего SMTP (лимит, sandbox, неверный пароль) — только в логе mailpit; API письмо всё равно отправлено
+    (в Mailpit оно есть).
+- **Получатели** — секрет (маскируется в логах Actions, на сервер идёт через stdin): ровно `*` или адреса через
+  запятую, не больше 20, каждый — простой e-mail (латиница, цифры, `. _ + -`; без пробелов и кавычек), иначе
+  preflight падает с номером элемента. Секрет — источник истины: удалить его — relay выключится на следующем деплое.
+
+  ```bash
+  gh secret set DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/on-bike --env dev --body 'alice@example.com,bob+test@example.org'
+  gh secret set DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/on-bike --env dev --body '*'   # всем
+  ```
+
+- **Риски режима «всем».** Письмо уходит на любой адрес, введённый при регистрации, — в т. ч. на чужой или выдуманный
+  (спам от имени ящика стенда, жалобы, рост bounce).
+  - Защита в API — лимиты: регистраций не больше 20 в час с одного IP, повтор письма — пауза 60 с и не больше 10 в
+    сутки на аккаунт. Других барьеров нет.
+  - Gmail: лимит порядка 500 писем в сутки; при злоупотреблении (жалобы, bounce) Google может заблокировать ящик.
+  - Для prod — только SES с проверенным доменом (DKIM/SPF/DMARC, production access), не Gmail.
+  - Включать «всем» на время активного тестирования; иначе — список или выключено.
+
+- **Логин и пароль SMTP** — сразу в `.env` сервера (не пересылать в мессенджерах, не в issue/PR), затем деплой (ручной
+  запуск `deploy-dev` или push в `develop`). Допустимы латиница, цифры и `. _ @ + / = -`; значение можно взять в
+  одинарные кавычки (`MAIL_RELAY_PASSWORD='…'`), иначе деплой падает с именем ключа:
+
+  ```bash
+  ssh ubuntu@<сервер>
+  nano ~/on-bike/.env   # MAIL_RELAY_USERNAME='…', MAIL_RELAY_PASSWORD='…' (и при необходимости MAIL_RELAY_HOST/PORT, MAIL_FROM)
+  ```
+
+  Смена любого значения пересоздаёт контейнер mailpit — уже пойманные письма при этом теряются (хранилище без тома).
+
+**Вариант (а) — Gmail** (временно, до SES): ящик `pokatim@gmail.com`.
+
+- В аккаунте Google — двухэтапная аутентификация, затем «Пароли приложений» → пароль из 16 символов
+  (обычный пароль аккаунта не подойдёт). Пробелы из показанного пароля убрать.
+- `.env`: `MAIL_RELAY_HOST=smtp.gmail.com`, `MAIL_RELAY_PORT=587`, `MAIL_RELAY_USERNAME=pokatim@gmail.com`,
+  `MAIL_RELAY_PASSWORD=<пароль приложения>`, `MAIL_FROM='Покатим dev <pokatim@gmail.com>'` (Gmail всё равно подставит
+  в From свой ящик; ручное значение деплой не меняет).
+- Лимит Gmail — порядка 500 писем в сутки; превышение — ошибки в логе mailpit, письма остаются в Mailpit.
+
+**Вариант (б) — Amazon SES** (регион eu-north-1; умолчания `MAIL_RELAY_HOST`/`MAIL_RELAY_PORT` уже на него).
+
+1. SES → Identities → домен `limedolphin.com` (Easy DKIM). В DNS домена:
+   - 3 записи CNAME DKIM из консоли SES (`<token>._domainkey.limedolphin.com` → `<token>.dkim.amazonses.com`);
+   - SPF: TXT `v=spf1 include:amazonses.com ~all` (если SPF уже есть — добавить `include:amazonses.com` в него,
+     вторую запись SPF не создавать);
+   - по желанию DMARC: TXT `_dmarc.limedolphin.com` → `v=DMARC1; p=none;`.
+   Дождаться статуса Verified.
+2. SES → SMTP settings → Create SMTP credentials (IAM-пользователь с `ses:SendRawEmail`) — логин и пароль SMTP
+   (это не ключи IAM). Вписать в `.env` сервера `MAIL_RELAY_USERNAME`/`MAIL_RELAY_PASSWORD`; `MAIL_FROM` — умолчание
+   шаблона `'Покатим dev <no-reply@limedolphin.com>'` (прежние умолчания `@on-bike.by` деплой заменит сам).
+3. **Sandbox:** новый аккаунт SES шлёт только на подтверждённые в SES адреса (Identities → Email address) и с
+   лимитом 200 писем в сутки. Для любых адресов из списка — запросить production access (Account dashboard →
+   Request production access).
+
+**Проверить:**
+
+- Summary прогона `deploy-dev` — одна из строк:
+  - «Почта наружу: relay включён — только адресам из секрета `DEV_MAIL_RELAY_RECIPIENTS`, копия в Mailpit (runbook
+    «Почта»)»;
+  - «Почта наружу: relay: всем — каждое письмо уходит адресату, копия в Mailpit (runbook «Почта»)»;
+  - «Почта наружу: relay выключен — письма только в Mailpit (runbook «Почта»)».
+
+  Smoke деплоя сверяет состояние relay в Mailpit (`/mail/api/v1/webui`, `MessageRelay.Enabled`).
+- Зарегистрироваться на стенде с разрешённого адреса — письмо в ящике и в `/mail/`; с неразрешённого — только в
+  `/mail/` (в режиме «всем» — в ящике любой адрес).
+- Ошибки отправки — `dc logs --tail 200 mailpit | grep relay` (по SSH; в логе есть адреса — не копировать в публичные
+  места).
+
+**Выключить:** `gh secret delete DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/on-bike --env dev` и деплой — relay
+выключен, логин и пароль остаются в `.env`. Насовсем — ещё очистить `MAIL_RELAY_USERNAME`/`MAIL_RELAY_PASSWORD` в
+`.env` (и удалить SMTP credentials в SES / пароль приложения Google). Без деплоя (срочно) — очистить
+`MAIL_RELAY_PASSWORD` в `.env` и `bash ~/on-bike/bootstrap.sh` с `PUBLIC_HOST=<хост> ON_BIKE_SKIP_NGINX=1`, затем
+`dc up -d mailpit`.
 
 ## Откат
 
