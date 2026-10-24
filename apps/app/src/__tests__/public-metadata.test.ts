@@ -1,5 +1,6 @@
 /// <reference types="jest" />
 import { generateMetadata as registerMetadata } from '../app/(onboarding)/register';
+import { generateMetadata as signInMetadata } from '../app/(onboarding)/sign-in';
 import { generateMetadata as verifyMetadata } from '../app/auth/verify/[token]';
 
 import { EMAIL, LINK_TOKEN } from './auth-fixtures';
@@ -29,6 +30,24 @@ describe('мета публичных экранов (generateMetadata)', () => 
     process.env.WEB_ORIGIN = `${ORIGIN}/`;
     expect(await registerMetadata(undefined, {})).toMatchObject({
       openGraph: { url: `${ORIGIN}/register` },
+    });
+  });
+
+  it('вход: заголовок «Вход», OG без данных формы; og:url — только из WEB_ORIGIN', async () => {
+    expect(await signInMetadata(undefined, {})).toEqual({
+      title: 'Вход — Покатим',
+      description: 'Гонки, маршруты, кофе-райды и календарь стартов в одном профиле',
+      openGraph: {
+        title: 'Вход',
+        description: 'Гонки, маршруты, кофе-райды и календарь стартов в одном профиле',
+        type: 'website',
+        siteName: 'Покатим',
+      },
+    });
+
+    process.env.WEB_ORIGIN = ORIGIN;
+    expect(await signInMetadata(undefined, {})).toMatchObject({
+      openGraph: { url: `${ORIGIN}/sign-in` },
     });
   });
 

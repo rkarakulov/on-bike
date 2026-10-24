@@ -3,3 +3,4 @@ export * from './health.ts';
 export * from './auth/registration.schema.ts';
 export * from './auth/verification.schema.ts';
 export * from './auth/session.schema.ts';
+export * from './auth/sign-in.schema.ts';

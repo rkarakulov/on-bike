@@ -577,7 +577,8 @@ Dev web — `http://127.0.0.1:8081` (в `CORS_ORIGINS` `.env.example` уже е�
 иначе POST с web — 403 CSRF; Playwright — `channel: 'chrome'` (Chromium нужной ревизии `__Secure-` не проверялся).
 **Follow-ups в app-foundation:** хук `configureApp` в `createApiHarness` (int-тесты identity идут без CSRF/CORS — CSRF
 проверен unit-тестом `http-app.test.ts`); опция `credentials` CORS в шаблоне — когда сессия появится в базе.
-**Слайс 2:** reuse detection refresh, продление сессии, native-клиент refresh/sign-out.
+**Слайс 2:** reuse detection refresh, продление сессии, native-клиент refresh/sign-out — **сделано** в
+`docs/tasks/2026-10-24-onboarding-02-sign-in/task.md` (ADR-0005).
 
 ### S3b — web-варианты приложения (coder B, 2026-10-23)
 **Спайк Stack.Protected на SSR** (expo-router 58.0.24, по исходникам `build/layouts/withLayoutContext.js`,

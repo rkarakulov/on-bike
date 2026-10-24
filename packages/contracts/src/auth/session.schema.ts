@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { OpaqueToken } from './verification.schema.ts';
 
 /**
- * Сессия: короткий access JWT (15 мин) + refresh (30 дней от выдачи; на сервере хранится только хеш).
- * Ротация refresh — `POST /v1/auth/session/refresh` (срок не продлевается); вход по паролю — слайс 2.
+ * Сессия: короткий access JWT (15 мин) + refresh (на сервере хранится только хеш). Выдача — обмен токена
+ * регистрации (poll) или вход по паролю `POST /v1/auth/session/sign-in`. Ротация — `POST /v1/auth/session/refresh`:
+ * срок скользящий (30 дней от ротации, не дальше 180 дней от входа), предыдущий refresh действует ещё 60 с.
  */
 export const Session = z.object({
   accessToken: z.string().min(1),

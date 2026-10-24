@@ -30,9 +30,18 @@ export const ru = {
     'Нажимая «Зарегистрироваться», вы принимаете пользовательское соглашение. В нём сказано, что другой участник может оспорить ваш результат, а уведомление об этом появится только в центре уведомлений приложения.',
   'auth.register.submit': 'Зарегистрироваться',
   'auth.register.haveAccount': 'Уже есть аккаунт?',
+  // вход по паролю (онбординг, слайс 2)
   'auth.signIn.action': 'Войти',
   'auth.signIn.title': 'Вход',
+  'auth.signIn.lead': 'Войдите по e-mail и паролю, которые указали при регистрации.',
+  'auth.signIn.email': 'E-mail',
+  'auth.signIn.password': 'Пароль',
+  'auth.signIn.submit': 'Войти',
+  'auth.signIn.noAccount': 'Нет аккаунта?',
   'auth.signIn.toRegister': 'Создать аккаунт',
+  'auth.signIn.invalidCredentials': 'Неверный e-mail или пароль.',
+  'auth.signIn.locked': 'Слишком много попыток входа. Попробуйте через {time}.',
+  'auth.signOut': 'Выйти',
   // ошибки полей: код из контракта → текст
   'auth.field.REQUIRED': 'Заполните поле.',
   'auth.field.INVALID': 'Проверьте значение.',
@@ -63,11 +72,13 @@ export const ru = {
   'auth.checkEmail.backToRegister': 'Вернуться к регистрации',
   'auth.verified.title': 'E-mail подтверждён',
   'auth.verified.signingIn': 'Входим в аккаунт {email} — пароль вводить заново не нужно.',
-  'auth.verified.otherDevice':
-    'Адрес {email} подтверждён. Войдите на устройстве, где регистрировались: вход произойдёт без пароля.',
+  'auth.verified.otherDevice': 'Адрес {email} подтверждён. Войдите с паролем.',
+  // токен регистрации отклонён: обменян (адрес подтверждён) или устарел — по локальной оценке срока (R7)
   'auth.signInRequired.title': 'Войдите в аккаунт',
-  'auth.signInRequired.message':
-    'Регистрация на этом устройстве завершилась. Если вы подтвердили e-mail, войдите с паролем.',
+  'auth.signInRequired.verifiedMessage': 'E-mail подтверждён. Войдите с паролем.',
+  'auth.signInRequired.expiredTitle': 'Регистрация устарела',
+  'auth.signInRequired.expiredMessage': 'Войдите или зарегистрируйтесь заново.',
+  'auth.signInRequired.toRegister': 'Зарегистрироваться заново',
   // ссылка из письма
   'auth.verify.title': 'Подтвердите e-mail',
   'auth.verify.message':

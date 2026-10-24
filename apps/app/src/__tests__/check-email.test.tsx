@@ -181,6 +181,8 @@ describe('«Подтвердите e-mail»', () => {
     const router = await renderRouterAfterRestart();
 
     expect(await screen.findByRole('header', { name: 'Войдите в аккаунт' })).toBeOnTheScreen();
+    // срок токена по оценке клиента не истёк — значит, обменян: адрес подтверждён (R7)
+    expect(screen.getByText('E-mail подтверждён. Войдите с паролем.')).toBeOnTheScreen();
     // 401 не повторяется
     await advance(10_000);
     expect(poll).toHaveBeenCalledTimes(1);
@@ -188,6 +190,8 @@ describe('«Подтвердите e-mail»', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Войти' }));
     expect(router.getPathname()).toBe('/sign-in');
     expect(storedValue('onbike.registration')).toBeUndefined();
+    // e-mail регистрации подставлен в форму входа
+    expect(await screen.findByDisplayValue(EMAIL)).toBeOnTheScreen();
   });
 
   it('повтор вернул «уже подтверждён» — опрос сразу забирает сессию', async () => {

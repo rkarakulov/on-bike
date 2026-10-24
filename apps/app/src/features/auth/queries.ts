@@ -2,6 +2,8 @@ import type {
   RegisterRequest,
   RegistrationPollResponse,
   ResendVerificationRequest,
+  SignInRequest,
+  SignInResponse,
 } from '@on-bike/contracts';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
@@ -9,9 +11,18 @@ import { api } from '@/lib/api';
 
 import { apiErrorCode } from './error-messages';
 import { withSessionLock } from './session-lock';
+import { persistSession } from './session-persistence';
+import { useSessionStore } from './session-store';
 
 /** Интервал опроса подтверждения на экране «Подтвердите e-mail». */
 export const POLL_INTERVAL_MS = 3000;
+
+/**
+ * Действия онбординга (мутации) уходят и офлайн: TanStack Query по умолчанию ставит мутацию на паузу, пока
+ * `onlineManager` (NetInfo) считает сеть недоступной, — кнопка висела бы в «загрузке» без ошибки. Здесь запрос
+ * сразу получает сетевую ошибку: баннер «Нет соединения» и повтор нажатием (AGENTS.md §4.12).
+ */
+const AUTH_MUTATION = { networkMode: 'always' } as const;
 
 export const authKeys = {
   verificationLink: (token: string) => ['auth', 'verification-link', token] as const,
@@ -23,7 +34,33 @@ export const authKeys = {
 export const isRegistrationRejected = (error: unknown) => apiErrorCode(error) === 'UNAUTHORIZED';
 
 export function useRegister() {
-  return useMutation({ mutationFn: (body: RegisterRequest) => api.register(body) });
+  return useMutation({
+    ...AUTH_MUTATION,
+    mutationFn: (body: RegisterRequest) => api.register(body),
+  });
+}
+
+/** Данные формы входа: транспорт сессии подмешивает клиент платформы. */
+export type SignInCredentials = Omit<SignInRequest, 'sessionTransport'>;
+
+/**
+ * Вход по паролю — одна сессионная операция: запрос, сохранение refresh (native — SecureStore) и вход в памяти.
+ * Ответ на web выставляет cookie сессии (и отзывает прежнюю) — поэтому под замком сессии, как refresh и выход; на
+ * native — под замком приложения: выход, нажатый сразу после входа, ждёт записи и отзывает уже сохранённый refresh.
+ */
+export function requestSignIn(body: SignInCredentials): Promise<SignInResponse> {
+  return withSessionLock(async () => {
+    const response = await api.signIn(body);
+    if (response.state === 'signedIn') {
+      await persistSession(response.session);
+      await useSessionStore.getState().signIn(response.session);
+    }
+    return response;
+  });
+}
+
+export function useSignIn() {
+  return useMutation({ ...AUTH_MUTATION, mutationFn: requestSignIn });
 }
 
 /** Чтение ссылки из письма — без побочных эффектов на сервере (C2). */
@@ -35,11 +72,15 @@ export function useVerificationLink(token: string) {
 }
 
 export function useConfirmVerification() {
-  return useMutation({ mutationFn: (token: string) => api.confirmVerification({ token }) });
+  return useMutation({
+    ...AUTH_MUTATION,
+    mutationFn: (token: string) => api.confirmVerification({ token }),
+  });
 }
 
 export function useResendVerification() {
   return useMutation({
+    ...AUTH_MUTATION,
     mutationFn: (body: ResendVerificationRequest) => api.resendVerification(body),
   });
 }
@@ -52,7 +93,12 @@ export function useResendVerification() {
 export function fetchRegistrationPoll(
   registrationToken: string,
 ): Promise<RegistrationPollResponse> {
-  return withSessionLock(() => api.pollRegistration({ registrationToken }));
+  return withSessionLock(async () => {
+    const response = await api.pollRegistration({ registrationToken });
+    // сессия выдаётся один раз — сохраняем в той же операции, до выхода или следующей ротации
+    if (response.state === 'verified') await persistSession(response.session);
+    return response;
+  });
 }
 
 /**

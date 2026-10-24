@@ -5,6 +5,7 @@ import { useColorScheme } from 'react-native';
 
 import { tabRoutes } from './app-routes';
 import { signInForTest } from './auth-fixtures';
+import { createQueryWrapper } from './query-wrapper';
 
 // jest-пресет React Native подменяет useColorScheme на jest.fn(() => 'light')
 const colorScheme = jest.mocked(useColorScheme);
@@ -16,7 +17,7 @@ beforeEach(signInForTest);
 
 describe('нижние вкладки', () => {
   it('пять вкладок в порядке прототипа, Главная выбрана', async () => {
-    await renderRouter(tabRoutes);
+    await renderRouter(tabRoutes, { wrapper: createQueryWrapper() });
 
     const tabs = screen.getAllByRole('tab');
     expect(tabs.map((tab) => tab.props.accessibilityLabel)).toEqual([
@@ -30,7 +31,7 @@ describe('нижние вкладки', () => {
   });
 
   it('нажатие на вкладку открывает раздел и делает её выбранной', async () => {
-    await renderRouter(tabRoutes);
+    await renderRouter(tabRoutes, { wrapper: createQueryWrapper() });
 
     await fireEvent.press(screen.getByRole('tab', { name: 'Райды' }));
 
@@ -40,7 +41,7 @@ describe('нижние вкладки', () => {
   });
 
   it('заголовок раздела — Playfair Display, активная вкладка — 600 с полосой, неактивная — 500', async () => {
-    await renderRouter(tabRoutes);
+    await renderRouter(tabRoutes, { wrapper: createQueryWrapper() });
 
     expect(screen.getByRole('header', { name: 'Главная' })).toHaveStyle({
       fontFamily: 'PlayfairDisplay_500Medium',
@@ -64,7 +65,7 @@ describe('нижние вкладки', () => {
 
   it('тёмная системная тема → Night Ride на экране и панели вкладок', async () => {
     colorScheme.mockReturnValue('dark');
-    await renderRouter(tabRoutes);
+    await renderRouter(tabRoutes, { wrapper: createQueryWrapper() });
 
     const dark = themes.dark;
     expect(screen.getByTestId('tab-bar')).toHaveStyle({ backgroundColor: dark.surface.default });

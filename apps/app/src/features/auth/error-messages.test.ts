@@ -6,6 +6,7 @@ import {
   fieldErrorMessage,
   retryAfterSec,
   serverFieldErrors,
+  signInErrorMessage,
 } from './error-messages';
 
 describe('тексты ошибок', () => {
@@ -38,6 +39,23 @@ describe('тексты ошибок', () => {
       'Что-то пошло не так. Попробуйте ещё раз.',
     );
     expect(actionErrorMessage(new Error('boom'))).toBe('Что-то пошло не так. Попробуйте ещё раз.');
+  });
+
+  it('ошибка входа: 401 INVALID_CREDENTIALS — нейтральный текст без подсказок; остальное — как у действий', () => {
+    expect(
+      signInErrorMessage(
+        new ApiHttpError(401, {
+          code: 'INVALID_CREDENTIALS',
+          message: 'Неверный e-mail или пароль',
+        }),
+      ),
+    ).toBe('Неверный e-mail или пароль.');
+    expect(signInErrorMessage(new ApiNetworkError(null))).toBe(
+      'Нет соединения. Проверьте подключение к интернету и повторите.',
+    );
+    expect(signInErrorMessage(new ApiHttpError(500, null))).toBe(
+      'Что-то пошло не так. Попробуйте ещё раз.',
+    );
   });
 
   it('retryAfterSec — из details 429, иначе нет', () => {

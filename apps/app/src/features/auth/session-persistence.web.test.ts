@@ -4,16 +4,22 @@ import type { CookieSession } from '@on-bike/contracts';
 
 import { api } from '@/lib/api';
 
-import { fetchRegistrationPoll } from './queries';
+import { fetchRegistrationPoll, requestSignIn } from './queries';
 import { resetSessionStore, useSessionStore } from './session-store';
 
 jest.mock('@/lib/api', () => ({
-  api: { refreshSession: jest.fn(), signOut: jest.fn(), pollRegistration: jest.fn() },
+  api: {
+    refreshSession: jest.fn(),
+    signOut: jest.fn(),
+    pollRegistration: jest.fn(),
+    signIn: jest.fn(),
+  },
 }));
 
 const refresh = jest.mocked(api.refreshSession);
 const signOut = jest.mocked(api.signOut);
 const pollRegistration = jest.mocked(api.pollRegistration);
+const signIn = jest.mocked(api.signIn);
 const NOW = new Date('2026-10-22T10:00:00Z').getTime();
 
 const cookieSession: CookieSession = {
@@ -268,5 +274,182 @@ describe('сессия web: refresh в httpOnly cookie, access в памяти',
     expect(signOut).toHaveBeenCalledWith();
     expect(useSessionStore.getState()).toMatchObject({ status: 'signedOut', session: null });
     warn.mockRestore();
+  });
+
+  it('вход по паролю — под тем же Web Lock (ответ меняет cookie); в памяти — CookieSession без refresh', async () => {
+    const locks = queueLocks();
+    setLocks(locks);
+    const refreshing = deferred<CookieSession>();
+    refresh.mockReturnValue(refreshing.promise);
+    signIn.mockResolvedValue({
+      state: 'signedIn',
+      session: { ...cookieSession, refreshToken: 'r'.repeat(43) },
+    });
+
+    const hydrating = useSessionStore.getState().hydrate(NOW);
+    const signingIn = requestSignIn({ email: 'rider@example.com', password: 'velo-secret' });
+    await Promise.resolve();
+    // вход ждёт идущий refresh: ответы не переписывают cookie друг другу
+    expect(signIn).not.toHaveBeenCalled();
+
+    refreshing.reject(unauthorized());
+    await hydrating;
+    const result = await signingIn;
+    expect(locks.request.mock.calls.map(([name]) => name)).toEqual([
+      'onbike.session-refresh',
+      'onbike.session-refresh',
+    ]);
+    if (result.state !== 'signedIn') throw new Error('expected signedIn');
+    await useSessionStore.getState().signIn(result.session);
+    expect(useSessionStore.getState().session).toEqual(cookieSession);
+    expect(sessionStorage.length).toBe(0);
+    expect(localStorage.length).toBe(0);
+  });
+
+  it('фоновая проверка после восстановления на web — без второй ротации (восстановление уже было refresh)', async () => {
+    refresh.mockResolvedValue(cookieSession);
+
+    await useSessionStore.getState().hydrate(NOW);
+    await useSessionStore.getState().revalidate(NOW);
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState()).toMatchObject({
+      status: 'signedIn',
+      session: cookieSession,
+    });
+  });
+
+  describe('выход при сбое API (сеть, 5xx): cookie жива — перезагрузка не возвращает в аккаунт', () => {
+    async function signOutFailing(error: unknown) {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      await useSessionStore.getState().signIn(cookieSession);
+      signOut.mockRejectedValueOnce(error);
+      await useSessionStore.getState().signOut();
+      warn.mockRestore();
+    }
+
+    it.each([
+      ['нет сети', offline()],
+      ['5xx', new ApiHttpError(503, null)],
+    ])(
+      '%s: после перезагрузки — не вошёл, refresh не зовётся, отзыв повторяется',
+      async (_case, error) => {
+        await signOutFailing(error);
+        expect(useSessionStore.getState().status).toBe('signedOut');
+
+        // перезагрузка страницы: память пуста, cookie (по мнению браузера) жива
+        resetSessionStore();
+        refresh.mockResolvedValue(cookieSession);
+        signOut.mockResolvedValue(undefined);
+        await useSessionStore.getState().hydrate(NOW);
+
+        expect(useSessionStore.getState().status).toBe('signedOut');
+        expect(refresh).not.toHaveBeenCalled();
+        expect(signOut).toHaveBeenCalledTimes(2);
+
+        // отзыв подтверждён — дальше обычное восстановление
+        resetSessionStore();
+        refresh.mockRejectedValue(unauthorized());
+        await useSessionStore.getState().hydrate(NOW);
+        expect(refresh).toHaveBeenCalledTimes(1);
+        expect(signOut).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    it('сервер всё ещё недоступен при перезагрузке — по-прежнему не вошёл, признак выхода остаётся', async () => {
+      await signOutFailing(offline());
+
+      resetSessionStore();
+      signOut.mockRejectedValue(offline());
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      await useSessionStore.getState().hydrate(NOW);
+      resetSessionStore();
+      await useSessionStore.getState().hydrate(NOW);
+      warn.mockRestore();
+
+      expect(useSessionStore.getState().status).toBe('signedOut');
+      expect(refresh).not.toHaveBeenCalled();
+      expect(signOut).toHaveBeenCalledTimes(3);
+    });
+
+    it('явный вход снимает признак: следующая перезагрузка восстанавливает сессию', async () => {
+      await signOutFailing(offline());
+      signIn.mockResolvedValue({ state: 'signedIn', session: cookieSession });
+      await requestSignIn({ email: 'rider@example.com', password: 'velo-secret' });
+
+      resetSessionStore();
+      refresh.mockResolvedValue(cookieSession);
+      await useSessionStore.getState().hydrate(NOW);
+
+      expect(useSessionStore.getState()).toMatchObject({
+        status: 'signedIn',
+        session: cookieSession,
+      });
+      expect(localStorage.length).toBe(0);
+    });
+
+    it('выход, вставший в очередь за входом, побеждает: вход не стирает его признак, сбой выхода — без восстановления', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      setLocks(queueLocks());
+      const answer = deferred<Awaited<ReturnType<typeof api.signIn>>>();
+      signIn.mockReturnValue(answer.promise);
+      signOut.mockRejectedValue(offline());
+
+      // вход держит замок (ждёт ответа API); выход нажат в другой вкладке и ждёт замка
+      const signingIn = requestSignIn({ email: 'rider@example.com', password: 'velo-secret' });
+      const signingOut = useSessionStore.getState().signOut();
+      await Promise.resolve();
+      answer.resolve({ state: 'signedIn', session: cookieSession });
+      await signingIn;
+      await signingOut;
+      warn.mockRestore();
+
+      // перезагрузка: cookie входа жива, но выход был последним — аккаунт не восстанавливается
+      resetSessionStore();
+      refresh.mockResolvedValue(cookieSession);
+      signOut.mockResolvedValue(undefined);
+      await useSessionStore.getState().hydrate(NOW);
+      expect(useSessionStore.getState().status).toBe('signedOut');
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('вкладка A стартует с признаком выхода, вкладка B тем временем входит — A не отзывает свежую сессию B', async () => {
+      await signOutFailing(offline());
+      setLocks(queueLocks());
+      const answer = deferred<Awaited<ReturnType<typeof api.signIn>>>();
+      signIn.mockReturnValue(answer.promise);
+      refresh.mockResolvedValue(cookieSession);
+      signOut.mockClear();
+
+      // B входит и держит замок; A (перезагрузка) ждёт замка с признаком на момент старта
+      const signingIn = requestSignIn({ email: 'rider@example.com', password: 'velo-secret' });
+      resetSessionStore();
+      const restoring = useSessionStore.getState().hydrate(NOW);
+      await Promise.resolve();
+      answer.resolve({ state: 'signedIn', session: cookieSession });
+      await signingIn;
+      await restoring;
+
+      expect(signOut).not.toHaveBeenCalled();
+      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(useSessionStore.getState().status).toBe('signedIn');
+    });
+
+    it('хранилище браузера недоступно — выход и запуск не падают', async () => {
+      const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('SecurityError');
+      });
+      const getItem = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('SecurityError');
+      });
+      await signOutFailing(offline());
+      resetSessionStore();
+      refresh.mockRejectedValue(unauthorized());
+      await useSessionStore.getState().hydrate(NOW);
+
+      expect(useSessionStore.getState().status).toBe('signedOut');
+      setItem.mockRestore();
+      getItem.mockRestore();
+    });
   });
 });

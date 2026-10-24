@@ -6,6 +6,7 @@ import type { Database, DbExecutor } from '../../db';
 import {
   emailVerificationTokens,
   registrationTokens,
+  type SessionRevokedReason,
   sessions,
   userConsents,
   users,
@@ -64,6 +65,18 @@ export class IdentityRepository {
 
   async findUserByEmail(ex: DbExecutor, email: string): Promise<UserState | undefined> {
     const [row] = await ex.select(userState).from(users).where(eq(users.email, email));
+    return row;
+  }
+
+  /** Хеш пароля и состояние аккаунта для входа; только для сравнения на сервере, наружу не уходит. */
+  async findCredentialsByEmail(
+    ex: DbExecutor,
+    email: string,
+  ): Promise<(UserState & { passwordHash: string }) | undefined> {
+    const [row] = await ex
+      .select({ ...userState, passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.email, email));
     return row;
   }
 
@@ -300,35 +313,123 @@ export class IdentityRepository {
   }
 
   /**
-   * Ротация refresh одним условным UPDATE: живая (не отозвана, не истекла) сессия не удалённого пользователя
-   * получает новый хеш, срок не меняется. Из параллельных ротаций одного токена проходит ровно одна:
-   * остальные после ожидания блокировки строки перепроверяют условие на новой версии (хеш уже другой).
+   * Ротация refresh одним условным UPDATE (ADR-0005). Живая (не отозвана, не истекла) сессия не удалённого
+   * пользователя принимает текущий refresh или предыдущий в окне повтора (`rotated_at` позже `now − grace`).
+   * Предыдущим становится текущий хеш строки до UPDATE: при повторе в окне брошенный текущий токен тоже станет
+   * «предыдущим» и вне окна сработает как reuse. Срок скользящий: `now + ttl`, но не дальше `created_at + absolute`.
+   * Параллельные ротации одного токена: после ожидания блокировки строки PostgreSQL перепроверяет условие на новой
+   * версии — проходят ровно две (текущим и затем предыдущим в окне), остальные — 0 строк.
    */
   async rotateSession(
     ex: DbExecutor,
-    rotation: { tokenHash: string; nextTokenHash: string; now: Date },
+    rotation: {
+      tokenHash: string;
+      nextTokenHash: string;
+      now: Date;
+      graceMs: number;
+      ttlMs: number;
+      absoluteTtlMs: number;
+    },
   ): Promise<{ id: string; userId: string; expiresAt: Date } | undefined> {
+    const { tokenHash, now } = rotation;
+    const graceStart = new Date(now.getTime() - rotation.graceMs);
+    const slidingExpiry = new Date(now.getTime() + rotation.ttlMs);
+    const absoluteMs = `${rotation.absoluteTtlMs} milliseconds`;
     const [row] = await ex
       .update(sessions)
-      .set({ refreshTokenHash: rotation.nextTokenHash })
+      .set({
+        // в SET столбец справа — значение строки до UPDATE
+        previousRefreshTokenHash: sql`${sessions.refreshTokenHash}`,
+        refreshTokenHash: rotation.nextTokenHash,
+        rotatedAt: now,
+        expiresAt: sql`LEAST(${slidingExpiry}::timestamptz, ${sessions.createdAt} + ${absoluteMs}::interval)`,
+      })
       .where(
         and(
-          eq(sessions.refreshTokenHash, rotation.tokenHash),
           isNull(sessions.revokedAt),
-          gt(sessions.expiresAt, rotation.now),
+          gt(sessions.expiresAt, now),
           sql`EXISTS (SELECT 1 FROM ${users} WHERE ${users.id} = ${sessions.userId} AND ${isNull(users.deletedAt)})`,
+          or(
+            eq(sessions.refreshTokenHash, tokenHash),
+            and(
+              eq(sessions.previousRefreshTokenHash, tokenHash),
+              gt(sessions.rotatedAt, graceStart),
+            ),
+          ),
         ),
       )
       .returning({ id: sessions.id, userId: sessions.userId, expiresAt: sessions.expiresAt });
     return row;
   }
 
-  /** Отзыв сессии по хешу refresh; уже отозванная не меняется (идемпотентно). */
-  async revokeSession(ex: DbExecutor, tokenHash: string, at: Date): Promise<void> {
+  /**
+   * Reuse detection: предъявлен предыдущий refresh позже окна повтора — токен, вероятно, украден; живая сессия
+   * отзывается целиком (Q8: одна сессия). Возвращает id отозванной сессии (для лога), иначе `undefined`.
+   */
+  async markReuseDetected(
+    ex: DbExecutor,
+    tokenHash: string,
+    now: Date,
+    graceMs: number,
+  ): Promise<string | undefined> {
+    const [row] = await ex
+      .update(sessions)
+      .set({ revokedAt: now, revokedReason: 'reuse_detected' })
+      .where(
+        and(
+          eq(sessions.previousRefreshTokenHash, tokenHash),
+          lte(sessions.rotatedAt, new Date(now.getTime() - graceMs)),
+          isNull(sessions.revokedAt),
+        ),
+      )
+      .returning({ id: sessions.id });
+    return row?.id;
+  }
+
+  /**
+   * Отзыв сессии по хешу текущего или предыдущего refresh (гонка выхода с ротацией не оставляет живую сессию);
+   * уже отозванная не меняется (идемпотентно).
+   */
+  async revokeSession(
+    ex: DbExecutor,
+    tokenHash: string,
+    at: Date,
+    reason: SessionRevokedReason,
+  ): Promise<void> {
     await ex
       .update(sessions)
-      .set({ revokedAt: at })
-      .where(and(eq(sessions.refreshTokenHash, tokenHash), isNull(sessions.revokedAt)));
+      .set({ revokedAt: at, revokedReason: reason })
+      .where(
+        and(
+          or(
+            eq(sessions.refreshTokenHash, tokenHash),
+            eq(sessions.previousRefreshTokenHash, tokenHash),
+          ),
+          isNull(sessions.revokedAt),
+        ),
+      );
+  }
+
+  /**
+   * Новый токен регистрации взамен прежнего (вход неподтверждённого, Q4): прежний перестаёт действовать, срок —
+   * заново. Строка у пользователя одна (UNIQUE user_id).
+   */
+  async replaceRegistrationToken(
+    ex: DbExecutor,
+    token: { userId: string; tokenHash: string; createdAt: Date; expiresAt: Date },
+  ): Promise<void> {
+    await ex
+      .insert(registrationTokens)
+      .values(token)
+      .onConflictDoUpdate({
+        target: registrationTokens.userId,
+        set: {
+          tokenHash: token.tokenHash,
+          createdAt: token.createdAt,
+          expiresAt: token.expiresAt,
+          consumedAt: null,
+        },
+      });
   }
 
   // --- очистка (V-10) ---

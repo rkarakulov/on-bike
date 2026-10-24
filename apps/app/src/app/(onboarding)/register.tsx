@@ -2,9 +2,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { MIN_AGE_YEARS, MIN_BIRTH_DATE, RegisterRequest, minskToday } from '@on-bike/contracts';
 import { t } from '@on-bike/i18n';
 import { Banner, Button, Checkbox, DateField, TextAction, TextField } from '@rkarakulov/ui';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type { GenerateMetadataFunction } from 'expo-router/server';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
 
@@ -54,6 +54,7 @@ export default function RegisterScreen() {
   const {
     control,
     handleSubmit,
+    getValues,
     setError,
     setValue,
     formState: { errors },
@@ -70,6 +71,15 @@ export default function RegisterScreen() {
   });
   const consent = useWatch({ control, name: 'personalDataConsent' });
   const emailCode = errors.email?.message;
+
+  // возврат к уже смонтированной форме (например, «Создать аккаунт» со входа): адрес мог смениться в черновике —
+  // поле берёт его; defaultValues действуют только при первом монтировании
+  useFocusEffect(
+    useCallback(() => {
+      const { email } = useRegistrationStore.getState().draft;
+      if (email !== undefined && email !== getValues('email')) setValue('email', email);
+    }, [getValues, setValue]),
+  );
 
   // приложение перезапущено, пока жив токен регистрации, — сразу к «Подтвердите e-mail»
   useEffect(() => {
@@ -99,6 +109,13 @@ export default function RegisterScreen() {
       }
     }
   });
+
+  // e-mail для экрана входа — через память (черновик), не через URL
+  const toSignIn = () => {
+    const store = useRegistrationStore.getState();
+    store.saveDraft({ ...store.draft, email: getValues('email') });
+    router.push('/sign-in');
+  };
 
   const failure = register.error;
   const failureCode = apiErrorCode(failure);
@@ -130,7 +147,7 @@ export default function RegisterScreen() {
       />
       {/* «Войти» — только у занятого адреса; у адреса удалённого аккаунта — нейтральный отказ (D-07) */}
       {emailCode === 'EMAIL_TAKEN' ? (
-        <TextAction label={t('auth.signIn.action')} onPress={() => router.push('/sign-in')} />
+        <TextAction label={t('auth.signIn.action')} onPress={toSignIn} />
       ) : null}
       <Controller
         control={control}
@@ -188,7 +205,7 @@ export default function RegisterScreen() {
         />
         <AuthInline>
           <AuthMeta>{t('auth.register.haveAccount')}</AuthMeta>
-          <TextAction label={t('auth.signIn.action')} onPress={() => router.push('/sign-in')} />
+          <TextAction label={t('auth.signIn.action')} onPress={toSignIn} />
         </AuthInline>
       </AuthActions>
     </AuthScreen>

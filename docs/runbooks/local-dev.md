@@ -83,8 +83,10 @@ Expo Go не открывает схему `onbike://`. Для проверки 
   web-серверов, например `API_INTERNAL_URL`), `expectedResourceErrors` (ожидаемые отказы: URL и HTTP-статус).
   `playwright.config.ts`, `fixtures.ts`, `urls.ts` — шаблонные. `pnpm e2e:web` запускает turbo с `--env-mode=loose`:
   окружение процесса (`E2E_*`, env серверов) доходит до Playwright и его серверов без списка в `turbo.json`.
-  on-bike: ожидаемый отказ — 401 `POST /v1/auth/session/refresh` анонима; письма — `e2e/mailpit.ts` (`MAILPIT_URL`).
-- **Смоук с API** (регистрация → письмо → подтверждение → вход → перезагрузка): при `E2E_API=1` Playwright сам
+  on-bike: ожидаемые отказы — 401 `POST /v1/auth/session/refresh` анонима и 401 `POST /v1/auth/session/sign-in`
+  (шаг «неверный пароль»); письма — `e2e/mailpit.ts` (`MAILPIT_URL`).
+- **Смоук с API** (регистрация → письмо → подтверждение → вход → перезагрузка → выход → вход по паролю →
+  перезагрузка): при `E2E_API=1` Playwright сам
   поднимает API и worker из `apps/api/dist` (`e2e/project.ts`) с `APP_LINK_BASE` и `CORS_ORIGINS` смоука (`:8090`,
   `:8091`), остальное окружение — из `apps/api/.env`. Нужны `pnpm infra:up` (PostgreSQL, Redis, Mailpit), миграции
   и свободный порт API из `EXPO_PUBLIC_API_URL` (dev-API на `:3000` — остановить или взять другой порт):
@@ -97,6 +99,11 @@ Expo Go не открывает схему `onbike://`. Для проверки 
 
   Каждый прогон регистрирует подтверждённый аккаунт `e2e-<время>@on-bike.test` в dev-БД (очисткой неподтверждённых
   не удаляется). Без `E2E_API=1` сценарий регистрации пропускается (`skipped`), остальные шаги — без API.
+- **Блокировка входа в dev** (ADR-0005: 5 попыток на e-mail+IP, 20 на e-mail, 50 на IP за 15 мин): ключи в Redis —
+  `rl:signin-ip:*`, `rl:signin-email:*`, `rl:signin-email-ip:*` (HMAC, адресов в них нет). Снять все блокировки
+  входа dev-API — удалить эти ключи в Redis из `REDIS_URL` (сервис `redis` из `pnpm infra:up`):
+  `docker compose -f infra/docker-compose.dev.yml exec redis sh -c "redis-cli --scan --pattern 'rl:signin-*' | xargs -r redis-cli del"`
+  (или подождать конца окна).
 - **PWA:** устанавливается только с https или `localhost`/`127.0.0.1`. Service worker регистрируется только в
   production-сборке; после смены сборки страница берёт новый `sw.js` (он `no-cache`). Сбросить —
   DevTools → Application → Service workers → Unregister.

@@ -1,4 +1,7 @@
-/** Сроки и лимиты онбординга — значения прототипа (решение Q4, task 2026-10-22-onboarding-01-signup). */
+/**
+ * Сроки и лимиты онбординга — значения прототипа (решение Q4, task 2026-10-22-onboarding-01-signup) и решения
+ * слайса 2 (task 2026-10-24-onboarding-02-sign-in, §8.2).
+ */
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
@@ -11,10 +14,27 @@ export const IDENTITY_POLICY = {
   /** Регистрации с одного IP [ASSUMPTION: CGNAT, поэтому не меньше]. */
   registerPerIpLimit: { limit: 20, windowSec: HOUR_MS / 1000 },
   accessTokenTtlMs: 15 * MINUTE_MS,
-  /** Срок сессии от выдачи; ротация refresh его не продлевает (Q2 F5b: продление — слайс 2). */
+  /** Скользящий срок сессии: от выдачи и от каждой ротации refresh (Q5 слайса 2)… */
   refreshTokenTtlMs: 30 * DAY_MS,
+  /** …но не дальше абсолютного предела от входа: потом — вход по паролю. */
+  sessionAbsoluteTtlMs: 180 * DAY_MS,
+  /**
+   * Окно повтора ротации (R3 слайса 2): предыдущий refresh ещё действует после ротации — ответ мог потеряться
+   * в мобильной сети. Позже — reuse detection: сессия отзывается.
+   */
+  refreshReuseGraceMs: MINUTE_MS,
   /** Ротация refresh с одного IP: перезагрузки вкладок и повторы — с запасом, перебор — нет (R6 F5b). */
   refreshPerIpLimit: { limit: 60, windowSec: MINUTE_MS / 1000 },
+  /**
+   * Попытки входа за 15 мин (Q1/Q2 слайса 2, R1б): пара e-mail+IP — обычная блокировка после 5 попыток;
+   * e-mail со всех IP — потолок распределённого перебора (чужой IP не блокирует владельца сразу); IP — spraying и
+   * нагрузка argon2 [ASSUMPTION: CGNAT — с запасом]. Считаются все попытки, не только неудачные (R2а).
+   */
+  signInLimits: {
+    emailIp: { limit: 5, windowSec: (15 * MINUTE_MS) / 1000 },
+    email: { limit: 20, windowSec: (15 * MINUTE_MS) / 1000 },
+    ip: { limit: 50, windowSec: (15 * MINUTE_MS) / 1000 },
+  },
   /** Неподтверждённые аккаунты удаляются через 7 дней (V-10). */
   unverifiedRetentionMs: 7 * DAY_MS,
   cleanupBatchSize: 1_000,

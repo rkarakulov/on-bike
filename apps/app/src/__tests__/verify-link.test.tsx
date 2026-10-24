@@ -52,7 +52,7 @@ describe('ссылка из письма', () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 
-  it('valid → «Подтвердить e-mail» (POST) → подтверждено; без регистрации здесь — «Войдите…»', async () => {
+  it('valid → «Подтвердить e-mail» (POST) → подтверждено; без регистрации здесь — вход по паролю с этим e-mail', async () => {
     getLink.mockResolvedValue({ state: 'valid', email: EMAIL });
     confirm.mockResolvedValue({ state: 'verified', email: EMAIL });
     const router = await openLink();
@@ -61,11 +61,15 @@ describe('ссылка из письма', () => {
 
     expect(confirm).toHaveBeenCalledWith({ token: LINK_TOKEN });
     expect(await screen.findByRole('header', { name: 'E-mail подтверждён' })).toBeOnTheScreen();
-    expect(screen.getByText(/Войдите на устройстве, где регистрировались/)).toBeOnTheScreen();
+    expect(
+      screen.getByText(`Адрес ${keepTogether(EMAIL)} подтверждён. Войдите с паролем.`),
+    ).toBeOnTheScreen();
     expect(poll).not.toHaveBeenCalled();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Войти' }));
     expect(router.getPathname()).toBe('/sign-in');
+    // e-mail — через память, не в адресе
+    expect(await screen.findByDisplayValue(EMAIL)).toBeOnTheScreen();
   });
 
   it('регистрировались на этом устройстве: подтверждение → опрос → вход без пароля → Главная', async () => {

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { RateLimitedDetails, Session } from '@on-bike/contracts';
 import { CLOCK, type Clock, ENV, RateLimiter } from '@rkarakulov/api-kit';
 import { SignJWT } from 'jose';
@@ -8,15 +8,18 @@ import type { DbExecutor } from '../../db';
 import { domainError } from '../../error-messages';
 import { IDENTITY_POLICY, JWT_AUDIENCE, JWT_ISSUER } from './identity.policy';
 import { IdentityRepository } from './identity.repository';
+import type { SessionRevokedReason } from './identity.schema';
 import { randomToken, rateLimitKeyForIp, sha256 } from './tokens';
 
 /**
- * Жизненный цикл сессии: выдача, ротация refresh, отзыв. Access — JWT HS256 (sub + sid), refresh — случайный,
- * в БД — только sha256. Транспорт refresh (тело или cookie) — забота контроллера.
+ * Жизненный цикл сессии: выдача, ротация refresh (окно повтора, reuse detection — ADR-0005), отзыв. Access — JWT
+ * HS256 (sub + sid), refresh — случайный, в БД — только sha256. Транспорт refresh (тело или cookie) — забота
+ * контроллера.
  */
 @Injectable()
 export class SessionService {
   private readonly key: Uint8Array;
+  private readonly logger = new Logger(SessionService.name);
 
   constructor(
     private readonly repository: IdentityRepository,
@@ -44,8 +47,10 @@ export class SessionService {
   }
 
   /**
-   * Новый refresh взамен предъявленного; срок сессии не продлевается. Отозванная, истёкшая, чужая, сессия
-   * удалённого пользователя и проигравший гонку токен — один и тот же 401 (без оракула). Лимит — по IP.
+   * Новый refresh взамен предъявленного; срок сессии скользящий (30 дней от ротации, не дальше 180 от входа).
+   * Предыдущий refresh в окне повтора (60 с) — тоже ротация той же сессии (ответ мог потеряться); позже — reuse
+   * detection: сессия отзывается. Отозванная, истёкшая, чужая, удалённый пользователь, reuse и проигравший гонку
+   * токен — один и тот же 401 (без оракула). Лимит — по IP.
    */
   async rotate(refreshToken: string, ip: string): Promise<Session> {
     const now = this.clock.now();
@@ -59,19 +64,42 @@ export class SessionService {
       throw domainError('RATE_LIMITED', 429, details);
     }
 
+    const tokenHash = sha256(refreshToken);
     const nextToken = randomToken();
     const rotated = await this.repository.rotateSession(this.repository.db, {
-      tokenHash: sha256(refreshToken),
+      tokenHash,
       nextTokenHash: sha256(nextToken),
       now,
+      graceMs: IDENTITY_POLICY.refreshReuseGraceMs,
+      ttlMs: IDENTITY_POLICY.refreshTokenTtlMs,
+      absoluteTtlMs: IDENTITY_POLICY.sessionAbsoluteTtlMs,
     });
-    if (!rotated) throw domainError('UNAUTHORIZED', 401);
-    return this.compose(rotated, nextToken, now);
+    if (rotated) return this.compose(rotated, nextToken, now);
+
+    const revokedId = await this.repository.markReuseDetected(
+      this.repository.db,
+      tokenHash,
+      now,
+      IDENTITY_POLICY.refreshReuseGraceMs,
+    );
+    // только id сессии: ни токена, ни e-mail, ни IP (R6)
+    if (revokedId) {
+      this.logger.warn({ msg: 'session revoked', sid: revokedId, reason: 'reuse_detected' });
+    }
+    throw domainError('UNAUTHORIZED', 401);
   }
 
-  /** Выход: отзыв сессии; неизвестный или уже отозванный токен — без ошибки (идемпотентно). */
-  async revoke(refreshToken: string): Promise<void> {
-    await this.repository.revokeSession(this.repository.db, sha256(refreshToken), this.clock.now());
+  /**
+   * Отзыв по текущему или предыдущему refresh: `signed_out` — выход, `superseded` — вход в этом браузере заменил
+   * сессию. Неизвестный или уже отозванный токен — без ошибки (идемпотентно).
+   */
+  async revoke(refreshToken: string, reason: SessionRevokedReason = 'signed_out'): Promise<void> {
+    await this.repository.revokeSession(
+      this.repository.db,
+      sha256(refreshToken),
+      this.clock.now(),
+      reason,
+    );
   }
 
   private async compose(

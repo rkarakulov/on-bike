@@ -14,6 +14,8 @@ type WebServer = Extract<
 
 /** on-bike: refresh web-сессии — аноним при каждой загрузке восстанавливает вход (без cookie → 401). */
 export const REFRESH_URL = `${API_URL}/v1/auth/session/refresh`;
+/** on-bike: вход по паролю (слайс 2); неверный пароль — 401 INVALID_CREDENTIALS, шаг смоука его проверяет. */
+export const SIGN_IN_URL = `${API_URL}/v1/auth/session/sign-in`;
 
 // on-bike, E2E_API=1: API и worker из apps/api/dist (`pnpm --filter @on-bike/api build`), остальное окружение —
 // apps/api/.env локально или переменные CI. Ссылки писем ведут на production-сборку смоука, её origin-ы —
@@ -49,7 +51,10 @@ export const servers: WebServer[] = WITH_API
 export const webServerEnv: Record<string, string> = WITH_API ? { API_INTERNAL_URL: API_URL } : {};
 
 /**
- * Ожидаемые отказы загрузки ресурсов в console.error production-сборки (task.md F5b §8.2): 401 на восстановление
- * сессии анонима. Всё остальное — падение.
+ * Ожидаемые отказы загрузки ресурсов в console.error production-сборки: 401 на восстановление сессии анонима
+ * (task.md F5b §8.2) и 401 входа с неверным паролем (шаг смоука слайса 2). Всё остальное — падение.
  */
-export const expectedResourceErrors: ExpectedResourceError[] = [{ url: REFRESH_URL, status: 401 }];
+export const expectedResourceErrors: ExpectedResourceError[] = [
+  { url: REFRESH_URL, status: 401 },
+  { url: SIGN_IN_URL, status: 401 },
+];

@@ -9,6 +9,7 @@ import {
 import { CLOCK, type Clock, ENV, isUniqueViolation, RateLimiter } from '@rkarakulov/api-kit';
 
 import type { Env } from '../../config/env';
+import type { DbExecutor } from '../../db';
 import { domainError } from '../../error-messages';
 import { IDENTITY_POLICY } from './identity.policy';
 import { IdentityRepository } from './identity.repository';
@@ -91,6 +92,22 @@ export class RegistrationService {
       if (isUniqueViolation(error, 'users_email_unique')) throw emailTaken();
       throw error;
     }
+  }
+
+  /**
+   * Новый токен регистрации неподтверждённому аккаунту (вход с верным паролем, Q4 слайса 2) — в транзакции
+   * вызывающего под `lockUser`. Прежний токен перестаёт действовать; срок — как у ссылки (скользящий при повторе
+   * письма). Письмо не отправляется: повтор — кнопкой на «Подтвердите e-mail» (пауза — лимит повторов).
+   */
+  async reissueToken(tx: DbExecutor, userId: string, email: string, now: Date) {
+    const registrationToken = randomToken();
+    await this.repository.replaceRegistrationToken(tx, {
+      userId,
+      tokenHash: sha256(registrationToken),
+      createdAt: now,
+      expiresAt: new Date(now.getTime() + IDENTITY_POLICY.verificationLinkTtlMs),
+    });
+    return { registrationToken, email, resendAvailableInSec: 0 };
   }
 
   /** `pending` до подтверждения; после — сессия ровно один раз, дальше токен не действует (401). */
