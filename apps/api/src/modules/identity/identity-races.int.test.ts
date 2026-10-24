@@ -1,5 +1,5 @@
 import { RegisterResponse, Session, SignInResponse } from '@pokatim/contracts';
-import { MongoServerError } from 'mongodb';
+import { Collection, MongoServerError } from 'mongodb';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createHarness, MINUTE, type Harness } from '../../../test/harness';
@@ -148,23 +148,45 @@ describe('сброс пароля ↔ ротация refresh', () => {
 });
 
 describe('ротация ↔ выход', () => {
-  it('параллельные refresh и выход одним токеном — сессия отозвана, выданный ротацией токен не действует', async () => {
+  it('выход между проверкой пользователя и атомарной ротацией — ротация 401, сессия отозвана (signed_out)', async () => {
     await verifiedAccount();
     const token = await nativeSession();
+    // ворота на атомарном findOneAndUpdate ротации: кандидат и пользователь уже прочитаны
+    const original = Collection.prototype.findOneAndUpdate;
+    const paused = gate();
+    let gated = false;
+    vi.spyOn(Collection.prototype, 'findOneAndUpdate').mockImplementation(function (
+      this: Collection,
+      ...args: unknown[]
+    ) {
+      if (!gated && this.collectionName === 'sessions') {
+        gated = true;
+        return paused.wait().then(() => Reflect.apply(original, this, args) as unknown);
+      }
+      return Reflect.apply(original, this, args) as unknown;
+    } as never);
 
-    const [rotated, signedOut] = await Promise.all([
-      refresh(token),
-      call(h, 'POST', SIGN_OUT, { refreshToken: token }),
-    ]);
+    const rotating = refresh(token);
+    await paused.reached;
+    expect((await call(h, 'POST', SIGN_OUT, { refreshToken: token })).status).toBe(204);
+    paused.open();
 
-    expect(signedOut.status).toBe(204);
+    expect((await rotating).status).toBe(401);
+    const [row] = await collections(h).sessions.find().toArray();
+    expect(row).toMatchObject({ revokedReason: 'signed_out', refreshTokenHash: sha256(token) });
+  });
+
+  it('выход предыдущим токеном после ротации — сессия отозвана, выданный ротацией токен не действует', async () => {
+    await verifiedAccount();
+    const token = await nativeSession();
+    const rotated = await refresh(token);
+    expect(rotated.status).toBe(200);
+
+    expect((await call(h, 'POST', SIGN_OUT, { refreshToken: token })).status).toBe(204);
+
     const [row] = await collections(h).sessions.find().toArray();
     expect(row).toMatchObject({ revokedReason: 'signed_out' });
-    if (rotated.status === 200) {
-      expect((await refresh(Session.parse(rotated.body).refreshToken)).status).toBe(401);
-    } else {
-      expect(rotated.status).toBe(401);
-    }
+    expect((await refresh(Session.parse(rotated.body).refreshToken)).status).toBe(401);
   });
 });
 

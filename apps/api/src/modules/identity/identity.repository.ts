@@ -149,7 +149,11 @@ export class IdentityRepository {
     await this.c.users.updateOne({ _id: userId }, { $set: { passwordHash } }, { session });
   }
 
-  /** Новый аккаунт (id — UUID v7); дубликат адреса — `users_email_unique` (вызывающий переводит в EMAIL_TAKEN). */
+  /**
+   * Новый аккаунт (id — UUID v7); дубликат адреса — `users_email_unique` (вызывающий переводит в EMAIL_TAKEN).
+   * Исключение из R1: `lockUser` нечего блокировать — документа ещё нет; гонку одного адреса сериализует уникальный
+   * индекс (конфликт записи в транзакции или `11000` после коммита первой регистрации).
+   */
   async insertUser(
     session: DbSession,
     user: { email: string; passwordHash: string; birthDate: string; createdAt: Date },
@@ -563,6 +567,7 @@ export class IdentityRepository {
     let deleted = 0;
     for (const { _id: userId } of candidates) {
       const removed = await this.transactions.run(async (session) => {
+        // исключение из R1: первая операция — сама запись в документ users (удаление с условиями в фильтре)
         const user = await this.c.users.findOneAndDelete(
           { _id: userId, ...unverifiedAndStale },
           { session, projection: { _id: 1 } },

@@ -59,7 +59,8 @@ Severity:
   (`{ $ne: null }` совпадает со всеми документами); `$where`/`$function`/`$accumulator` — **HIGH**
   (`.claude/rules/db.md`).
 - pokatim: запись в документы аккаунта в транзакции без `lockUser` (первой операцией) — **HIGH**
-  (`.claude/rules/pokatim-db.md`, R1).
+  (`.claude/rules/pokatim-db.md`, R1); исключения — создание нового аккаунта (уникальный `users_email_unique`) и
+  транзакция, первая операция которой — запись в тот же документ `users` (очистка, `findOneAndDelete`).
 - **HIGH** — серьёзный дефект или нарушение правила; исправить до merge.
 - **MEDIUM** — стоит исправить; сам по себе не блокер.
 - **LOW** — мелочь, по желанию.

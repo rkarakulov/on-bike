@@ -61,13 +61,24 @@ services:
         target: /run/pokatim/mongo-keyfile
         read_only: true
         bind: { create_host_path: false }
+    # mongosh — отдельный процесс Node (~100 МБ) в лимите контейнера: проверка раз в 15 с, не чаще
     healthcheck:
-      test: ['CMD', 'mongosh', '--quiet', '--eval', 'quit(db.hello().isWritablePrimary ? 0 : 1)']
-      interval: 5s
+      test:
+        [
+          'CMD',
+          'mongosh',
+          '--quiet',
+          '--norc',
+          '--eval',
+          'quit(db.hello().isWritablePrimary ? 0 : 1)',
+        ]
+      interval: 15s
       timeout: 10s
-      retries: 30
-      start_period: 20s
-    deploy: { resources: { limits: { memory: 768m } } }
+      retries: 10
+      start_period: 30s
+    # бюджет стека на общем сервере — 2560m: mongo 640 + redis 320 + mailpit 128 + api 512 + worker 384 + web 512 +
+    # admin 64; mongod — кэш 0,25 ГБ + служебная память, запас — на mongosh healthcheck и deploy.sh
+    deploy: { resources: { limits: { memory: 640m } } }
     restart: unless-stopped
     logging: *logging
 
@@ -165,7 +176,7 @@ services:
     depends_on:
       mongo: { condition: service_healthy }
       redis: { condition: service_healthy }
-    deploy: { resources: { limits: { memory: 512m } } }
+    deploy: { resources: { limits: { memory: 384m } } }
     restart: unless-stopped
     logging: *logging
 

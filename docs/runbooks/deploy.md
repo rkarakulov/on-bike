@@ -39,7 +39,8 @@ api/worker/web/admin с ожиданием healthcheck → smoke (`/v1/health` =
 `by.pokatim.project=pokatim`, чужие образы не трогаются).
 
 Свои порты хоста — 3100, 8180, 8181, 8125, только `127.0.0.1`; выбраны свободными. Менять — после `sudo ss -ltnp` на
-сервере. Лимиты памяти контейнеров — в `infra/deploy/docker-compose.yml` (всего ≤ 2,5 ГБ), логи контейнеров
+сервере. Лимиты памяти контейнеров — в `infra/deploy/docker-compose.yml`, всего 2560m (mongo 640, redis 320, mailpit
+128, api 512, worker 384, web 512, admin 64; healthcheck mongo — `mongosh` раз в 15 с в лимите mongo), логи контейнеров
 ротируются (json-file, 3 × 10 МБ на контейнер).
 
 ## Первичная настройка (один раз)
@@ -358,6 +359,13 @@ dev-пользователей не находятся (401 → вход зан�
 обработчики пропускают (`skipped`).
 
 Шаг `retire_postgres` станет лишним после первого успешного деплоя — удалить follow-up задачей.
+
+**Репетиция** (`infra/deploy/rehearsal.sh`, CI job `deploy-rehearsal` на PR, меняющих деплой, образ или API): старый
+стек из базовой ветки → упавший деплой не трогает PostgreSQL → переезд → повторный деплой → права пользователя
+`pokatim`. Только с **отдельным** `POKATIM_PROJECT` (по умолчанию `pokatim-rehearsal`; `pokatim-dev` скрипт
+отвергает — иначе `retire_postgres` удалил бы том стенда), временным `HOME` и `POKATIM_SKIP_PULL=1
+POKATIM_SKIP_NGINX=1`; вручную — на машине с Docker и локальными образами (`POKATIM_TAG`, `POKATIM_IMAGE_PREFIX`),
+не на общем сервере (те же порты хоста).
 
 **Ручной возврат на PostgreSQL** (данные PostgreSQL dev удалены переездом — только пустая БД; с согласия автора):
 `dc down` (без `-v`), файлы стека из коммита до перехода

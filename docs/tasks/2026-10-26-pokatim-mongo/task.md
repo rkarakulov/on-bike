@@ -459,6 +459,12 @@ S3 (деплой). Решения R1–R13 — архитектора, орке�
   прежнего lockfile; удалены точечно (снимки и суффиксы peer), без пересборки остальных версий (`pnpm install
   --frozen-lockfile` — ок).
 
+**Ревью pass 1 (PR #20; findings — у оркестратора, `findings.md`):** Codex — REQUEST CHANGES (HIGH AC7/AC8, MEDIUM память), Claude — APPROVE
+(3 MEDIUM, 2 LOW). Решение оркестратора: AC7/AC8 — CI-job `deploy-rehearsal` (`infra/deploy/rehearsal.sh`) на PR вместо
+локальной репетиции (Docker недоступен); лимиты стека — 2560m (mongo 640m, worker 384m), healthcheck mongo раз в 15 с;
+исключения R1 (новый аккаунт, запись первой операцией в тот же документ `users`); тест «ротация ↔ выход» — воротами;
+runbook — репетиция только в своём `POKATIM_PROJECT`.
+
 # 8.3 Security checklist
 
 Затронуты: хранилище учётных данных и сессий (identity), гарантии гонок аутентификации, инфраструктура (compose,
@@ -733,6 +739,11 @@ app-foundation (follow-ups: помощник «удерживаемая тран
 `pg`/`drizzle-*` в lockfile нет); `apps/api/src/config/env.test.ts` (рендер: `postgres://` отвергается);
 переезд — `infra/deploy/deploy.sh` (`retire_postgres`), `docs/runbooks/{deploy,local-dev}.md`; комментарии
 `0002_identity.ts` (имена индексов из PG) и `identity-races.int.test.ts`.
+
+**Фиксы ревью pass 1:** `pnpm check` — EXIT 0, api — **199 тестов** (тест «ротация ↔ выход» разделён на два
+детерминированных); отрицательное доказательство нового теста — без `revokedAt: null` в ротации `expected 200 to be
+401`; shellcheck `rehearsal.sh`, actionlint — 0 замечаний. Job `deploy-rehearsal` (AC7/AC8 в Docker) — **прогон на
+PR**, локально не запускался.
 
 **NOT VERIFIED (Docker Desktop недоступен: диск хоста заполнен, VM не стартует; контейнеры `pokatim-dev-*` /
 `on-bike-dev-*` не трогались, Docker не перезапускался):**

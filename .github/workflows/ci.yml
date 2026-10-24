@@ -144,3 +144,68 @@ jobs:
           name: playwright-report
           path: apps/app/test-results/
           retention-days: 7
+
+  # Репетиция переезда dev-стенда PostgreSQL → MongoDB (AC7/AC8, infra/deploy/rehearsal.sh): образы собираются
+  # локально на раннере, старый стек — из базовой ветки PR, свой compose project, без registry и nginx. Только PR,
+  # меняющие деплой, образ, API или workflow; в вызове из деплоя (push) не запускается.
+  deploy-rehearsal:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      POKATIM_PROJECT: pokatim-rehearsal
+      POKATIM_TAG: rehearsal
+      POKATIM_IMAGE_PREFIX: rehearsal/pokatim
+      BASE_REF: origin/${{ github.base_ref }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      - name: затронуты деплой, образ, API или workflow?
+        id: changes
+        run: |
+          if git diff --name-only "${BASE_REF}...HEAD" |
+            grep -qE '^(infra/deploy/|infra/docker/|apps/api/|\.github/workflows/)'; then
+            echo "run=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "run=false" >>"$GITHUB_OUTPUT"
+            echo "::notice::деплой, образ, API и workflow не менялись — репетиция пропущена"
+          fi
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.changes.outputs.run == 'true'
+      - name: образ api (локально)
+        if: steps.changes.outputs.run == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: infra/docker/Dockerfile
+          target: api
+          load: true
+          tags: ${{ env.POKATIM_IMAGE_PREFIX }}-api:${{ env.POKATIM_TAG }}
+          secrets: NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          cache-from: type=gha,scope=pokatim-api
+      - name: образ web (локально)
+        if: steps.changes.outputs.run == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: infra/docker/Dockerfile
+          target: web
+          load: true
+          tags: ${{ env.POKATIM_IMAGE_PREFIX }}-web:${{ env.POKATIM_TAG }}
+          build-args: EXPO_PUBLIC_API_URL=https://rehearsal.pokatim.test
+          secrets: NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          cache-from: type=gha,scope=pokatim-web
+      - name: образ admin (локально)
+        if: steps.changes.outputs.run == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: infra/docker/Dockerfile
+          target: admin
+          load: true
+          tags: ${{ env.POKATIM_IMAGE_PREFIX }}-admin:${{ env.POKATIM_TAG }}
+          secrets: NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          cache-from: type=gha,scope=pokatim-admin
+      # лог — шаги и проверки без значений секретов (rehearsal.sh сравнивает хеши строк .env)
+      - name: репетиция переезда и повторного деплоя
+        if: steps.changes.outputs.run == 'true'
+        run: bash infra/deploy/rehearsal.sh
