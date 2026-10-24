@@ -1,6 +1,8 @@
 /// <reference types="jest" />
+import { generateMetadata as forgotMetadata } from '../app/(onboarding)/forgot-password';
 import { generateMetadata as registerMetadata } from '../app/(onboarding)/register';
 import { generateMetadata as signInMetadata } from '../app/(onboarding)/sign-in';
+import { generateMetadata as resetMetadata } from '../app/auth/reset/[token]';
 import { generateMetadata as verifyMetadata } from '../app/auth/verify/[token]';
 
 import { EMAIL, LINK_TOKEN } from './auth-fixtures';
@@ -58,6 +60,38 @@ describe('мета публичных экранов (generateMetadata)', () => 
     expect(meta).toMatchObject({
       title: 'Подтвердите e-mail — Покатим',
       openGraph: { title: 'Подтвердите e-mail', siteName: 'Покатим' },
+    });
+    const serialized = JSON.stringify(meta);
+    expect(serialized).not.toContain(LINK_TOKEN);
+    expect(serialized).not.toContain(EMAIL);
+    expect(serialized).not.toContain(ORIGIN);
+  });
+
+  it('«Восстановление пароля»: заголовок, OG без данных формы; og:url — только из WEB_ORIGIN', async () => {
+    expect(await forgotMetadata(undefined, {})).toEqual({
+      title: 'Восстановление пароля — Покатим',
+      description: 'Гонки, маршруты, кофе-райды и календарь стартов в одном профиле',
+      openGraph: {
+        title: 'Восстановление пароля',
+        description: 'Гонки, маршруты, кофе-райды и календарь стартов в одном профиле',
+        type: 'website',
+        siteName: 'Покатим',
+      },
+    });
+
+    process.env.WEB_ORIGIN = ORIGIN;
+    expect(await forgotMetadata(undefined, {})).toMatchObject({
+      openGraph: { url: `${ORIGIN}/forgot-password` },
+    });
+  });
+
+  it('ссылка сброса пароля: нейтральный заголовок, без e-mail, токена и og:url', async () => {
+    process.env.WEB_ORIGIN = ORIGIN;
+    const meta = await resetMetadata(undefined, { token: LINK_TOKEN });
+
+    expect(meta).toMatchObject({
+      title: 'Новый пароль — Покатим',
+      openGraph: { title: 'Новый пароль', siteName: 'Покатим' },
     });
     const serialized = JSON.stringify(meta);
     expect(serialized).not.toContain(LINK_TOKEN);

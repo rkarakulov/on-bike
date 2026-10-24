@@ -97,6 +97,23 @@ describe('web-сервер', () => {
     expectSecurityHeaders(response);
   });
 
+  it.each(['/auth/reset/x', '/auth/verify/x'])(
+    'путь с токеном из письма (%s) — Referrer-Policy: no-referrer, остальные заголовки те же',
+    async (path) => {
+      const { headers } = await get(path);
+      expect(headers['referrer-policy']).toBe('no-referrer');
+      expect(headers['x-content-type-options']).toBe('nosniff');
+    },
+  );
+
+  it.each(['/', '/sign-in', '/authx'])(
+    'прочие пути (%s) — прежний Referrer-Policy',
+    async (path) => {
+      const { headers } = await get(path);
+      expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+    },
+  );
+
   it.each(['/../secret.txt', '/%2e%2e/secret.txt', '/_expo/..%2f..%2fsecret.txt'])(
     'файл вне dist/client не отдаётся: %s',
     async (path) => {

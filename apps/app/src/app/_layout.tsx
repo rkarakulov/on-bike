@@ -69,6 +69,7 @@ export default function RootLayout() {
         </Stack.Protected>
         {/* публичные экраны вне гардов: ссылка из письма — и до входа, и на другом устройстве */}
         <Stack.Screen name="auth/verify/[token]" />
+        <Stack.Screen name="auth/reset/[token]" />
         <Stack.Screen name="ui-kit" />
         <Stack.Screen name="status" />
       </Stack>
