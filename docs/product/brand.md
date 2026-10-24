@@ -13,7 +13,9 @@
 - `apps/admin/index.html` — `<title>` панели организатора;
 - `apps/api/src/modules/identity/mail/*` — тексты писем («регистрацию в «Покатим»»);
 - `MAIL_FROM` — отображаемое имя отправителя (`apps/api/.env.example`, `infra/deploy/env.template`,
-  `infra/.env.example`; на серверах — их `.env`).
+  `infra/.env.example`, таблица окружения в `docs/runbooks/local-dev.md`; на серверах — их `.env`: dev-стенд
+  заменяет прежнее умолчание `on-bike dev` сам, `infra/deploy/bootstrap.sh` → `migrate_mail_from`, ручное
+  значение не трогает).
 
 ## Что не меняется (внутреннее имя on-bike)
 

@@ -31,7 +31,7 @@
 | `SMTP_URL` | `smtp://127.0.0.1:1025` | Mailpit |
 | `JWT_SECRET` | случайная строка ≥ 32 | подпись access JWT |
 | `EMAIL_TOKEN_SECRET` | случайная строка ≥ 32 | HMAC токенов ссылок в письмах (ADR-0002) |
-| `MAIL_FROM` | `'on-bike <no-reply@on-bike.by>'` | отправитель писем (в кавычках) |
+| `MAIL_FROM` | `'Покатим <no-reply@on-bike.by>'` | отправитель писем (в кавычках) |
 | `APP_LINK_BASE` | `exp://127.0.0.1:8081/--/` | база ссылок в письмах, со слешем в конце |
 | `AGREEMENT_VERSION` | `2026-10-draft` | версия соглашения, записывается в `user_consents` |
 | `CORS_ORIGINS` | `http://localhost:8081,…` | origin-ы web в dev через запятую: `expo start` (:8081), `start:web` (:8080), `e2e:web` (:8090, :8091); пусто — CORS выключен (прод: один origin за прокси) |

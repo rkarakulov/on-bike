@@ -157,3 +157,17 @@ scratchpad; `git ls-files` vs рендер, побайтно). Совпадае�
 README «Обновление проекта»); (2) смоук «без API» у проекта с гардом сессии: экраны за гардом — «Нет соединения»;
 развилку по `WITH_API` описать в runbook шаблона; (3) `ADMIN_BASE` (админка под подпутём) — поднять в шаблон, если нужен
 другим проектам.
+
+### Ревью PR #13 (APPROVE с замечаниями) и merge `develop`
+- `git merge origin/develop` (PR #12, Mailpit по `/mail/`): конфликт `infra/deploy/env.template` — обе правки
+  (`MAILPIT_UI_PASSWORD=@secret` с комментарием и `MAIL_FROM` «Покатим dev»); `deploy.sh` (smoke `/mail/` + `migrate.log`)
+  и runbook деплоя слились сами.
+- MEDIUM: новый `MAIL_FROM` не доходил до настроенного сервера — `bootstrap.sh` `migrate_mail_from`: значение, в точности
+  равное прежнему умолчанию `'on-bike dev <no-reply@on-bike.by>'`, заменяется текущим из `env.template`; ручное не
+  трогается; `MANAGED_KEYS` не менялся. Симуляция (`ON_BIKE_SKIP_NGINX=1`, временный каталог, значения не печатаются):
+  старое умолчание → заменено; ручное → не тронуто; новый `.env` → умолчание; повторный прогон каждого — `.env` без
+  изменений (`shasum`), права 600. Runbook деплоя «`.env` сервера» — исключение описано.
+- LOW: `local-dev.md` — `MAIL_FROM` «Покатим»; `runbooks/README.md` — почта `https://<хост>/mail/` под паролем;
+  `brand.md` — `local-dev.md` и автозамена на сервере.
+- Проверки: `pnpm check` EXIT 0 (typecheck 8/8, test 13/13); `shellcheck` `deploy.sh` `bootstrap.sh` — EXIT 0; `actionlint`
+  — EXIT 0; `bash -n` — ok; симуляция блока миграций на слитом `deploy.sh` — как выше; маркеров конфликта нет.
