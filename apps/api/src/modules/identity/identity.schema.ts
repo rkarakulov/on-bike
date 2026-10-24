@@ -99,8 +99,44 @@ export const registrationTokens = pgTable('registration_tokens', {
   consumedAt: at('consumed_at'),
 });
 
-/** Причина отзыва сессии (аудит без журнала входов, task.md слайса 2, R6). */
-export const SESSION_REVOKED_REASONS = ['signed_out', 'reuse_detected', 'superseded'] as const;
+/**
+ * Ссылки сброса пароля (слайс 3, ADR-0006): токен = HMAC(EMAIL_TOKEN_SECRET, "password-reset:" + id), в БД — sha256.
+ * Активная ссылка у пользователя одна (Q6): новая заменяет прежние (`superseded_at`); смена пароля — `used_at`.
+ * Колонки отправки письма — как у ссылок подтверждения (общий захват отправки в репозитории).
+ */
+export const passwordResetTokens = pgTable(
+  'password_reset_tokens',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique('password_reset_tokens_token_hash_unique'),
+    createdAt: at('created_at').notNull().defaultNow(),
+    expiresAt: at('expires_at').notNull(),
+    usedAt: at('used_at'),
+    supersededAt: at('superseded_at'),
+    sentAt: at('sent_at'),
+    sendClaimedAt: at('send_claimed_at'),
+  },
+  (t) => [
+    index('password_reset_tokens_user_id_idx').on(t.userId),
+    uniqueIndex('password_reset_tokens_active_unique')
+      .on(t.userId)
+      .where(sql`used_at IS NULL AND superseded_at IS NULL`),
+  ],
+);
+
+/**
+ * Причина отзыва сессии (аудит без журнала входов, task.md слайса 2, R6); `password_reset` — смена пароля по ссылке
+ * отзывает все сессии аккаунта (слайс 3).
+ */
+export const SESSION_REVOKED_REASONS = [
+  'signed_out',
+  'reuse_detected',
+  'superseded',
+  'password_reset',
+] as const;
 export type SessionRevokedReason = (typeof SESSION_REVOKED_REASONS)[number];
 
 /**
@@ -132,7 +168,7 @@ export const sessions = pgTable(
       .where(sql`previous_refresh_token_hash IS NOT NULL`),
     check(
       'sessions_revoked_reason_check',
-      sql`revoked_reason IN ('signed_out', 'reuse_detected', 'superseded')`,
+      sql`revoked_reason IN ('signed_out', 'reuse_detected', 'superseded', 'password_reset')`,
     ),
   ],
 );

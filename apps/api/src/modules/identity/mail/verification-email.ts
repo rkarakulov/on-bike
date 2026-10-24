@@ -1,12 +1,6 @@
 import type { MailMessage } from '@rkarakulov/api-kit';
 
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+import { buttonHtml, escapeHtml, htmlEmail } from './html';
 
 /** Письмо «Подтвердите e-mail»: HTML с кнопкой и текстовая версия. Адресат подставляет Mailer. */
 export function renderVerificationEmail({ link }: { link: string }): Omit<MailMessage, 'to'> {
@@ -20,15 +14,12 @@ export function renderVerificationEmail({ link }: { link: string }): Omit<MailMe
     '',
     'Ссылка действует 24 часа. Если вы не регистрировались в «Покатим», просто проигнорируйте это письмо.',
   ].join('\n');
-  const html = `<!doctype html>
-<html lang="ru">
-  <body style="font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; line-height: 1.5;">
-    <p>Здравствуйте!</p>
-    <p>Чтобы завершить регистрацию в «Покатим», подтвердите адрес электронной почты.</p>
-    <p><a href="${href}" style="display: inline-block; padding: 12px 20px; background: #111; color: #fff; text-decoration: none;">Подтвердить e-mail</a></p>
-    <p>Если кнопка не работает, откройте ссылку: <br /><a href="${href}">${href}</a></p>
-    <p>Ссылка действует 24 часа. Если вы не регистрировались в «Покатим», просто проигнорируйте это письмо.</p>
-  </body>
-</html>`;
+  const html = htmlEmail([
+    'Здравствуйте!',
+    'Чтобы завершить регистрацию в «Покатим», подтвердите адрес электронной почты.',
+    buttonHtml(href, 'Подтвердить e-mail'),
+    `Если кнопка не работает, откройте ссылку: <br /><a href="${href}">${href}</a>`,
+    'Ссылка действует 24 часа. Если вы не регистрировались в «Покатим», просто проигнорируйте это письмо.',
+  ]);
   return { subject, html, text };
 }

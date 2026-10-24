@@ -1,6 +1,6 @@
 /**
  * Сроки и лимиты онбординга — значения прототипа (решение Q4, task 2026-10-22-onboarding-01-signup) и решения
- * слайса 2 (task 2026-10-24-onboarding-02-sign-in, §8.2).
+ * слайсов 2–3 (task 2026-10-24-onboarding-02-sign-in и 2026-10-25-onboarding-03-password-reset, §8.2).
  */
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -34,6 +34,16 @@ export const IDENTITY_POLICY = {
     emailIp: { limit: 5, windowSec: (15 * MINUTE_MS) / 1000 },
     email: { limit: 20, windowSec: (15 * MINUTE_MS) / 1000 },
     ip: { limit: 50, windowSec: (15 * MINUTE_MS) / 1000 },
+  },
+  /** Ссылка сброса пароля (Q1 слайса 3): короткая — она даёт доступ к аккаунту. */
+  passwordResetLinkTtlMs: HOUR_MS,
+  /**
+   * Запрос ссылки сброса (Q5 слайса 3): e-mail — пауза 60 с и не больше 5 писем за сутки; IP — 20 запросов в час
+   * [ASSUMPTION: CGNAT]. Считаются и запросы на несуществующие адреса: 429 одинаков для любых адресов.
+   */
+  passwordResetLimits: {
+    email: { cooldownSec: 60, limit: 5, windowSec: DAY_MS / 1000 },
+    ip: { limit: 20, windowSec: HOUR_MS / 1000 },
   },
   /** Неподтверждённые аккаунты удаляются через 7 дней (V-10). */
   unverifiedRetentionMs: 7 * DAY_MS,

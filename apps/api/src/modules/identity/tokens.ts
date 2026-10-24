@@ -74,12 +74,33 @@ export function signInLimitKeys(secret: string, email: string, ip: string) {
 }
 
 /**
- * Токен ссылки подтверждения — HMAC от id строки (B1, ADR-0002): worker пересобирает ссылку по id
- * из outbox, поэтому сырой токен не лежит ни в outbox, ни в Redis, ни в логах; ретрай письма — та же ссылка.
+ * Ключи лимитов запроса сброса пароля (Q5 слайса 3): IP и нормализованный e-mail — HMAC, как у `signInLimitKeys`.
+ * Ключ e-mail считается и для несуществующих адресов: 429 не выдаёт аккаунт.
  */
+export function passwordResetLimitKeys(secret: string, email: string, ip: string) {
+  return {
+    ip: `pwreset-ip:${rateLimitKeyForIp(secret, ip)}`,
+    email: `pwreset-email:${hmacKey(secret, `pwreset-email:${email}`)}`,
+  };
+}
 
+/** Назначение ссылки — префикс HMAC: токен одной ссылки не годится в другую. */
+export type LinkPurpose = 'email-verify' | 'password-reset';
+
+/**
+ * Токен ссылки из письма — HMAC от id строки (B1, ADR-0002): worker пересобирает ссылку по id из outbox, поэтому
+ * сырой токен не лежит ни в outbox, ни в Redis, ни в логах; ретрай письма — та же ссылка.
+ */
+export function deriveLinkToken(secret: string, purpose: LinkPurpose, id: string): string {
+  return createHmac('sha256', secret).update(`${purpose}:${id}`).digest('base64url');
+}
+
+/** Ссылка подтверждения e-mail (`auth/verify/<token>`). */
 export function deriveVerificationToken(secret: string, verificationTokenId: string): string {
-  return createHmac('sha256', secret)
-    .update(`email-verify:${verificationTokenId}`)
-    .digest('base64url');
+  return deriveLinkToken(secret, 'email-verify', verificationTokenId);
+}
+
+/** Ссылка сброса пароля (`auth/reset/<token>`). */
+export function derivePasswordResetToken(secret: string, passwordResetTokenId: string): string {
+  return deriveLinkToken(secret, 'password-reset', passwordResetTokenId);
 }

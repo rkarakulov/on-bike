@@ -5,6 +5,7 @@ import { and, eq, gt, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import type { Database, DbExecutor } from '../../db';
 import {
   emailVerificationTokens,
+  passwordResetTokens,
   registrationTokens,
   type SessionRevokedReason,
   sessions,
@@ -28,6 +29,9 @@ export interface VerificationTokenState {
   sentAt: Date | null;
 }
 
+/** Ссылка сброса пароля: колонки — как у ссылки подтверждения. */
+export type PasswordResetTokenState = VerificationTokenState;
+
 export interface RegistrationTokenState {
   userId: string;
   expiresAt: Date;
@@ -49,6 +53,25 @@ const verificationState = {
   supersededAt: emailVerificationTokens.supersededAt,
   sentAt: emailVerificationTokens.sentAt,
 };
+
+const passwordResetState = {
+  id: passwordResetTokens.id,
+  userId: passwordResetTokens.userId,
+  expiresAt: passwordResetTokens.expiresAt,
+  usedAt: passwordResetTokens.usedAt,
+  supersededAt: passwordResetTokens.supersededAt,
+  sentAt: passwordResetTokens.sentAt,
+};
+
+/**
+ * Таблицы ссылок из писем с одинаковыми колонками отправки: общий захват отправки (`claimLinkSend`). Подтверждение
+ * не нужно уже подтверждённому аккаунту; сброс пароля нужен и неподтверждённому (Q4 слайса 3).
+ */
+const LINK_TABLES = {
+  verification: { table: emailVerificationTokens, accountCondition: isNull(users.emailVerifiedAt) },
+  passwordReset: { table: passwordResetTokens, accountCondition: undefined },
+} as const;
+export type LinkKind = keyof typeof LINK_TABLES;
 
 /** Доступ к таблицам identity. Методы принимают пул или транзакцию — транзакцию собирает сервис. */
 @Injectable()
@@ -84,6 +107,26 @@ export class IdentityRepository {
   async lockUser(ex: DbExecutor, userId: string): Promise<UserState | undefined> {
     const [row] = await ex.select(userState).from(users).where(eq(users.id, userId)).for('update');
     return row;
+  }
+
+  /**
+   * `lockUser` с хешем пароля — для входа (R4 слайса 3): под блокировкой аккаунта вход сверяет, что пароль не сменили
+   * с момента проверки (сброс, закоммиченный между проверкой и блокировкой, сессию не выдаёт).
+   */
+  async lockUserCredentials(
+    ex: DbExecutor,
+    userId: string,
+  ): Promise<(UserState & { passwordHash: string }) | undefined> {
+    const [row] = await ex
+      .select({ ...userState, passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for('update');
+    return row;
+  }
+
+  async updatePasswordHash(ex: DbExecutor, userId: string, passwordHash: string): Promise<void> {
+    await ex.update(users).set({ passwordHash }).where(eq(users.id, userId));
   }
 
   async insertUser(
@@ -146,77 +189,71 @@ export class IdentityRepository {
   }
 
   /**
-   * Захват отправки письма с ограниченным сроком (`send_claimed_at`), отдельно от факта отправки (`sent_at`):
+   * Захват отправки письма со ссылкой (`kind` — таблица ссылок) с ограниченным сроком (`send_claimed_at`), отдельно
+   * от факта отправки (`sent_at`). Одна реализация для ссылок подтверждения и сброса пароля:
    * - `claimed` — ссылка актуальна, письмо не отправлено, чужого живого захвата нет → отправляем;
    * - `busy` — другой worker держит живой захват → задача уходит на ретрай (если он упал, захват истечёт);
-   * - `undefined` — письмо не нужно: уже отправлено, ссылка заменена/использована/истекла, аккаунт подтверждён или удалён.
+   * - `undefined` — письмо не нужно: уже отправлено, ссылка заменена/использована/истекла, аккаунт удалён
+   *   (подтверждение — ещё и уже подтверждён).
    * Блокирует только строку ссылки и только на один UPDATE — SMTP идёт после коммита.
    */
-  async claimVerificationSend(
+  async claimLinkSend(
     ex: DbExecutor,
+    kind: LinkKind,
     id: string,
     now: Date,
     leaseMs: number,
   ): Promise<{ status: 'claimed'; id: string; email: string } | { status: 'busy' } | undefined> {
+    const { table, accountCondition } = LINK_TABLES[kind];
     const leaseExpired = new Date(now.getTime() - leaseMs);
     const sendable = and(
-      eq(emailVerificationTokens.id, id),
-      eq(users.id, emailVerificationTokens.userId),
-      isNull(emailVerificationTokens.sentAt),
-      isNull(emailVerificationTokens.usedAt),
-      isNull(emailVerificationTokens.supersededAt),
-      gt(emailVerificationTokens.expiresAt, now),
-      isNull(users.emailVerifiedAt),
+      eq(table.id, id),
+      eq(users.id, table.userId),
+      isNull(table.sentAt),
+      isNull(table.usedAt),
+      isNull(table.supersededAt),
+      gt(table.expiresAt, now),
       isNull(users.deletedAt),
+      accountCondition,
     );
     const [claimed] = await ex
-      .update(emailVerificationTokens)
+      .update(table)
       .set({ sendClaimedAt: now })
       .from(users)
-      .where(
-        and(
-          sendable,
-          or(
-            isNull(emailVerificationTokens.sendClaimedAt),
-            lte(emailVerificationTokens.sendClaimedAt, leaseExpired),
-          ),
-        ),
-      )
-      .returning({ id: emailVerificationTokens.id, email: users.email });
+      .where(and(sendable, or(isNull(table.sendClaimedAt), lte(table.sendClaimedAt, leaseExpired))))
+      .returning({ id: table.id, email: users.email });
     if (claimed) return { status: 'claimed', ...claimed };
 
     const [held] = await ex
-      .select({ id: emailVerificationTokens.id })
-      .from(emailVerificationTokens)
-      .innerJoin(users, eq(users.id, emailVerificationTokens.userId))
+      .select({ id: table.id })
+      .from(table)
+      .innerJoin(users, eq(users.id, table.userId))
       .where(sendable);
     return held ? { status: 'busy' } : undefined;
   }
 
   /** SMTP принял письмо: фиксируем отправку и снимаем свой захват. */
-  async completeVerificationSend(ex: DbExecutor, id: string, claimedAt: Date, sentAt: Date) {
+  async completeLinkSend(
+    ex: DbExecutor,
+    kind: LinkKind,
+    id: string,
+    claimedAt: Date,
+    sentAt: Date,
+  ) {
+    const { table } = LINK_TABLES[kind];
     await ex
-      .update(emailVerificationTokens)
+      .update(table)
       .set({ sentAt, sendClaimedAt: null })
-      .where(
-        and(
-          eq(emailVerificationTokens.id, id),
-          eq(emailVerificationTokens.sendClaimedAt, claimedAt),
-        ),
-      );
+      .where(and(eq(table.id, id), eq(table.sendClaimedAt, claimedAt)));
   }
 
   /** Сбой SMTP: снимаем свой захват — ретрай задачи отправит письмо заново (та же ссылка). */
-  async releaseVerificationSend(ex: DbExecutor, id: string, claimedAt: Date): Promise<void> {
+  async releaseLinkSend(ex: DbExecutor, kind: LinkKind, id: string, claimedAt: Date) {
+    const { table } = LINK_TABLES[kind];
     await ex
-      .update(emailVerificationTokens)
+      .update(table)
       .set({ sendClaimedAt: null })
-      .where(
-        and(
-          eq(emailVerificationTokens.id, id),
-          eq(emailVerificationTokens.sendClaimedAt, claimedAt),
-        ),
-      );
+      .where(and(eq(table.id, id), eq(table.sendClaimedAt, claimedAt)));
   }
 
   async markVerificationUsed(ex: DbExecutor, id: string, at: Date): Promise<void> {
@@ -224,6 +261,58 @@ export class IdentityRepository {
       .update(emailVerificationTokens)
       .set({ usedAt: at })
       .where(eq(emailVerificationTokens.id, id));
+  }
+
+  // --- ссылки сброса пароля ---
+
+  async insertPasswordResetToken(
+    ex: DbExecutor,
+    token: { id: string; userId: string; tokenHash: string; createdAt: Date; expiresAt: Date },
+  ): Promise<void> {
+    await ex.insert(passwordResetTokens).values(token);
+  }
+
+  /** Новая ссылка отменяет прежние (Q6): активной остаётся одна (частичный UNIQUE); использованные не трогаем. */
+  async supersedeActivePasswordResetTokens(ex: DbExecutor, userId: string, at: Date) {
+    await ex
+      .update(passwordResetTokens)
+      .set({ supersededAt: at })
+      .where(
+        and(
+          eq(passwordResetTokens.userId, userId),
+          isNull(passwordResetTokens.usedAt),
+          isNull(passwordResetTokens.supersededAt),
+        ),
+      );
+  }
+
+  async findPasswordResetByHash(
+    ex: DbExecutor,
+    tokenHash: string,
+  ): Promise<{ token: PasswordResetTokenState; user: UserState } | undefined> {
+    const [row] = await ex
+      .select({ token: passwordResetState, user: userState })
+      .from(passwordResetTokens)
+      .innerJoin(users, eq(users.id, passwordResetTokens.userId))
+      .where(eq(passwordResetTokens.tokenHash, tokenHash));
+    return row;
+  }
+
+  /** Использованная ссылка и её владелец — для письма «Пароль изменён» (время смены — `used_at`). */
+  async findPasswordResetById(
+    ex: DbExecutor,
+    id: string,
+  ): Promise<{ token: PasswordResetTokenState; user: UserState } | undefined> {
+    const [row] = await ex
+      .select({ token: passwordResetState, user: userState })
+      .from(passwordResetTokens)
+      .innerJoin(users, eq(users.id, passwordResetTokens.userId))
+      .where(eq(passwordResetTokens.id, id));
+    return row;
+  }
+
+  async markPasswordResetUsed(ex: DbExecutor, id: string, at: Date): Promise<void> {
+    await ex.update(passwordResetTokens).set({ usedAt: at }).where(eq(passwordResetTokens.id, id));
   }
 
   // --- токен регистрации ---
@@ -411,6 +500,25 @@ export class IdentityRepository {
   }
 
   /**
+   * Отзыв всех живых сессий пользователя (смена пароля — `password_reset`) одним UPDATE по `sessions_user_id_idx`.
+   * Уже отозванные не меняются. Гонка с ротацией: строка, которую ротация держит, после ожидания перепроверяется на
+   * новой версии — ротированная сессия тоже отзывается. Возвращает число отозванных.
+   */
+  async revokeAllSessions(
+    ex: DbExecutor,
+    userId: string,
+    at: Date,
+    reason: SessionRevokedReason,
+  ): Promise<number> {
+    const rows = await ex
+      .update(sessions)
+      .set({ revokedAt: at, revokedReason: reason })
+      .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)))
+      .returning({ id: sessions.id });
+    return rows.length;
+  }
+
+  /**
    * Новый токен регистрации взамен прежнего (вход неподтверждённого, Q4): прежний перестаёт действовать, срок —
    * заново. Строка у пользователя одна (UNIQUE user_id).
    */
@@ -430,6 +538,17 @@ export class IdentityRepository {
           consumedAt: null,
         },
       });
+  }
+
+  /**
+   * Гасит токен регистрации (смена пароля, R5 слайса 3): висящий токен больше не обменяется на сессию, даже когда
+   * e-mail станет подтверждён. Срок не продлевается — только укорачивается.
+   */
+  async expireRegistrationToken(ex: DbExecutor, userId: string, now: Date): Promise<void> {
+    await ex
+      .update(registrationTokens)
+      .set({ expiresAt: sql`LEAST(${registrationTokens.expiresAt}, ${now}::timestamptz)` })
+      .where(eq(registrationTokens.userId, userId));
   }
 
   // --- очистка (V-10) ---
