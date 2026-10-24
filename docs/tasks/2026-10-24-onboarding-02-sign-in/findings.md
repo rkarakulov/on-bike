@@ -16,3 +16,16 @@ PR #15. Pass 1: Claude (independent-reviewer) и Codex — оба REQUEST CHANGE
 
 Проверки после исправлений: `pnpm check` — EXIT 0 (api 139, app 171); `build:web` — EXIT 0; `pnpm e2e:web` без API —
 8 passed, 1 skipped; с `E2E_API=1` — 9 passed.
+
+## Pass 2
+
+Claude — APPROVE (2 LOW), Codex — REQUEST CHANGES. Каждое замечание — падающий тест до исправления, затем исправление.
+
+| # | Источник | Уровень | Замечание | Статус |
+|---|---|---|---|---|
+| 1 | Codex (HIGH), Claude (LOW) | HIGH | Web: `clearSession` ставил признак `signOutPending` до Web Lock — вход/poll, державший замок, снимал его в `persistSession`; выход затем падал (сеть, 5xx) без признака, перезагрузка восстанавливала аккаунт. Проверка признака в `restoreSession` — вне замка | **Исправлено.** Выход — одна операция под Web Lock: признак → `signOut` → снятие при успехе. `persistSession` снимает признак только внутри операции входа/poll под тем же замком (выход, вставший в очередь позже, побеждает). `restoreSession` проверяет признак и решает «отозвать или refresh» внутри замка. Web-тесты: (а) вход держит замок → выход в очереди → вход завершается → выход падает → перезагрузка не восстанавливает аккаунт; (б) вкладка A стартует с признаком, B входит раньше — A не отзывает сессию B, восстанавливает её |
+| 2 | Codex | MEDIUM | `useSignIn` с `networkMode: 'online'`: при офлайне (NetInfo) мутация на паузе — кнопка в «загрузке» без ошибки | **Исправлено.** Мутации онбординга (`useSignIn`, `useRegister`, `useConfirmVerification`, `useResendVerification`) — `networkMode: 'always'`: офлайн сразу даёт сетевую ошибку, баннер «Нет соединения», повтор нажатием. Тест с `onlineManager.setOnline(false)` |
+| 3 | Claude | LOW | `rateLimitAddress` узнавал IPv4-mapped только в записи `::ffff:a.b.c.d` | **Исправлено.** Адрес раскрывается в 8 групп; mapped — первые шесть `0,0,0,0,0,ffff` в любой записи (`::ffff:102:304`, `0:0:0:0:0:ffff:1.2.3.4`, полная с ведущими нулями, верхний регистр). Unit: варианты mapped и не-mapped (`::fffe:…`, `64:ff9b::…` — по /64) |
+
+Проверки после исправлений: `pnpm check` — EXIT 0 (api 139, app 174); `build:web` — EXIT 0; `pnpm e2e:web` без API —
+8 passed, 1 skipped; с `E2E_API=1` — 9 passed.

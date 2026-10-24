@@ -388,6 +388,53 @@ describe('сессия web: refresh в httpOnly cookie, access в памяти',
       expect(localStorage.length).toBe(0);
     });
 
+    it('выход, вставший в очередь за входом, побеждает: вход не стирает его признак, сбой выхода — без восстановления', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      setLocks(queueLocks());
+      const answer = deferred<Awaited<ReturnType<typeof api.signIn>>>();
+      signIn.mockReturnValue(answer.promise);
+      signOut.mockRejectedValue(offline());
+
+      // вход держит замок (ждёт ответа API); выход нажат в другой вкладке и ждёт замка
+      const signingIn = requestSignIn({ email: 'rider@example.com', password: 'velo-secret' });
+      const signingOut = useSessionStore.getState().signOut();
+      await Promise.resolve();
+      answer.resolve({ state: 'signedIn', session: cookieSession });
+      await signingIn;
+      await signingOut;
+      warn.mockRestore();
+
+      // перезагрузка: cookie входа жива, но выход был последним — аккаунт не восстанавливается
+      resetSessionStore();
+      refresh.mockResolvedValue(cookieSession);
+      signOut.mockResolvedValue(undefined);
+      await useSessionStore.getState().hydrate(NOW);
+      expect(useSessionStore.getState().status).toBe('signedOut');
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('вкладка A стартует с признаком выхода, вкладка B тем временем входит — A не отзывает свежую сессию B', async () => {
+      await signOutFailing(offline());
+      setLocks(queueLocks());
+      const answer = deferred<Awaited<ReturnType<typeof api.signIn>>>();
+      signIn.mockReturnValue(answer.promise);
+      refresh.mockResolvedValue(cookieSession);
+      signOut.mockClear();
+
+      // B входит и держит замок; A (перезагрузка) ждёт замка с признаком на момент старта
+      const signingIn = requestSignIn({ email: 'rider@example.com', password: 'velo-secret' });
+      resetSessionStore();
+      const restoring = useSessionStore.getState().hydrate(NOW);
+      await Promise.resolve();
+      answer.resolve({ state: 'signedIn', session: cookieSession });
+      await signingIn;
+      await restoring;
+
+      expect(signOut).not.toHaveBeenCalled();
+      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(useSessionStore.getState().status).toBe('signedIn');
+    });
+
     it('хранилище браузера недоступно — выход и запуск не падают', async () => {
       const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
         throw new Error('SecurityError');

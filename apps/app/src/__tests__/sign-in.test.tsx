@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
 import type { SignInResponse } from '@on-bike/contracts';
-import { QueryClient } from '@tanstack/react-query';
+import { onlineManager, QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 import { useRegistrationStore } from '@/features/auth/registration-store';
@@ -122,6 +122,21 @@ describe('«Вход»', () => {
     expect(
       await screen.findByText('Нет соединения. Проверьте подключение к интернету и повторите.'),
     ).toBeOnTheScreen();
+  });
+
+  it('устройство офлайн (NetInfo) — запрос всё равно уходит, баннер «Нет соединения», кнопка снова доступна', async () => {
+    signIn.mockRejectedValue(new ApiNetworkError(new TypeError('Network request failed')));
+    await openSignIn();
+    await fill();
+    onlineManager.setOnline(false);
+
+    await fireEvent.press(submitButton());
+
+    expect(
+      await screen.findByText('Нет соединения. Проверьте подключение к интернету и повторите.'),
+    ).toBeOnTheScreen();
+    expect(signIn).toHaveBeenCalledTimes(1);
+    expect(submitButton()).toBeEnabled();
   });
 
   it('e-mail не подтверждён — «Подтвердите e-mail» с новым токеном регистрации', async () => {

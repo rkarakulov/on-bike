@@ -37,15 +37,19 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
  * ошибку, стор показывает «сессию проверить не удалось» с повтором. Cookie при сбое не трогаем.
  */
 export async function restoreSession(_now: number): Promise<CookieSession | undefined> {
-  // выход не дошёл до сервера (сеть, 5xx): cookie, возможно, жива — аккаунт не восстанавливаем, отзыв повторяем
-  if (isSignOutPending()) {
-    await revokeOnServer();
-    return undefined;
-  }
   for (let attempt = 1; ; attempt += 1) {
     try {
+      const restored = await withSessionLock(async () => {
+        // признак — под замком: вход другой вкладки, завершившийся раньше, его уже снял, и его свежую сессию не
+        // отзываем; выход, не дошедший до сервера (сеть, 5xx), — аккаунт не восстанавливаем, отзыв повторяем
+        if (isSignOutPending()) {
+          await revokeOnServer();
+          return undefined;
+        }
+        return api.refreshSession();
+      });
       // refreshToken в памяти web не держим, даже если сервер ответил телом
-      return CookieSession.parse(await withSessionLock(() => api.refreshSession()));
+      return restored === undefined ? undefined : CookieSession.parse(restored);
     } catch (error) {
       if (isUnauthorized(error)) return undefined;
       const waitSec = retryDelaySec(error);
@@ -85,10 +89,10 @@ function isSignOutPending(): boolean {
   }
 }
 
-/** Отзыв сессии по cookie; подтверждён — признак незавершённого выхода снимается. Не бросает. */
+/** Отзыв сессии по cookie — вызывается под замком сессии; подтверждён — признак выхода снимается. Не бросает. */
 async function revokeOnServer(): Promise<void> {
   try {
-    await withSessionLock(() => api.signOut());
+    await api.signOut();
     setSignOutPending(false);
   } catch (error) {
     console.warn(`sign-out failed: ${(error as Error).name}`);
@@ -96,8 +100,9 @@ async function revokeOnServer(): Promise<void> {
 }
 
 /**
- * Cookie уже выставил сервер (ответ входа или poll — под замком сессии), сохранять на клиенте нечего; явный вход
- * отменяет незавершённый выход.
+ * Cookie уже выставил сервер (ответ входа или poll), сохранять на клиенте нечего. Вызывается внутри той же операции
+ * под замком сессии, что и запрос: явный вход отменяет незавершённый выход, начатый **до** него; выход, вставший в
+ * очередь позже, ставит признак уже после входа и побеждает.
  */
 export async function persistSession(_session: AnySession): Promise<boolean> {
   setSignOutPending(false);
@@ -105,10 +110,13 @@ export async function persistSession(_session: AnySession): Promise<boolean> {
 }
 
 /**
- * Выход: сервер отзывает сессию и снимает cookie. Не бросает: локально выход состоится в любом случае; не дошёл
- * до сервера — признак незавершённого выхода, повтор отзыва при следующем запуске.
+ * Выход — одна операция под замком сессии: признак незавершённого выхода, запрос отзыва, снятие признака при успехе.
+ * Не бросает: локально выход состоится в любом случае; не дошёл до сервера — признак остаётся, следующий запуск не
+ * восстанавливает аккаунт и повторяет отзыв.
  */
-export async function clearSession(): Promise<void> {
-  setSignOutPending(true);
-  await revokeOnServer();
+export function clearSession(): Promise<void> {
+  return withSessionLock(async () => {
+    setSignOutPending(true);
+    await revokeOnServer();
+  });
 }

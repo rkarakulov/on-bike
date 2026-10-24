@@ -17,6 +17,13 @@ import { useSessionStore } from './session-store';
 /** Интервал опроса подтверждения на экране «Подтвердите e-mail». */
 export const POLL_INTERVAL_MS = 3000;
 
+/**
+ * Действия онбординга (мутации) уходят и офлайн: TanStack Query по умолчанию ставит мутацию на паузу, пока
+ * `onlineManager` (NetInfo) считает сеть недоступной, — кнопка висела бы в «загрузке» без ошибки. Здесь запрос
+ * сразу получает сетевую ошибку: баннер «Нет соединения» и повтор нажатием (AGENTS.md §4.12).
+ */
+const AUTH_MUTATION = { networkMode: 'always' } as const;
+
 export const authKeys = {
   verificationLink: (token: string) => ['auth', 'verification-link', token] as const,
   registrationPoll: (registrationToken: string) =>
@@ -27,7 +34,10 @@ export const authKeys = {
 export const isRegistrationRejected = (error: unknown) => apiErrorCode(error) === 'UNAUTHORIZED';
 
 export function useRegister() {
-  return useMutation({ mutationFn: (body: RegisterRequest) => api.register(body) });
+  return useMutation({
+    ...AUTH_MUTATION,
+    mutationFn: (body: RegisterRequest) => api.register(body),
+  });
 }
 
 /** Данные формы входа: транспорт сессии подмешивает клиент платформы. */
@@ -50,7 +60,7 @@ export function requestSignIn(body: SignInCredentials): Promise<SignInResponse> 
 }
 
 export function useSignIn() {
-  return useMutation({ mutationFn: requestSignIn });
+  return useMutation({ ...AUTH_MUTATION, mutationFn: requestSignIn });
 }
 
 /** Чтение ссылки из письма — без побочных эффектов на сервере (C2). */
@@ -62,11 +72,15 @@ export function useVerificationLink(token: string) {
 }
 
 export function useConfirmVerification() {
-  return useMutation({ mutationFn: (token: string) => api.confirmVerification({ token }) });
+  return useMutation({
+    ...AUTH_MUTATION,
+    mutationFn: (token: string) => api.confirmVerification({ token }),
+  });
 }
 
 export function useResendVerification() {
   return useMutation({
+    ...AUTH_MUTATION,
     mutationFn: (body: ResendVerificationRequest) => api.resendVerification(body),
   });
 }

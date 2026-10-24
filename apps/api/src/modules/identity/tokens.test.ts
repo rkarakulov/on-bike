@@ -49,6 +49,14 @@ describe('tokens', () => {
     expect(rateLimitAddress('::1')).toBe('0:0:0:0::/64');
     expect(rateLimitAddress('fe80::1%eth0')).toBe('fe80:0:0:0::/64');
     expect(rateLimitAddress('::ffff:203.0.113.7')).toBe('203.0.113.7');
+    // IPv4-mapped в любой записи: hex-хвост, полная форма, верхний регистр, нули с ведущими нулями
+    expect(rateLimitAddress('::ffff:102:304')).toBe('1.2.3.4');
+    expect(rateLimitAddress('0:0:0:0:0:ffff:1.2.3.4')).toBe('1.2.3.4');
+    expect(rateLimitAddress('0000:0000:0000:0000:0000:FFFF:0102:0304')).toBe('1.2.3.4');
+    expect(rateLimitAddress('::FFFF:cb00:7107')).toBe('203.0.113.7');
+    // не mapped: другой префикс — обычный IPv6 по /64
+    expect(rateLimitAddress('::fffe:102:304')).toBe('0:0:0:0::/64');
+    expect(rateLimitAddress('64:ff9b::1.2.3.4')).toBe('64:ff9b:0:0::/64');
     // не IP (так не бывает за Fastify) — как есть, без падения
     expect(rateLimitAddress('unknown')).toBe('unknown');
   });

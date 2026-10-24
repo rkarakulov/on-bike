@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes } from 'node:crypto';
-import { isIPv4, isIPv6 } from 'node:net';
+import { isIPv6 } from 'node:net';
 
 /** 32 случайных байта в base64url (43 символа) — токен регистрации и refresh. */
 export function randomToken(): string {
@@ -11,32 +11,41 @@ export function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-/** Первые четыре группы IPv6 (сеть /64); `::` раскрывается, IPv4 в хвосте — две группы. */
-function ipv6Prefix64(address: string): string {
-  const [head = '', tail] = address.split('::');
-  const groups = (part: string | undefined) =>
-    part ? part.split(':').flatMap((group) => (group.includes('.') ? ['0', '0'] : [group])) : [];
-  const left = groups(head);
-  const right = groups(tail);
-  const full =
-    tail === undefined
-      ? left
-      : [...left, ...Array(8 - left.length - right.length).fill('0'), ...right];
-  return `${full
-    .slice(0, 4)
-    .map((group) => parseInt(group, 16).toString(16))
-    .join(':')}::/64`;
+/** Восемь 16-битных групп IPv6: `::` раскрывается, IPv4 в хвосте — две группы. Адрес уже проверен `isIPv6`. */
+function ipv6Groups(address: string): number[] {
+  const parse = (part: string | undefined) =>
+    part
+      ? part.split(':').flatMap((group) => {
+          if (!group.includes('.')) return [parseInt(group, 16)];
+          const [a = 0, b = 0, c = 0, d = 0] = group.split('.').map(Number);
+          return [(a << 8) | b, (c << 8) | d];
+        })
+      : [];
+  const [head, tail] = address.split('::');
+  const left = parse(head);
+  if (tail === undefined) return left;
+  const right = parse(tail);
+  return [...left, ...Array<number>(8 - left.length - right.length).fill(0), ...right];
 }
 
 /**
  * Адрес для лимитов по IP: IPv4 — как есть; IPv6 — сеть /64 (провайдер выдаёт клиенту целую /64, суффикс тот меняет
- * свободно — иначе каждый запрос с нового адреса обходил бы лимит); IPv4, отображённый в IPv6, — как IPv4.
+ * свободно — иначе каждый запрос с нового адреса обходил бы лимит); IPv4, отображённый в IPv6 (`::ffff:0:0/96` в любой
+ * записи), — как IPv4.
  */
 export function rateLimitAddress(ip: string): string {
   const address = ip.split('%')[0] ?? ip;
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(address)?.[1];
-  if (mapped && isIPv4(mapped)) return mapped;
-  return isIPv6(address) ? ipv6Prefix64(address.toLowerCase()) : ip;
+  if (!isIPv6(address)) return ip;
+  const groups = ipv6Groups(address);
+  const mapped = groups.slice(0, 6).every((group, index) => group === (index === 5 ? 0xffff : 0));
+  if (mapped) {
+    const [high = 0, low = 0] = groups.slice(6);
+    return [high >> 8, high & 0xff, low >> 8, low & 0xff].join('.');
+  }
+  return `${groups
+    .slice(0, 4)
+    .map((group) => group.toString(16))
+    .join(':')}::/64`;
 }
 
 /**
