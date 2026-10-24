@@ -8,12 +8,13 @@
 | Файл | Тема |
 |---|---|
 | [`local-dev.md`](local-dev.md) | `pnpm infra:up`, Mailpit, переменные API, ссылки для Expo Go, тестовая БД |
+| [`deploy.md`](deploy.md) | автодеплой dev-стенда (`develop` → общий EC2): секреты, DNS и TLS, логи и почта через туннель, откат |
 
 Планируемые:
 
 | Файл | Тема |
 |---|---|
-| `deploy.md` | деплой на VPS: сборка образов, миграции отдельным шагом, перезапуск api/worker, smoke |
+| `deploy-prod.md` | деплой prod (`main`) на VPS |
 | `backup-restore.md` | ночной дамп PostgreSQL в S3 и проверенное восстановление |
 | `incident.md` | API недоступен, очередь растёт, диск заполнен, сертификат Caddy |
 | `release-mobile.md` | сборка и публикация через EAS, совместимость API со старыми версиями |
