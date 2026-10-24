@@ -3,7 +3,8 @@
 #   1. каталог стека ${ON_BIKE_DIR} (700);
 #   2. .env (600): недостающие ключи из env.template дописываются, @secret генерируется здесь же
 #      (openssl rand) — значения не печатаются и не покидают сервер; существующие значения не меняются,
-#      кроме управляемых деплоем PUBLIC_HOST, WEB_ORIGIN, APP_LINK_BASE, ON_BIKE_TAG;
+#      кроме управляемых деплоем PUBLIC_HOST, WEB_ORIGIN, APP_LINK_BASE, ON_BIKE_TAG и MAIL_FROM, равного
+#      прежнему умолчанию шаблона (migrate_mail_from);
 #   3. vhost nginx хоста /etc/nginx/sites-available/on-bike (+ ссылка в sites-enabled): nginx -t перед reload,
 #      ошибка — откат своего файла; чужие сайты не трогаются;
 #   4. сертификат Let's Encrypt (certbot --webroot /var/www/html) — только если домен ведёт на этот сервер;
@@ -58,6 +59,22 @@ env_has() {
   [[ -f "${ENV_FILE}" ]] && grep -q "^$1=" "${ENV_FILE}"
 }
 
+# Бренд «Покатим» (docs/product/brand.md): MAIL_FROM, равный прежнему умолчанию шаблона, меняется на текущее
+# умолчание env.template; значение, заданное руками, не трогается. Значения в лог не выводятся.
+LEGACY_MAIL_FROM="'on-bike dev <no-reply@on-bike.by>'"
+migrate_mail_from() {
+  [[ "$(env_get MAIL_FROM)" == "${LEGACY_MAIL_FROM}" ]] || return 0
+  local value tmp
+  value="$(awk 'index($0, "MAIL_FROM=") == 1 { sub(/^[^=]*=/, ""); print; exit }' "${TEMPLATE}")"
+  [[ -n "${value}" && "${value}" != "${LEGACY_MAIL_FROM}" ]] || return 0
+  tmp="$(mktemp "${ON_BIKE_DIR}/.env.XXXXXX")"
+  awk -v line="MAIL_FROM=${value}" 'index($0, "MAIL_FROM=") == 1 { print line; next } { print }' \
+    "${ENV_FILE}" >"${tmp}"
+  chmod 600 "${tmp}"
+  mv -f "${tmp}" "${ENV_FILE}"
+  log ".env: MAIL_FROM — прежнее умолчание шаблона заменено текущим"
+}
+
 ensure_env() {
   mkdir -p "${ON_BIKE_DIR}"
   chmod 700 "${ON_BIKE_DIR}"
@@ -81,6 +98,7 @@ ensure_env() {
     added="${added} ${key}"
   done <"${TEMPLATE}"
   [[ -z "${added}" ]] || log "в .env добавлены ключи:${added}"
+  migrate_mail_from
 
   # управляемые деплоем ключи — всегда из параметров (смена домена, новый тег)
   PREVIOUS_HOST="$(env_get PUBLIC_HOST)"

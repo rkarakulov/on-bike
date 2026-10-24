@@ -18,7 +18,7 @@
     "dev:worker": "turbo run dev:worker --filter=@on-bike/api",
     "build": "turbo run build",
     "build:web": "turbo run build:web",
-    "e2e:web": "turbo run e2e:web",
+    "e2e:web": "turbo run e2e:web --env-mode=loose",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "lint": "eslint . --max-warnings=0",

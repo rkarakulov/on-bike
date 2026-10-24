@@ -47,7 +47,9 @@ paths:
 - Service worker (`scripts/service-worker.ts`) кеширует только статику сборки с хешем в имени (версия кеша — от
   содержимого): HTML, данные loader-ов (`/_expo/loaders`), API, manifest и `public/` — мимо, офлайн-данных нет.
 - Проверка в браузере: `pnpm build:web` + `pnpm --filter @on-bike/app start:web`, смоук — `pnpm e2e:web`
-  (`e2e/web.spec.ts`: новый маршрут — шаг смоука); web-варианты модулей — тесты `*.web.test.ts(x)` (jest, web).
+  (`e2e/web.spec.ts`: новый маршрут — шаг смоука; `test`/`expect` — из `e2e/fixtures.ts`, ошибки страницы не
+  глушить); серверы, env и ожидаемые отказы смоука проекта — только `e2e/project.ts` (`playwright.config.ts`
+  шаблонный); web-варианты модулей — тесты `*.web.test.ts(x)` (jest, web).
 - Доступность: `accessibilityLabel`/`accessibilityRole` на интерактивных элементах, reduce motion, крупный шрифт.
 - Секреты в бандл не кладём: в приложении только публичные ключи.
 - Нативные модули — только через config plugins Expo; `ios/`/`android/` не коммитим (CNG).

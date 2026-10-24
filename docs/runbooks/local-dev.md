@@ -31,7 +31,7 @@
 | `SMTP_URL` | `smtp://127.0.0.1:1025` | Mailpit |
 | `JWT_SECRET` | случайная строка ≥ 32 | подпись access JWT |
 | `EMAIL_TOKEN_SECRET` | случайная строка ≥ 32 | HMAC токенов ссылок в письмах (ADR-0002) |
-| `MAIL_FROM` | `'on-bike <no-reply@on-bike.by>'` | отправитель писем (в кавычках) |
+| `MAIL_FROM` | `'Покатим <no-reply@on-bike.by>'` | отправитель писем (в кавычках) |
 | `APP_LINK_BASE` | `exp://127.0.0.1:8081/--/` | база ссылок в письмах, со слешем в конце |
 | `AGREEMENT_VERSION` | `2026-10-draft` | версия соглашения, записывается в `user_consents` |
 | `CORS_ORIGINS` | `http://localhost:8081,…` | origin-ы web в dev через запятую: `expo start` (:8081), `start:web` (:8080), `e2e:web` (:8090, :8091); пусто — CORS выключен (прод: один origin за прокси) |
@@ -59,7 +59,8 @@ Expo Go не открывает схему `onbike://`. Для проверки 
   `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000` — тот же хост, что у API: `localhost` и `127.0.0.1` — разные
   сайты, cookie сессии web (`SameSite=Strict`) между ними не ходит. Браузер ходит в API на другом порту — origin
   должен быть в `CORS_ORIGINS` API (`.env.example` — значения для dev): он же доверенный для CSRF-защиты, иначе
-  POST из браузера получит 403. Ссылки из писем в браузер — `APP_LINK_BASE=http://127.0.0.1:8081/`.
+  POST из браузера получит 403. Пустой `CORS_ORIGINS` вне production API отмечает предупреждением в логе при
+  старте. Ссылки из писем в браузер — `APP_LINK_BASE=http://127.0.0.1:8081/`.
 - **Сессия web:** refresh — httpOnly cookie `__Secure-onbike_rt` (`Path=/v1/auth/session`), access — в памяти
   вкладки; после перезагрузки приложение восстанавливает вход запросом `POST /v1/auth/session/refresh` по cookie.
   Без входа этот запрос отвечает 401 — в консоли браузера «Failed to load resource … 401», это ожидаемо.
@@ -73,10 +74,20 @@ Expo Go не открывает схему `onbike://`. Для проверки 
   `PUBLIC_HOST` отдаёт `/v1/*` → `api:3000`, остальное → `web:8080` — один origin, CORS выключен.
 - **Смоук в браузере:** `pnpm e2e:web` (Playwright, `apps/app/e2e/`): production- и dev-сборка (`dist-dev`, там
   витрина `/ui-kit`). Браузер — установленный Google Chrome; без него — `PW_CHANNEL=chromium` и один раз
-  `pnpm --filter @on-bike/app exec playwright install chromium` (~150 МБ).
-- **Смоук с API** (регистрация → письмо → подтверждение → вход → перезагрузка): Playwright сам поднимает API и worker
-  из `apps/api/dist` с `APP_LINK_BASE` и `CORS_ORIGINS` смоука (`:8090`, `:8091`), остальное окружение — из
-  `apps/api/.env`. Нужны `pnpm infra:up` (PostgreSQL, Redis, Mailpit), миграции и остановленный dev-API на `:3000`:
+  `pnpm --filter @on-bike/app exec playwright install chromium` (~150 МБ). Ошибки страницы проверяет
+  фикстура `e2e/fixtures.ts` (тесты импортируют `test`, `expect` из неё): исключения и `console.error`
+  production-сборки; отказ загрузки ресурса допустим, только если он в списке (URL + статус), отказ соединения с
+  API — только без `E2E_API=1`.
+- **Смоук проекта:** `apps/app/e2e/project.ts` — единственный проектный файл смоука, `copier update` его не
+  перезаписывает: `servers` (API, worker и др. до web-серверов, обычно при `E2E_API=1`), `webServerEnv` (env
+  web-серверов, например `API_INTERNAL_URL`), `expectedResourceErrors` (ожидаемые отказы: URL и HTTP-статус).
+  `playwright.config.ts`, `fixtures.ts`, `urls.ts` — шаблонные. `pnpm e2e:web` запускает turbo с `--env-mode=loose`:
+  окружение процесса (`E2E_*`, env серверов) доходит до Playwright и его серверов без списка в `turbo.json`.
+  on-bike: ожидаемый отказ — 401 `POST /v1/auth/session/refresh` анонима; письма — `e2e/mailpit.ts` (`MAILPIT_URL`).
+- **Смоук с API** (регистрация → письмо → подтверждение → вход → перезагрузка): при `E2E_API=1` Playwright сам
+  поднимает API и worker из `apps/api/dist` (`e2e/project.ts`) с `APP_LINK_BASE` и `CORS_ORIGINS` смоука (`:8090`,
+  `:8091`), остальное окружение — из `apps/api/.env`. Нужны `pnpm infra:up` (PostgreSQL, Redis, Mailpit), миграции
+  и свободный порт API из `EXPO_PUBLIC_API_URL` (dev-API на `:3000` — остановить или взять другой порт):
 
   ```bash
   pnpm turbo run build --filter=@on-bike/api
@@ -126,10 +137,10 @@ Expo Go не открывает схему `onbike://`. Для проверки 
   откроет доступ репозиторию проекта: в настройках **каждого** из 8 пакетов (`config`, `design-tokens`, `ui`,
   `i18n-core`, `contracts-core`, `api-client-core`, `api-kit`, `test-kit`) → Manage Actions access → репозиторий
   проекта, роль Read. Без этого `pnpm install` в CI падает с 403.
-- **Web в CI:** job `web` — services PostgreSQL, Redis и Mailpit, сборка API и миграции, `pnpm build:web`, затем
-  Playwright-смоук с `E2E_API=1` на Google Chrome раннера (`pnpm --filter @on-bike/app e2e:web` — не через turbo:
-  turbo не передал бы задаче окружение API). Секреты API в job — фиктивные значения. Отчёт при падении — артефакт
-  `playwright-report`.
+- **Web в CI:** job `web` — `pnpm e2e:web` (web-сборка и Playwright-смоук на Google Chrome раннера). Отчёт при
+  падении — артефакт `playwright-report`. Смоук с API — в отмеченных комментариями местах job: `services`, `env`
+  (`E2E_API: '1'`, окружение API — только тестовые значения) и шаги подготовки (сборка API, миграции) перед
+  `pnpm e2e:web`. on-bike: services PostgreSQL, Redis и Mailpit, секреты API в job — фиктивные значения.
 - **EAS Build** (облачная сборка) не видит ваш `~/.npmrc`: перед первой сборкой создайте в EAS секрет
   `NODE_AUTH_TOKEN` (токен с `read:packages`, видимость — secret) и хук `eas-build-pre-install` в
   `apps/app/package.json`, который дописывает строку авторизации в `~/.npmrc` сборщика — тот же вид, что

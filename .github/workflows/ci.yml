@@ -68,8 +68,8 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # completion gate: format, lint, arch:check, typecheck, test (AGENTS.md §3)
       - run: pnpm check
-      # on-bike: собираются все приложения и пакеты (admin), не только API; web — job `web`
-      - run: pnpm turbo run build
+      # все приложения и пакеты (api, admin, packages/*); web-экспорт apps/app — job `web`
+      - run: pnpm build
       # dist API — CommonJS поверх ESM-пакетов базы (require(esm), две сборки drizzle): typecheck и vitest
       # этого не видят, поэтому модули dist загружаются отдельно
       - name: api dist loads
@@ -77,10 +77,13 @@ jobs:
         run: node -e "require('reflect-metadata');require('./dist/app.module');require('./dist/worker.module')"
 
   # web/PWA: production-сборка (SSR) и Playwright-смоук в браузере — Google Chrome с ubuntu-latest
-  # (без загрузки браузеров Playwright). on-bike: с API (E2E_API=1) — регистрация → письмо (Mailpit) →
-  # подтверждение → вход → перезагрузка (cookie сессии); API и worker из dist поднимает playwright.config.ts
+  # (без загрузки браузеров Playwright). API шаблон не поднимает: экраны с данными показывают «Нет соединения».
+  # Смоук с API — проектом: серверы — apps/app/e2e/project.ts, здесь — services, env (E2E_API=1, окружение API) и
+  # подготовка (сборка API, миграции) в отмеченных местах; `pnpm e2e:web` передаёт окружение job целиком
+  # on-bike: регистрация → письмо (Mailpit) → подтверждение → вход → перезагрузка (cookie сессии)
   web:
     runs-on: ubuntu-latest
+    # проект: services (PostgreSQL, Redis, …) для серверов смоука — здесь
     services:
       postgres:
         image: postgis/postgis:18-3.6
@@ -100,9 +103,10 @@ jobs:
     env:
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3000
       PW_CHANNEL: chrome
+      # проект: окружение смоука — ниже (только тестовые несекретные значения)
       E2E_API: '1'
       # окружение API и worker смоука: фиктивные несекретные значения (как apps/api/test/test-env.ts);
-      # APP_LINK_BASE, CORS_ORIGINS и PORT задаёт playwright.config.ts (origin-ы web-серверов смоука)
+      # APP_LINK_BASE, CORS_ORIGINS и PORT задаёт apps/app/e2e/project.ts (origin-ы web-серверов смоука)
       DATABASE_URL: postgres://on_bike:on_bike@127.0.0.1:5432/on_bike
       REDIS_URL: redis://127.0.0.1:6379
       SMTP_URL: smtp://127.0.0.1:1025
@@ -122,13 +126,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # API и worker смоука — из dist (с пакетами, от которых зависят); схема БД — миграции, как в деплое
+      # проект: подготовка серверов смоука (сборка API, миграции) — шаги здесь
+      # on-bike: API и worker смоука — из dist (с пакетами, от которых зависят); схема БД — миграции, как в деплое
       - run: pnpm turbo run build --filter=@on-bike/api
       - run: pnpm --filter @on-bike/api db:migrate
-      # export web + service worker; Playwright — напрямую, не через turbo e2e:web: turbo (strict env) не
-      # передал бы задаче переменные API выше
-      - run: pnpm build:web
-      - run: pnpm --filter @on-bike/app e2e:web
+      # e2e:web зависит от build:web (turbo): export web + service worker, затем Playwright
+      - run: pnpm e2e:web
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:

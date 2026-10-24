@@ -14,16 +14,7 @@
     "e2e:web": {
       "dependsOn": ["build:web"],
       "cache": false,
-      "env": ["EXPO_PUBLIC_*"],
-      "passThroughEnv": [
-        "CI",
-        "PW_CHANNEL",
-        "E2E_PORT",
-        "E2E_DEV_PORT",
-        "API_INTERNAL_URL",
-        "E2E_API",
-        "MAILPIT_URL"
-      ]
+      "env": ["EXPO_PUBLIC_*"]
     },
     "typecheck": {
       "dependsOn": ["^typecheck"]

@@ -16,13 +16,13 @@ afterEach(() => {
 describe('мета публичных экранов (generateMetadata)', () => {
   it('регистрация: заголовок, описание и OG; og:url — только из WEB_ORIGIN', async () => {
     expect(await registerMetadata(undefined, {})).toEqual({
-      title: 'Регистрация — on-bike',
+      title: 'Регистрация — Покатим',
       description: 'Гонки, маршруты, кофе-райды и календарь стартов в одном профиле',
       openGraph: {
         title: 'Регистрация',
         description: 'Гонки, маршруты, кофе-райды и календарь стартов в одном профиле',
         type: 'website',
-        siteName: 'on-bike',
+        siteName: 'Покатим',
       },
     });
 
@@ -37,8 +37,8 @@ describe('мета публичных экранов (generateMetadata)', () => 
     const meta = await verifyMetadata(undefined, { token: LINK_TOKEN });
 
     expect(meta).toMatchObject({
-      title: 'Подтвердите e-mail — on-bike',
-      openGraph: { title: 'Подтвердите e-mail', siteName: 'on-bike' },
+      title: 'Подтвердите e-mail — Покатим',
+      openGraph: { title: 'Подтвердите e-mail', siteName: 'Покатим' },
     });
     const serialized = JSON.stringify(meta);
     expect(serialized).not.toContain(LINK_TOKEN);

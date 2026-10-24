@@ -109,8 +109,26 @@ fi
 log "postgres, redis, mailpit"
 compose up -d --wait --wait-timeout 180 postgres redis mailpit
 
-log "миграции (одноразовый контейнер)"
-compose run --rm migrate
+# вывод миграций (SQL, ошибки БД) — в файл на сервере, не в публичный лог Actions: там только код выхода
+migrate_log="${ON_BIKE_DIR}/migrate.log"
+# подсказка в лог — путь от домашнего каталога (имя пользователя сервера в публичный лог не выводится)
+migrate_log_hint="${migrate_log}"
+if [[ "${migrate_log}" == "${HOME}/"* ]]; then
+  # shellcheck disable=SC2088 # «~» — текст подсказки, не путь для раскрытия
+  migrate_log_hint="~/${migrate_log#"${HOME}"/}"
+fi
+log "миграции (одноразовый контейнер), вывод — ${migrate_log_hint} на сервере"
+(umask 077 && : >"${migrate_log}")
+chmod 600 "${migrate_log}"
+migrate_code=0
+compose run --rm migrate >"${migrate_log}" 2>&1 || migrate_code=$?
+if [[ "${migrate_code}" -ne 0 ]]; then
+  trap - ERR
+  printf '::error::миграции упали (код %s); вывод — по SSH: %s (docs/runbooks/deploy.md, «Логи»)\n' \
+    "${migrate_code}" "${migrate_log_hint}"
+  show_state
+  exit "${migrate_code}"
+fi
 
 log "api, worker, web, admin"
 compose up -d --wait --wait-timeout 300 --remove-orphans

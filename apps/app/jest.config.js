@@ -39,10 +39,10 @@ module.exports = {
       },
     },
     {
-      // web-сервер (server/) и сборка (scripts/): Node без рантайма React Native
+      // web-сервер (server/), сборка (scripts/) и помощники смоука (e2e/): Node без рантайма React Native
       displayName: 'server',
       preset: 'jest-expo/node',
-      testMatch: ['<rootDir>/{server,scripts}/**/*.test.ts'],
+      testMatch: ['<rootDir>/{server,scripts,e2e}/**/*.test.ts'],
     },
   ],
 };
