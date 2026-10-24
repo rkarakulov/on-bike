@@ -133,11 +133,12 @@ export function useRequestPasswordReset() {
   });
 }
 
-/** Чтение ссылки сброса — без побочных эффектов на сервере. */
-export function usePasswordResetLink(token: string) {
+/** Чтение ссылки сброса — без побочных эффектов на сервере; `enabled: false` — после смены пароля (кеш очищен выходом). */
+export function usePasswordResetLink(token: string, enabled = true) {
   return useQuery({
     queryKey: authKeys.passwordResetLink(token),
     queryFn: () => api.getPasswordResetLink(token),
+    enabled,
   });
 }
 

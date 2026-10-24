@@ -211,6 +211,10 @@ architecture, rules, runbook (§10).
   входа, «Вход» покажет отсчёт до конца окна (≤ 15 мин). Редко; follow-up — примитив лимитера в базе.
 - **Задержка писем.** Только последняя ссылка (Q6): пользователь, запросивший дважды и открывший первое письмо, увидит
   «Ссылка устарела» с повтором. Пауза 60 с снижает частоту.
+- **Исчерпание суточного лимита чужим (ревью pass 1, LOW, принято).** Лимит e-mail (5 писем в сутки) общий для всех
+  IP: посторонний, знающий адрес, может выбрать его, и владелец до суток не получит письмо сброса (429 с отсчётом).
+  IP-лимит (20 в час) ограничивает один источник, но не распределённый. Follow-up — ключ e-mail+подсеть (как пара
+  e-mail+IP у входа) или поднятый потолок e-mail при отдельном лимите пары.
 - **Отправка — at-least-once** (как подтверждение): SMTP принял, worker упал до `sent_at` → по истечении захвата дубль с
   той же ссылкой. Финальный провал задачи (5 попыток) пользователю не виден — он повторяет запрос (как у подтверждения).
 - **Токен в URL.** Ссылка `/auth/reset/<токен>` остаётся в истории браузера (после смены — мёртвая); `Referer` —
@@ -331,6 +335,12 @@ Architecture Review — onboarding-03-password-reset. **Status: CONCERNS** — �
   `passwordResetLink`); новых ожидаемых отказов нет (старый пароль — уже разрешённый 401 `SIGN_IN_URL`).
 - **Окружение проверки:** для `E2E_API=1` в worktree создан локальный `apps/api/.env` из `.env.example` со
   случайными секретами (игнорируется, в репозиторий не попадает).
+- **Ревью pass 1 (`findings.md`):** токен регистрации при сбросе гасится признаком `consumed_at`
+  (`revokeRegistrationToken`), а не сроком — иначе poll, начатый до сброса, проходил по своему более раннему
+  времени; «Вход» со страницы ссылки (`used`, `expired`, 404) при живой локальной сессии сначала выходит
+  (`useSignOut`); «Пароль изменён» рисуется вне `AsyncContent`, а запрос ссылки после успеха выключен; CHECK
+  миграции 0005 — `NOT VALID` + `VALIDATE CONSTRAINT` (применённую на dev миграцию drizzle по журналу не
+  перезапускает — сравнивает время папки, не хеш).
 
 # 8.3 Security checklist
 
@@ -537,7 +547,7 @@ identity в базу — F6); очистка `password_reset_tokens`/`sessions`;
   `getPasswordResetLink` (`encodeURIComponent`), `confirmPasswordReset`.
 - **S2** — миграция `0005_password_reset` (таблица, частичный UNIQUE активной ссылки, CHECK `password_reset`);
   `PasswordResetService` + 3 эндпоинта; `deriveLinkToken`, `passwordResetLimitKeys`; репозиторий (ссылки сброса,
-  общий захват отправки, `updatePasswordHash`, `revokeAllSessions`, `expireRegistrationToken`,
+  общий захват отправки, `updatePasswordHash`, `revokeAllSessions`, `revokeRegistrationToken`,
   `lockUserCredentials`); перепроверка хеша во входе (R4); процессор-диспетчер `identity-email` (R6); 2 письма.
 - **S3** — «Забыли пароль?», `/forgot-password`, `auth/reset/[token]`, запросы сброса (`networkMode: 'always'`, вне
   Web Lock), локальный выход после смены, `Referrer-Policy: no-referrer` на `/auth/*`, строки `ru.ts`.
@@ -565,6 +575,7 @@ Security checklist §8.3 — тестами: п. 1 — `password-reset.int.test.
 NOT VERIFIED: ручной смоук на Android/iOS (ссылка `onbike://auth/reset/…`, выход другого устройства при следующем
 старте), Safari по https. Независимое ревью (`findings.md`) — за оркестратором.
 
-Follow-ups: переключатель видимости пароля в `TextField` (база, Q8); лимитер `peek/reset` (снятие блокировки входа
+Follow-ups: лимит запроса сброса по паре e-mail+подсеть (исчерпание суточного лимита чужим, §8); переключатель
+видимости пароля в `TextField` (база, Q8); лимитер `peek/reset` (снятие блокировки входа
 после сброса); проверка `sid` access с первым AuthGuard; мгновенный выход вкладок/устройств; очистка
 `password_reset_tokens`; журнал `auth_events` (Q10).

@@ -6,29 +6,37 @@ import { useState } from 'react';
 import { AuthActions, AuthMeta, AuthText, AuthTitle } from './auth-screen';
 import { actionErrorMessage, retryAfterSec } from './error-messages';
 import { useRequestPasswordReset } from './queries';
+import { isSignedIn, useSessionStore } from './session-store';
+import { useSignOut } from './use-sign-out';
 import { prefillSignInEmail } from './verification-states';
 import { formatCountdown, useSecondsLeft } from '@/lib/countdown';
 
 // Состояния экрана ссылки сброса пароля (заголовок + текст + действия) — внутри AuthScreen `auth/reset/[token]`.
 
-/** «Войти» с e-mail аккаунта: адрес — через память (черновик), не через URL. */
-function useSignInWithEmail(email: string) {
+/**
+ * На «Вход» со страницы ссылки сброса. Сессия на этом устройстве ещё есть (ответ смены пароля потерялся, повтор — 410 →
+ * `used`; или ссылку открыли, не выходя) — сначала локальный выход: сервер её уже отозвал или отзовёт вход, а гард
+ * онбординга вошедшего на «Вход» не пустит. E-mail — через память (черновик), не через URL.
+ */
+function useToSignIn(email?: string) {
   const router = useRouter();
-  return () => {
-    prefillSignInEmail(email);
+  const signOut = useSignOut();
+  return async () => {
+    if (isSignedIn(useSessionStore.getState())) await signOut();
+    if (email !== undefined) prefillSignInEmail(email);
     router.replace('/sign-in');
   };
 }
 
 /** Пароль сменён: сессий нет нигде (сервер отозвал все) — вход с новым паролем. */
 export function PasswordChanged({ email }: { email: string }) {
-  const signIn = useSignInWithEmail(email);
+  const signIn = useToSignIn(email);
   return (
     <>
       <AuthTitle>{t('auth.reset.doneTitle')}</AuthTitle>
       <AuthText>{t('auth.reset.doneMessage')}</AuthText>
       <AuthActions>
-        <Button label={t('auth.signIn.action')} onPress={signIn} />
+        <Button label={t('auth.signIn.action')} onPress={() => void signIn()} />
       </AuthActions>
     </>
   );
@@ -36,13 +44,13 @@ export function PasswordChanged({ email }: { email: string }) {
 
 /** По ссылке пароль уже сменили (повтор, ответ потерялся, другая вкладка). */
 export function ResetLinkUsed({ email }: { email: string }) {
-  const signIn = useSignInWithEmail(email);
+  const signIn = useToSignIn(email);
   return (
     <>
       <AuthTitle>{t('auth.reset.usedTitle')}</AuthTitle>
       <AuthText>{t('auth.reset.usedMessage')}</AuthText>
       <AuthActions>
-        <Button label={t('auth.signIn.action')} onPress={signIn} />
+        <Button label={t('auth.signIn.action')} onPress={() => void signIn()} />
       </AuthActions>
     </>
   );
@@ -50,13 +58,13 @@ export function ResetLinkUsed({ email }: { email: string }) {
 
 /** 404: ссылка неизвестна или аккаунт удалён — запросить восстановление заново со «Входа». */
 export function ResetLinkGone() {
-  const router = useRouter();
+  const toSignIn = useToSignIn();
   return (
     <>
       <AuthTitle>{t('auth.gone.title')}</AuthTitle>
       <AuthText>{t('auth.reset.goneMessage')}</AuthText>
       <AuthActions>
-        <Button label={t('auth.expired.toSignIn')} onPress={() => router.replace('/sign-in')} />
+        <Button label={t('auth.expired.toSignIn')} onPress={() => void toSignIn()} />
       </AuthActions>
     </>
   );
@@ -65,7 +73,7 @@ export function ResetLinkGone() {
 /** Истекла или заменена новой: новая ссылка на e-mail из ответа (владелец ссылки — владелец ящика). */
 export function ResetLinkExpired({ email }: { email: string }) {
   const request = useRequestPasswordReset();
-  const toSignIn = useSignInWithEmail(email);
+  const toSignIn = useToSignIn(email);
   const [nextAt, setNextAt] = useState<number | undefined>();
   const [notice, setNotice] = useState<'sent' | 'tooMany' | null>(null);
   const secondsLeft = useSecondsLeft(nextAt);
@@ -109,7 +117,7 @@ export function ResetLinkExpired({ email }: { email: string }) {
             {t('auth.checkEmail.cooldown', { time: formatCountdown(secondsLeft) })}
           </AuthMeta>
         ) : null}
-        <TextAction label={t('auth.expired.toSignIn')} onPress={toSignIn} />
+        <TextAction label={t('auth.expired.toSignIn')} onPress={() => void toSignIn()} />
       </AuthActions>
     </>
   );

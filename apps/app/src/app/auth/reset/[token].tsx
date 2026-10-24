@@ -75,9 +75,20 @@ const isGone = (error: unknown) => apiErrorCode(error) === 'NOT_FOUND';
  */
 export default function ResetPasswordScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
-  const link = usePasswordResetLink(token);
   // результат действий на экране важнее ответа GET
   const [override, setOverride] = useState<ResetView | null>(null);
+  // после смены пароля ссылка больше не читается: выход очищает кеш запросов, повторный GET не нужен
+  const link = usePasswordResetLink(token, override?.state !== 'changed');
+
+  // успех — вне AsyncContent: не зависит от состояния запроса ссылки (скелетон, сбой GET)
+  if (override?.state === 'changed') {
+    return (
+      <AuthScreen kicker={t('auth.forgot.kicker')}>
+        <DocumentTitle title={DOCUMENT_TITLE} />
+        <PasswordChanged email={override.email} />
+      </AuthScreen>
+    );
+  }
 
   if (override?.state === 'gone' || isGone(link.error)) {
     return (
@@ -112,8 +123,6 @@ export default function ResetPasswordScreen() {
                   onStale={reread}
                 />
               );
-            case 'changed':
-              return <PasswordChanged email={view.email} />;
             case 'used':
               return <ResetLinkUsed email={view.email} />;
             default:
@@ -162,9 +171,10 @@ function NewPasswordForm({ token, email, onChanged, onGone, onStale }: NewPasswo
   const onSubmit = handleSubmit(async ({ password }) => {
     try {
       const result = await confirm.mutateAsync({ token, password });
-      // сервер отозвал все сессии аккаунта: была сессия на этом устройстве — выходим и локально (Q9)
-      if (isSignedIn(useSessionStore.getState())) await signOut();
+      const hadSession = isSignedIn(useSessionStore.getState());
+      // успех показываем сразу; сервер отозвал все сессии аккаунта — сессия этого устройства выходит локально (Q9)
       onChanged(result.email);
+      if (hadSession) await signOut();
     } catch (error) {
       const code = apiErrorCode(error);
       if (code === 'NOT_FOUND') onGone();

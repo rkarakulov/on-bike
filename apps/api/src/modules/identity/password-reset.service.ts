@@ -128,7 +128,7 @@ export class PasswordResetService {
       await this.repository.updatePasswordHash(tx, user.id, passwordHash);
       await this.repository.markPasswordResetUsed(tx, current.token.id, now);
       const revoked = await this.repository.revokeAllSessions(tx, user.id, now, 'password_reset');
-      await this.repository.expireRegistrationToken(tx, user.id, now);
+      await this.repository.revokeRegistrationToken(tx, user.id, now);
       if (!user.emailVerifiedAt) await this.repository.markEmailVerified(tx, user.id, now);
       const payload: PasswordChangedEmailRequested = { passwordResetTokenId: current.token.id };
       await this.outbox.append(tx, { type: PASSWORD_CHANGED_EMAIL_REQUESTED, payload });

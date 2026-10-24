@@ -541,14 +541,15 @@ export class IdentityRepository {
   }
 
   /**
-   * Гасит токен регистрации (смена пароля, R5 слайса 3): висящий токен больше не обменяется на сессию, даже когда
-   * e-mail станет подтверждён. Срок не продлевается — только укорачивается.
+   * Необратимо гасит токен регистрации (смена пароля, R5 слайса 3): `consumed_at` — тот же признак, что проверяет
+   * обмен на сессию, поэтому не проходит и poll, начатый раньше сброса и запомнивший более раннее «сейчас» (срок
+   * сравнивается с его временем, признак — нет). Уже обменянный токен не меняется.
    */
-  async expireRegistrationToken(ex: DbExecutor, userId: string, now: Date): Promise<void> {
+  async revokeRegistrationToken(ex: DbExecutor, userId: string, now: Date): Promise<void> {
     await ex
       .update(registrationTokens)
-      .set({ expiresAt: sql`LEAST(${registrationTokens.expiresAt}, ${now}::timestamptz)` })
-      .where(eq(registrationTokens.userId, userId));
+      .set({ consumedAt: now })
+      .where(and(eq(registrationTokens.userId, userId), isNull(registrationTokens.consumedAt)));
   }
 
   // --- очистка (V-10) ---

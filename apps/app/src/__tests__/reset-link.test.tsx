@@ -141,6 +141,49 @@ describe('ссылка сброса пароля', () => {
     expect(await screen.findByDisplayValue(EMAIL)).toBeOnTheScreen();
   });
 
+  it('ответ смены потерялся, сессия на устройстве: повтор 410 → used → «Войти» — локальный выход и «Вход» с e-mail', async () => {
+    jest.useFakeTimers({ now: NOW });
+    storeSession();
+    getLink.mockResolvedValue({ state: 'valid', email: EMAIL });
+    // пароль на сервере уже сменён, ответ первого запроса потерялся — повтор получает 410
+    confirm.mockRejectedValue(httpError(410, 'LINK_EXPIRED', { email: EMAIL }));
+    const router = await openLink();
+    await act(() => jest.advanceTimersByTimeAsync(0));
+    expect(useSessionStore.getState().status).toBe('signedIn');
+    await fillPasswords();
+    getLink.mockResolvedValue({ state: 'used', email: EMAIL });
+
+    await fireEvent.press(saveButton());
+    expect(await screen.findByRole('header', { name: 'Пароль уже изменён' })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Войти' }));
+
+    expect(await screen.findByDisplayValue(EMAIL)).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/sign-in');
+    expect(api.signOut).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().status).not.toBe('signedIn');
+    expect(storedValue('onbike.session')).toBeUndefined();
+  });
+
+  it('«Пароль изменён» — вне загрузки ссылки: после выхода (кеш очищен) GET не повторяется, экран не пропадает', async () => {
+    jest.useFakeTimers({ now: NOW });
+    storeSession();
+    getLink.mockResolvedValueOnce({ state: 'valid', email: EMAIL });
+    confirm.mockResolvedValue({ state: 'passwordChanged', email: EMAIL });
+    await openLink();
+    await act(() => jest.advanceTimersByTimeAsync(0));
+    await fillPasswords();
+    // после выхода ссылка больше не читается: повторный GET висел бы или падал
+    getLink.mockReturnValue(new Promise(() => undefined));
+
+    await fireEvent.press(saveButton());
+    await act(() => jest.advanceTimersByTimeAsync(1000));
+
+    expect(screen.getByRole('header', { name: 'Пароль изменён' })).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Загрузка')).toBeNull();
+    expect(getLink).toHaveBeenCalledTimes(1);
+    expect(api.signOut).toHaveBeenCalledTimes(1);
+  });
+
   it('410 на сохранении, ссылка заменена — «Ссылка устарела»', async () => {
     getLink.mockResolvedValue({ state: 'valid', email: EMAIL });
     confirm.mockRejectedValue(httpError(410, 'LINK_EXPIRED', { email: EMAIL }));

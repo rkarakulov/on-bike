@@ -30,6 +30,7 @@ import {
 } from '../../../test/identity';
 import { outbox } from '../../db';
 import { IDENTITY_POLICY } from './identity.policy';
+import { IdentityRepository } from './identity.repository';
 import { passwordResetTokens, registrationTokens, sessions, users } from './identity.schema';
 import { PasswordHasher } from './password-hasher';
 import { sha256 } from './tokens';
@@ -393,7 +394,7 @@ describe('неподтверждённый аккаунт (AC6, Q4, R5)', () => 
     const [user] = await h.db.select().from(users);
     expect(user?.emailVerifiedAt).toEqual(h.clock.now());
     const [regToken] = await h.db.select().from(registrationTokens);
-    expect(regToken?.expiresAt).toEqual(h.clock.now());
+    expect(regToken?.consumedAt).toEqual(h.clock.now());
     expect((await poll(h, registrationToken)).status).toBe(401);
     expect(await h.db.select().from(sessions)).toEqual([]);
     expect(SignInResponse.parse((await signIn(EMAIL, NEW_PASSWORD)).body).state).toBe('signedIn');
@@ -422,6 +423,37 @@ describe('гонки (AC7, R4)', () => {
     } finally {
       reset.release();
     }
+  });
+
+  it('poll подтверждённого аккаунта, начатый до сброса и продолженный после него, — 401 без новой сессии (R5)', async () => {
+    const { registrationToken } = RegisterResponse.parse((await register(h)).body);
+    await confirm(h, await activeLinkToken(h)); // подтверждён, токен регистрации ещё не обменян
+    await requestPasswordReset(h, EMAIL);
+    const token = await latestResetToken(h);
+
+    // poll запомнил своё «сейчас» и прочитал токен, но до блокировки аккаунта приостановлен
+    const repository = h.app.get(IdentityRepository, { strict: false });
+    const lockUser = repository.lockUser.bind(repository);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let paused: () => void = () => undefined;
+    const reached = new Promise<void>((resolve) => (paused = resolve));
+    vi.spyOn(repository, 'lockUser').mockImplementationOnce(async (ex, userId) => {
+      paused();
+      await gate;
+      return lockUser(ex, userId);
+    });
+    const polling = poll(h, registrationToken);
+    await reached;
+
+    // сброс с более поздним временем завершается первым (другое соединение)
+    h.clock.advance(MINUTE);
+    expect((await confirmPasswordReset(h, token, NEW_PASSWORD)).status).toBe(200);
+    release();
+
+    const res = await polling;
+    expect(res.status).toBe(401);
+    expect(await h.db.select().from(sessions)).toEqual([]);
   });
 
   it('два confirm одной ссылкой параллельно — один 200, один 410', async () => {
