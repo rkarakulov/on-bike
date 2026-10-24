@@ -15,8 +15,4 @@ ALTER TABLE "sessions" DROP CONSTRAINT "sessions_revoked_reason_check";--> state
 ALTER TABLE "password_reset_tokens" ADD CONSTRAINT "password_reset_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "password_reset_tokens_user_id_idx" ON "password_reset_tokens" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "password_reset_tokens_active_unique" ON "password_reset_tokens" USING btree ("user_id") WHERE used_at IS NULL AND superseded_at IS NULL;--> statement-breakpoint
--- правка руками: CHECK расширяется без долгой блокировки sessions — NOT VALID (новые строки проверяются сразу),
--- затем VALIDATE CONSTRAINT (SHARE UPDATE EXCLUSIVE, запись в sessions не блокирует); существующие значения —
--- подмножество нового списка
-ALTER TABLE "sessions" ADD CONSTRAINT "sessions_revoked_reason_check" CHECK (revoked_reason IN ('signed_out', 'reuse_detected', 'superseded', 'password_reset')) NOT VALID;--> statement-breakpoint
-ALTER TABLE "sessions" VALIDATE CONSTRAINT "sessions_revoked_reason_check";
+ALTER TABLE "sessions" ADD CONSTRAINT "sessions_revoked_reason_check" CHECK (revoked_reason IN ('signed_out', 'reuse_detected', 'superseded', 'password_reset'));

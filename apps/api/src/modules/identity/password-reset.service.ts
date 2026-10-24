@@ -112,10 +112,9 @@ export class PasswordResetService {
    */
   async confirm(input: ConfirmPasswordResetRequest): Promise<ConfirmPasswordResetResponse> {
     const tokenHash = sha256(input.token);
-    const now = this.clock.now();
     const found = await this.repository.findPasswordResetByHash(this.repository.db, tokenHash);
     if (!found || found.user.deletedAt) throw notFound();
-    if (isStale(found.token, now)) throw linkExpired(found.user.email);
+    if (isStale(found.token, this.clock.now())) throw linkExpired(found.user.email);
 
     const passwordHash = await this.hasher.hash(input.password);
 
@@ -123,13 +122,15 @@ export class PasswordResetService {
       const user = await this.repository.lockUser(tx, found.user.id);
       if (!user || user.deletedAt) throw notFound();
       const current = await this.repository.findPasswordResetByHash(tx, tokenHash);
-      if (!current || isStale(current.token, now)) throw linkExpired(user.email);
+      // время — после argon2 и ожидания блокировки: ссылка могла истечь, пока запрос ждал
+      const at = this.clock.now();
+      if (!current || isStale(current.token, at)) throw linkExpired(user.email);
 
       await this.repository.updatePasswordHash(tx, user.id, passwordHash);
-      await this.repository.markPasswordResetUsed(tx, current.token.id, now);
-      const revoked = await this.repository.revokeAllSessions(tx, user.id, now, 'password_reset');
-      await this.repository.revokeRegistrationToken(tx, user.id, now);
-      if (!user.emailVerifiedAt) await this.repository.markEmailVerified(tx, user.id, now);
+      await this.repository.markPasswordResetUsed(tx, current.token.id, at);
+      const revoked = await this.repository.revokeAllSessions(tx, user.id, at, 'password_reset');
+      await this.repository.revokeRegistrationToken(tx, user.id, at);
+      if (!user.emailVerifiedAt) await this.repository.markEmailVerified(tx, user.id, at);
       const payload: PasswordChangedEmailRequested = { passwordResetTokenId: current.token.id };
       await this.outbox.append(tx, { type: PASSWORD_CHANGED_EMAIL_REQUESTED, payload });
       return { userId: user.id, email: user.email, revoked };

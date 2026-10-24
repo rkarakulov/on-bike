@@ -456,6 +456,36 @@ describe('гонки (AC7, R4)', () => {
     expect(await h.db.select().from(sessions)).toEqual([]);
   });
 
+  it('confirm, ждавший блокировку аккаунта, пока ссылка истекла, — 410; пароль и сессии не изменены', async () => {
+    await verifiedAccount();
+    const refresh = await nativeSession();
+    await requestPasswordReset(h, EMAIL);
+    const token = await latestResetToken(h);
+    h.clock.advance(HOUR - MINUTE); // ссылка ещё жива минуту
+    const holder = await h.pool.connect();
+    try {
+      // другая транзакция аккаунта держит блокировку строки users
+      await holder.query('BEGIN');
+      await holder.query('SELECT id FROM users WHERE email = $1 FOR UPDATE', [EMAIL]);
+      const confirming = confirmPasswordReset(h, token, NEW_PASSWORD);
+      await waitForLockWaiter(h.pool);
+      h.clock.advance(MINUTE); // пока confirm ждёт, срок ссылки прошёл
+      await holder.query('COMMIT');
+
+      const res = await confirming;
+      expect(res.status).toBe(410);
+      expect(res.body).toMatchObject({ code: 'LINK_EXPIRED', details: { email: EMAIL } });
+    } finally {
+      holder.release();
+    }
+    const [link] = await resetRows();
+    expect(link?.usedAt).toBeNull();
+    const [row] = await h.db.select().from(sessions);
+    expect(row?.revokedAt).toBeNull();
+    expect((await signIn(EMAIL, OLD_PASSWORD)).status).toBe(200);
+    expect((await call(h, 'POST', REFRESH, { refreshToken: refresh })).status).toBe(200);
+  });
+
   it('два confirm одной ссылкой параллельно — один 200, один 410', async () => {
     await verifiedAccount();
     await requestPasswordReset(h, EMAIL);
