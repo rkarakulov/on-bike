@@ -109,7 +109,12 @@ compose up -d --wait --wait-timeout 180 postgres redis mailpit
 
 # вывод миграций (SQL, ошибки БД) — в файл на сервере, не в публичный лог Actions: там только код выхода
 migrate_log="${ON_BIKE_DIR}/migrate.log"
-migrate_log_hint="${migrate_log/#${HOME}/\~}"
+# подсказка в лог — путь от домашнего каталога (имя пользователя сервера в публичный лог не выводится)
+migrate_log_hint="${migrate_log}"
+if [[ "${migrate_log}" == "${HOME}/"* ]]; then
+  # shellcheck disable=SC2088 # «~» — текст подсказки, не путь для раскрытия
+  migrate_log_hint="~/${migrate_log#"${HOME}"/}"
+fi
 log "миграции (одноразовый контейнер), вывод — ${migrate_log_hint} на сервере"
 (umask 077 && : >"${migrate_log}")
 chmod 600 "${migrate_log}"
