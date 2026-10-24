@@ -1,6 +1,6 @@
 ---
 name: backend-nest
-description: 'Обязательный процесс для любой backend-работы в apps/api проекта на стеке app-foundation (NestJS 12 на Fastify, Drizzle, PostgreSQL, Redis, BullMQ, outbox, инфраструктура @rkarakulov/api-kit). Применяй, когда добавляешь или меняешь endpoint, controller, service, repository, модуль, миграцию, задачу очереди, outbox-событие, auth/роли, загрузку файлов, письмо, конфиг. Форсирует порядок placement → reuse → контракт → данные → очередь → TDD до написания кода.'
+description: 'Обязательный процесс для любой backend-работы в apps/api проекта на стеке app-foundation (NestJS 12 на Fastify, БД проекта — PostgreSQL/Drizzle или MongoDB по AGENTS.md, Redis, BullMQ, outbox, инфраструктура @rkarakulov/api-kit). Применяй, когда добавляешь или меняешь endpoint, controller, service, repository, модуль, миграцию, задачу очереди, outbox-событие, auth/роли, загрузку файлов, письмо, конфиг. Форсирует порядок placement → reuse → контракт → данные → очередь → TDD до написания кода.'
 ---
 
 # backend-nest

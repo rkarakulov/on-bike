@@ -53,14 +53,24 @@ catalog:
   unplugin-swc: ^2.0.0
   '@swc/core': ^1.16.18
   # база app-foundation (ADR-0004): точная версия, обновление — `copier update` (версия приходит из шаблона)
-  '@rkarakulov/config': 0.3.2
-  '@rkarakulov/api-kit': 0.3.2
-  '@rkarakulov/test-kit': 0.3.2
-  '@rkarakulov/contracts-core': 0.3.2
-  '@rkarakulov/api-client-core': 0.3.2
-  '@rkarakulov/i18n-core': 0.3.2
-  '@rkarakulov/design-tokens': 0.3.2
-  '@rkarakulov/ui': 0.3.2
+  '@rkarakulov/config': 0.4.1
+  '@rkarakulov/api-kit': 0.4.1
+  '@rkarakulov/test-kit': 0.4.1
+  '@rkarakulov/contracts-core': 0.4.1
+  '@rkarakulov/api-client-core': 0.4.1
+  '@rkarakulov/i18n-core': 0.4.1
+  '@rkarakulov/design-tokens': 0.4.1
+  '@rkarakulov/ui': 0.4.1
+
+# драйверы БД — необязательные peer пакетов базы, но GitHub Packages не отдаёт peerDependenciesMeta в метаданных
+# реестра, и pnpm ставит их как обязательные. Драйвер другой БД проекту не нужен
+packageExtensions:
+  '@rkarakulov/api-kit':
+    peerDependenciesMeta:
+      mongodb: { optional: true }
+  '@rkarakulov/test-kit':
+    peerDependenciesMeta:
+      mongodb: { optional: true }
 
 allowBuilds:
   '@parcel/watcher': false
