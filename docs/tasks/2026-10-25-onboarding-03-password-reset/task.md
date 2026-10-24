@@ -308,7 +308,29 @@ Architecture Review — onboarding-03-password-reset. **Status: CONCERNS** — �
 
 Отклонения и уточнения при реализации:
 
-- _(заполняется по ходу)_
+- **Контракт:** `RequestPasswordResetRequest` без `email` — `REQUIRED` (общий `fieldError`), неверный адрес —
+  `INVALID_EMAIL`. Чтение ссылки: `used` важнее `expired`.
+- **Письма (R6):** один `IdentityEmailProcessor` (`jobs/identity-email.processor.ts`, бывший
+  `verification-email.processor.ts`) разбирает `job.name` и делегирует двум обработчикам: `LinkEmailHandler`
+  (ссылки подтверждения и сброса — одна реализация, параметр `LinkKind`, общий `claimLinkSend/completeLinkSend/
+  releaseLinkSend` репозитория) и `PasswordChangedEmailHandler`. Вместо трёх файлов обработчиков — два: отдельный
+  обработчик подтверждения дублировал бы обработчик ссылки сброса. Int-тесты подтверждения перенесены в
+  `identity-email.processor.int.test.ts` без изменения поведения (вызов `LinkEmailHandler.handle('verification', id)`).
+  Событие «Пароль изменён» — своя схема `PasswordChangedEmailRequested { passwordResetTokenId }`.
+- **Шаблоны писем:** `mail/html.ts` — общие `escapeHtml`, каркас и кнопка; HTML письма подтверждения не изменился.
+- **R4:** тест гонки на двух соединениях — в `password-reset.int.test.ts` (рядом с остальными AC7), не в
+  `sign-in.int.test.ts`; проверено, что без перепроверки хеша тест падает (200 вместо 401).
+- **App:** кикер экранов сброса — ключ `auth.forgot.kicker` («Вход»); совпадающие тексты Q7 переиспользуют ключи
+  слайсов 1–2 («Ссылка устарела», «Ссылка больше не действует», «Вернуться ко входу», «Повторно — через {time}»,
+  «Слишком много писем. Попробуйте позже.»). `[ASSUMPTION]` после «Отправить новую ссылку» на устаревшей ссылке —
+  баннер «Новая ссылка отправлена на {email}.» и отсчёт (в Q7 текста нет). 404 — кнопка «Вернуться ко входу».
+  «Вход» берёт e-mail из черновика при фокусе (`useFocusEffect`, как «Регистрация») — для возврата к смонтированной
+  форме. Состояния ссылки (`password-reset-states.tsx`) покрыты тестами экрана `reset-link.test.tsx`, без отдельного
+  файла теста.
+- **E2E:** помощник Mailpit ищет письмо по получателю и теме (`latestMailText`, `verificationLink`,
+  `passwordResetLink`); новых ожидаемых отказов нет (старый пароль — уже разрешённый 401 `SIGN_IN_URL`).
+- **Окружение проверки:** для `E2E_API=1` в worktree создан локальный `apps/api/.env` из `.env.example` со
+  случайными секретами (игнорируется, в репозиторий не попадает).
 
 # 8.3 Security checklist
 
@@ -509,5 +531,40 @@ identity в базу — F6); очистка `password_reset_tokens`/`sessions`;
 
 # 12. Outcome
 
-_Заполняется по итогам реализации: слайсы S1–S4, проверки (`pnpm check`, `db:migrate`, `build:web`, `e2e:web` с API),
-Security checklist §8.3 — тестами, ревью (`findings.md`), follow-ups._
+Реализовано слайсами (ветка `feature/onboarding-03-password-reset`):
+
+- **S1** — `packages/contracts/src/auth/password-reset.schema.ts` (+ test), `api-client`: `requestPasswordReset`,
+  `getPasswordResetLink` (`encodeURIComponent`), `confirmPasswordReset`.
+- **S2** — миграция `0005_password_reset` (таблица, частичный UNIQUE активной ссылки, CHECK `password_reset`);
+  `PasswordResetService` + 3 эндпоинта; `deriveLinkToken`, `passwordResetLimitKeys`; репозиторий (ссылки сброса,
+  общий захват отправки, `updatePasswordHash`, `revokeAllSessions`, `expireRegistrationToken`,
+  `lockUserCredentials`); перепроверка хеша во входе (R4); процессор-диспетчер `identity-email` (R6); 2 письма.
+- **S3** — «Забыли пароль?», `/forgot-password`, `auth/reset/[token]`, запросы сброса (`networkMode: 'always'`, вне
+  Web Lock), локальный выход после смены, `Referrer-Policy: no-referrer` на `/auth/*`, строки `ru.ts`.
+- **S4** — шаги смоука `e2e/web.spec.ts` (SSR `/forgot-password`, `/auth/reset/<токен>` + заголовок; с API — полный
+  сценарий сброса и письмо «Пароль изменён»); ADR-0006, пересмотры ADR-0002/0005, architecture, rules, runbook,
+  brand, follow-up слайса 2.
+
+Проверки (2026-10-25, локально):
+
+- `pnpm check` — EXIT 0 (contracts 50, api-client 26, api 174 — unit + int на `on_bike_test`/Redis db 1, app 207 —
+  native + web + server, admin 7, design-tokens 114, i18n 6, tracks 2).
+- `pnpm --filter @on-bike/api db:migrate` — dev-БД и `on_bike_test`: applied; чистая БД — global-setup тестов
+  (пересоздание + все миграции).
+- `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000 pnpm build:web` — EXIT 0; `expo export -p android` — EXIT 0.
+- `pnpm e2e:web` без API — 10 passed, 1 skipped; `E2E_API=1` — 11 passed.
+
+Security checklist §8.3 — тестами: п. 1 — `password-reset.int.test.ts` (AC5–AC7: отзыв только своих сессий,
+повтор 410, R5, R4, два confirm); п. 2 — контракт + 400 до argon2 (spy `hash`), мусорный токен 404; п. 3 — побайтно
+одинаковые ответы, `no-store`, мета без ПДн (`public-metadata.test.ts`, смоук), `Referrer-Policy`
+(`web-server.test.ts`, смоук); п. 4 — лимиты IP/e-mail, IPv6 /64, 429 для несуществующего адреса, отказ по IP без
+счётчика e-mail, argon2 не вызывается при 404/410; п. 5 — payload outbox только с id, Redis-ключи без e-mail/IP, лог
+`{ uid, revoked }` без e-mail/токена/пароля (spy `Logger`), письмо «Пароль изменён» без ссылки; п. 6 — `used_at`,
+`revoked_reason = 'password_reset'`.
+
+NOT VERIFIED: ручной смоук на Android/iOS (ссылка `onbike://auth/reset/…`, выход другого устройства при следующем
+старте), Safari по https. Независимое ревью (`findings.md`) — за оркестратором.
+
+Follow-ups: переключатель видимости пароля в `TextField` (база, Q8); лимитер `peek/reset` (снятие блокировки входа
+после сброса); проверка `sid` access с первым AuthGuard; мгновенный выход вкладок/устройств; очистка
+`password_reset_tokens`; журнал `auth_events` (Q10).

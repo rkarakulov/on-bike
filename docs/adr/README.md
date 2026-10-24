@@ -37,3 +37,4 @@ ADR нужен, когда решение: меняет инвариант `AGEN
 | [0003](0003-universal-rider-app.md) | Универсальное приложение райдера: iOS + Android + web/PWA + SSR | Accepted |
 | [0004](0004-app-foundation.md) | База app-foundation: пакеты, шаблон и плагин для новых проектов | Accepted |
 | [0005](0005-sign-in-and-refresh-lifecycle.md) | Вход по паролю и жизненный цикл refresh: окно повтора, reuse detection, лимиты входа | Accepted |
+| [0006](0006-password-reset.md) | Сброс пароля: токен ссылки, нейтральный запрос, отзыв всех сессий, без автоматического входа | Accepted |

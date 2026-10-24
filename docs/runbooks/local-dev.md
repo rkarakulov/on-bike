@@ -86,7 +86,8 @@ Expo Go не открывает схему `onbike://`. Для проверки 
   on-bike: ожидаемые отказы — 401 `POST /v1/auth/session/refresh` анонима и 401 `POST /v1/auth/session/sign-in`
   (шаг «неверный пароль»); письма — `e2e/mailpit.ts` (`MAILPIT_URL`).
 - **Смоук с API** (регистрация → письмо → подтверждение → вход → перезагрузка → выход → вход по паролю →
-  перезагрузка): при `E2E_API=1` Playwright сам
+  перезагрузка → выход → «Забыли пароль?» → письмо → новый пароль → старый пароль 401 → вход новым → письмо
+  «Пароль изменён»): при `E2E_API=1` Playwright сам
   поднимает API и worker из `apps/api/dist` (`e2e/project.ts`) с `APP_LINK_BASE` и `CORS_ORIGINS` смоука (`:8090`,
   `:8091`), остальное окружение — из `apps/api/.env`. Нужны `pnpm infra:up` (PostgreSQL, Redis, Mailpit), миграции
   и свободный порт API из `EXPO_PUBLIC_API_URL` (dev-API на `:3000` — остановить или взять другой порт):
@@ -104,6 +105,9 @@ Expo Go не открывает схему `onbike://`. Для проверки 
   входа dev-API — удалить эти ключи в Redis из `REDIS_URL` (сервис `redis` из `pnpm infra:up`):
   `docker compose -f infra/docker-compose.dev.yml exec redis sh -c "redis-cli --scan --pattern 'rl:signin-*' | xargs -r redis-cli del"`
   (или подождать конца окна).
+- **Лимиты запроса сброса пароля в dev** (ADR-0006: IP — 20 в час, e-mail — пауза 60 с и 5 писем в сутки): ключи
+  `rl:pwreset-ip:*`, `rl:pwreset-email:*` (HMAC). Снять — так же, с шаблоном `'rl:pwreset-*'`. Новых переменных
+  окружения сброс не требует: ссылка — `APP_LINK_BASE` + `auth/reset/<токен>`, письма — тот же SMTP (Mailpit).
 - **PWA:** устанавливается только с https или `localhost`/`127.0.0.1`. Service worker регистрируется только в
   production-сборке; после смены сборки страница берёт новый `sw.js` (он `no-cache`). Сбросить —
   DevTools → Application → Service workers → Unregister.

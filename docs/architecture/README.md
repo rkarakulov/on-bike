@@ -82,6 +82,27 @@ native, запуск: сессия из SecureStore сразу (офлайн —
   cookie, не перекрываются между вкладками; API на 401 без предъявленной cookie её не сбрасывает. Native — замок в
   памяти процесса (`session-lock.ts`): выход во время фоновой ротации ждёт её и отзывает уже новый refresh.
 
+### Сброс пароля (модуль `identity`, ADR-0006)
+
+```
+app «Забыли пароль?» ─ POST /v1/auth/password-reset { email }
+        ─► лимиты (Redis, HMAC: IP 20/ч, затем e-mail — пауза 60 с, 5/сутки) ─► 429 до БД
+        ─► один ответ { resendAvailableInSec } для любого адреса; аккаунт есть (и не удалён) —
+           прежние ссылки superseded + password_reset_tokens (TTL 1 ч) + outbox (одна транзакция)
+worker: очередь identity-email ─► захват отправки ─► письмо «Восстановление пароля» (…auth/reset/<token>)
+ссылка …auth/reset/<token> ─ GET (только чтение: valid | expired | used | 404)
+        ─ POST confirm { token, password } ─► ссылка проверена до argon2 ─► под lockUser: новый хеш, ссылка used,
+          все сессии отозваны (password_reset), токен регистрации погашен, e-mail подтверждён, outbox
+        ─► passwordChanged + e-mail (сессии нет) ─► «Пароль изменён» → «Вход» с e-mail
+worker: очередь identity-email ─► письмо «Пароль изменён» (время по Минску, без ссылки с токеном)
+```
+
+- Очередь `identity-email` — один процессор-диспетчер по `job.name` (подтверждение, ссылка сброса, «Пароль изменён»):
+  BullMQ раздаёт задачи очереди любому процессору. Захват отправки — общий для таблиц ссылок.
+- Вход сверяет хеш пароля под `lockUser`: проверивший старый пароль до коммита сброса сессию не получает.
+- App: запросы сброса — вне Web Lock сессии (cookie не трогают); после смены пароля сессия этого устройства —
+  локальный выход (`useSignOut`); web-сервер отдаёт `Referrer-Policy: no-referrer` на `/auth/*`.
+
 ### Web (SSR, PWA)
 
 `apps/app` собирается `expo export --platform web` (`web.output: 'server'`) и обслуживается `apps/app/server`
