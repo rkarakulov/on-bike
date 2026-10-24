@@ -248,9 +248,26 @@ Architecture Review — onboarding-02-sign-in. **Status: CONCERNS** — блок
   `POST /v1/auth/session/sign-in`; R3 — окно повтора 60 с, тест параллельных refresh F5b меняется осознанно
   (`[200, 401×4]` → `[200, 200, 401×3]`).
 
-Отклонения при реализации:
+Отклонения и уточнения при реализации:
 
-- (дополняется по ходу)
+- **`SignInRequest` — `z.strictObject`:** лишние ключи — 400 (§8.3 п. 2). Остальные запросы контрактов — как были
+  (лишнее отбрасывается).
+- **`verificationRequired.resendAvailableInSec = 0`:** вход письмо не отправляет; пауза повтора — лимит
+  `verify-resend` (если он ещё действует, «Отправить ещё раз» покажет «Слишком много писем»). Срок нового токена
+  регистрации — 24 ч (как ссылка); без письма прежняя ссылка остаётся действующей, если не истекла.
+- **Флаг `returning` (гард → «Вход») — только в памяти:** после выхода/отзыва сессии в этом запуске. После
+  перезапуска без сессии — «Регистрация» (как раньше): хранить признак «уже входили» на устройстве — отдельное
+  продуктовое решение (не требовалось AC7).
+- **Тексты Q3** разложены на заголовок + текст экрана: «Войдите в аккаунт» / «E-mail подтверждён. Войдите с
+  паролем.»; «Регистрация устарела» / «Войдите или зарегистрируйтесь заново.». Остальные — дословно.
+- **Сессия в памяти стора — без refresh** (`CookieSession.parse` при входе) на обеих платформах: на native refresh
+  берётся из SecureStore (ротация и выход читают его оттуда под замком).
+- **jest:** `jest.setup.ts` сбрасывает сторы через `jest.requireActual` в `beforeEach`, а не статическим импортом —
+  стор сессии теперь тянет `@/lib/api` (native-ротация), и импорт в setup закешировал бы настоящий клиент раньше
+  `jest.mock('@/lib/api')` тестов. Тесты вкладок/витрины без корневого layout получили `QueryClientProvider`
+  (`useSignOut` на «Главной»).
+- **E2E:** второй ожидаемый отказ — 401 `POST /v1/auth/session/sign-in` (шаг «неверный пароль»); поля формы входа —
+  по роли (под «Входом» в стеке скрыто смонтирована «Регистрация» с теми же подписями полей).
 
 # 8.3 Security checklist
 
@@ -426,4 +443,52 @@ previous_refresh_token_hash IS NOT NULL`.
 
 # 12. Outcome
 
-(заполняет coder)
+Реализовано по слайсам S1–S4 (ветка `feature/onboarding-02-sign-in`, решения — §8.2).
+
+- **S1 contracts/api-client:** `sign-in.schema.ts` (`SignInPassword`, `SignInRequest` — strict, `SignInResponse`
+  `signedIn | verificationRequired`), `INVALID_CREDENTIALS` последним кодом, текст API; `api.signIn` с транспортом
+  платформы и `credentials`.
+- **S2 API (`identity`):** миграция `0004_session_rotation` (expand-only: 3 nullable-колонки, CHECK, частичный
+  уникальный индекс); `SignInService` (3 лимита `RateLimiter` до argon2, пустышка — при старте модуля, Q4 —
+  `RegistrationService.reissueToken`); `SessionController.signIn` (отзыв прежней cookie — `superseded`, сбой
+  отзыва вход не отменяет); ротация с окном 60 с, reuse detection (лог `{ sid, reason }`), скользящий срок 30/180
+  дней; выход по текущему или предыдущему refresh (`signed_out`); `PasswordHasher.verify`/`dummyHash`.
+- **S3 app:** экран `/sign-in` (SSR, `generateMetadata`, `DocumentTitle`, автозаполнение, баннеры 401/429 с
+  отсчётом/сеть, `loading`); `useSignIn` под замком сессии; native `session-lock.ts` (цепочка промисов),
+  `revalidateSession` (native — ротация по телу, web — no-op), выход `useSignOut` (сервер + хранилище +
+  `queryClient.clear()` + регистрация); гард → «Вход» после выхода/отзыва; `SignInRequired` по локальному сроку
+  (R7), `VerifiedElsewhere` → вход с e-mail; e-mail между экранами — черновик в памяти; «Выйти» на «Главной».
+- **S4:** смоук — SSR `/sign-in`; с API — регистрация → подтверждение → перезагрузка → выход → неверный пароль
+  (баннер) → вход → перезагрузка, `document.cookie` без refresh. Документы: ADR-0005 (+ реестр), ADR-0002 «Пересмотр
+  (слайс 2)», ADR-0003 п. 4, `docs/architecture/README.md`, `onbike-security.md`, `onbike-app.md`, runbook (снятие
+  блокировки входа в dev, шаги смоука), follow-up F5b отмечен.
+
+Security checklist §8.3 — тестами:
+1. AuthN/AuthZ — `sign-in.int.test.ts` (сессия только подтверждённому; неподтверждённому — токен регистрации; web
+   cookie с атрибутами), `session.int.test.ts` (окно, reuse, выход предыдущим, параллельные refresh).
+2. Входные данные — `sign-in.schema.test.ts`, int «тело не по контракту → 400 до проверки пароля», unit контроллера
+   (pipe, мусор в cookie — без отзыва).
+3. Данные наружу — int: побайтно одинаковые 401 (неверный/неизвестный/удалённый), web-ответ без refresh,
+   `Cache-Control: no-store`; смоук: тело входа без refresh.
+4. Злоупотребления — int: 6-я попытка → 429 и с верным паролем, без вызова argon2 (spy), одинаковый 429 для
+   несуществующего адреса, лимит e-mail через разные IP (`X-Forwarded-For`, `TRUST_PROXY=1`), лимит IP, после окна —
+   вход; verify по пустышке для неизвестного адреса (spy).
+5. Секреты и логи — `tokens.test.ts` и int «в Redis только HMAC-ключи»; int «лог reuse без токена/хеша/e-mail»
+   (spy `Logger.warn`); app: `console.warn` выхода — только имя ошибки.
+6. Аудит — int: `revoked_reason` = `signed_out` / `reuse_detected` / `superseded`.
+
+Проверки (2026-10-24):
+- `pnpm check` — EXIT 0 (api 134 теста, вкл. int на `on_bike_test` + Redis db 1; app 164; contracts 41;
+  api-client 22).
+- `pnpm --filter @on-bike/api db:migrate` — dev-БД `on_bike` и `on_bike_test`: «migrations applied successfully»,
+  `\d sessions` — колонки, CHECK, индекс на месте.
+- `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000 pnpm build:web` — EXIT 0.
+- `pnpm e2e:web` без API — 8 passed, 1 skipped; с `E2E_API=1` (API/worker из `apps/api/dist`, порт 3000 был
+  свободен; env API — переменными процесса с тестовыми секретами, Redis db 3) — 9 passed.
+- `expo export -p android` — бандл собран (Hermes, 4.1 МБ).
+
+NOT VERIFIED: ручной смоук на Android/iOS (вход, выход, перезапуск офлайн) и Safari по https — не выполнялся.
+
+Follow-ups: примитив лимитера «N неудачных» (`peek/reset`) в app-foundation (R2б); отзыв всех сессий пользователя —
+со сбросом пароля (слайс 3); журнал входов — по необходимости (Q9); очистка истёкших/отозванных `sessions`;
+признак «на устройстве уже входили» между запусками (§8.2) — продуктовое решение.

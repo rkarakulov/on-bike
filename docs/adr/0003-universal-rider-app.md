@@ -84,6 +84,10 @@ Expo SDK 58 (Expo Router 58) собирает тот же проект под в
   Web Lock между вкладками; 429/сеть — повтор, а не выход). CSRF — встроенный
   `enableCsrfProtection` NestJS (Fetch Metadata `Sec-Fetch-Site` + `Origin`), доверенные origin-ы — `CORS_ORIGINS`;
   CORS с credentials — только для этого списка, в проде (один origin за Caddy) выключен. Native — без изменений.
+  Слайс 2 (ADR-0005): вход по паролю `POST /v1/auth/session/sign-in` ставит ту же cookie (под тем же Web Lock) и
+  отзывает сессию прежней cookie браузера; ротация принимает предыдущий refresh в окне 60 с — риск строгой ротации
+  F5b (выход при потерянном ответе) снят, предъявление старого токена позже — reuse detection; срок сессии
+  скользящий (30 дней, предел 180), `Max-Age` cookie — остаток этого срока.
 - п. 5: в dev/e2e `APP_LINK_BASE` web — `http://127.0.0.1:8081/` / origin смоука; universal/app links — когда будет домен.
 - п. 6–7: `apps/landing` удалён; Caddy `PUBLIC_HOST`: `/v1/*` → `api:3000`, остальное → `web:8080`
   (`infra/Caddyfile`, `infra/docker-compose.prod.yml`).

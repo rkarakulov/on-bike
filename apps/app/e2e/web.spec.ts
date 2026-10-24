@@ -2,11 +2,12 @@ import type { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
 import { verificationLink } from './mailpit';
-import { REFRESH_URL } from './project';
+import { REFRESH_URL, SIGN_IN_URL } from './project';
 import { API_URL, BASE_URL, DEV_URL, WITH_API } from './urls';
 
 // Смоук web-версии on-bike: SSR → гидрация → гард сессии, публичные экраны с OG, витрина (dev), PWA;
-// с API (E2E_API=1) — регистрация → письмо → подтверждение → вход → вход переживает перезагрузку (cookie).
+// с API (E2E_API=1) — регистрация → письмо → подтверждение → вход → вход переживает перезагрузку (cookie) →
+// выход → вход по паролю (неверный пароль — баннер) → перезагрузка.
 // Ошибки страницы (исключения, рассинхрон гидрации, неожиданные отказы загрузки) проверяет фикстура (fixtures.ts);
 // ожидаемый 401 восстановления сессии анонима — в e2e/project.ts.
 
@@ -50,6 +51,27 @@ test('публичный экран /register: форма, заголовок и
   await page.goto('/register');
   await expect(page.getByRole('button', { name: 'Зарегистрироваться' })).toBeVisible();
   await expect(page).toHaveTitle('Регистрация — Покатим');
+});
+
+test('публичный экран /sign-in: форма, заголовок и OG в HTML до JS, без персональных данных', async ({
+  page,
+  request,
+}) => {
+  const html = await (await request.get('/sign-in')).text();
+  expect(html).toContain('Войдите по e-mail и паролю');
+  expect(html).toContain('<title>Вход — Покатим</title>');
+  expect(html).toMatch(/<meta property="og:title" content="Вход"/);
+  expect(html).toContain(`<meta property="og:url" content="${BASE_URL}/sign-in"`);
+  // мета — без e-mail и других ПДн
+  expect(html.match(/<meta [^>]*>/g)?.join('\n')).not.toContain('@');
+
+  await page.goto('/sign-in');
+  await expect(page.getByRole('button', { name: 'Войти' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Пароль' })).toHaveAttribute(
+    'autocomplete',
+    'current-password',
+  );
+  await expect(page).toHaveTitle('Вход — Покатим');
 });
 
 // экран после гидрации (состояние ссылки из API) — в сценарии «с API»: неизвестный токен дал бы 404 в консоли
@@ -179,6 +201,38 @@ test.describe('с API', () => {
     const refreshed = page.waitForResponse(REFRESH_URL);
     await page.reload();
     expect((await refreshed).status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'Главная' })).toBeVisible();
+
+    // выход: сервер отзывает сессию и стирает cookie, гард ведёт на «Вход» (на устройстве уже входили)
+    await page.getByRole('button', { name: 'Выйти' }).click();
+    await expect(page).toHaveURL(`${BASE_URL}/sign-in`);
+    await expect(page.getByRole('heading', { name: 'Вход' })).toBeVisible();
+    expect(
+      (await context.cookies()).find(({ name }) => name === SESSION_COOKIE.name),
+    ).toBeUndefined();
+
+    // неверный пароль — нейтральный баннер (по роли: скрытая под «Входом» регистрация в стеке тоже имеет поля)
+    await page.getByRole('textbox', { name: 'E-mail' }).fill(email);
+    await page.getByRole('textbox', { name: 'Пароль' }).fill('не-тот-пароль');
+    await page.getByRole('button', { name: 'Войти' }).click();
+    await expect(page.getByText('Неверный e-mail или пароль.')).toBeVisible();
+
+    // вход по паролю: сессия без refresh в теле, refresh — в httpOnly cookie
+    const signedIn = page.waitForResponse(
+      (response) => response.url() === SIGN_IN_URL && response.status() === 200,
+    );
+    await page.getByRole('textbox', { name: 'Пароль' }).fill('e2e-пароль-on-bike');
+    await page.getByRole('button', { name: 'Войти' }).click();
+    const signInBody = await (await signedIn).json();
+    expect(signInBody.state).toBe('signedIn');
+    expect(signInBody.session).not.toHaveProperty('refreshToken');
+    await expect(page.getByRole('heading', { name: 'Главная' })).toBeVisible();
+    expect(await page.evaluate(() => document.cookie)).not.toContain(SESSION_COOKIE.name);
+
+    // и вход по паролю переживает перезагрузку
+    const restored = page.waitForResponse(REFRESH_URL);
+    await page.reload();
+    expect((await restored).status()).toBe(200);
     await expect(page.getByRole('heading', { name: 'Главная' })).toBeVisible();
   });
 });

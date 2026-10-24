@@ -49,26 +49,38 @@ worker: identity-maintenance, 03:00 Europe/Minsk ─► удаление неп�
 - Ошибки — единый `ApiError` из contracts (глобальный фильтр), в ответах и логах нет SQL, стеков,
   e-mail и токенов.
 
-### Сессия: native и web (модуль `identity`, ADR-0003 п. 4)
+### Сессия: native и web (модуль `identity`, ADR-0003 п. 4, ADR-0005)
 
 ```
-native: poll / refresh ─ тело { refreshToken } ─► Session в теле ─► SecureStore
-web:    poll { sessionTransport: 'cookie' } ─► CookieSession в теле (без refresh)
+вход:   POST /v1/auth/session/sign-in { email, password, sessionTransport? }
+        ─► лимиты (Redis: e-mail+IP 5, e-mail 20, IP 50 за 15 мин) ─► 429 до argon2
+        ─► argon2 verify (неизвестный/удалённый адрес — по пустышке) ─► 401 INVALID_CREDENTIALS
+        ─► не подтверждён: verificationRequired + новый токен регистрации ─► «Подтвердите e-mail»
+        ─► подтверждён: SessionService.issue ─► сессия по транспорту (web: прежняя cookie → superseded)
+native: poll / sign-in / refresh ─ тело { refreshToken } ─► Session в теле ─► SecureStore
+web:    poll / sign-in { sessionTransport: 'cookie' } ─► CookieSession в теле (без refresh)
         + Set-Cookie __Secure-onbike_rt (HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session)
 web, загрузка страницы: POST /v1/auth/session/refresh (cookie, Web Lock между вкладками)
-        ─► ротация refresh (срок сессии не продлевается) ─► новый access в память | 401 → не вошли
+        ─► ротация ─► новый access в память | 401 → не вошли
         | 429 / сеть / 5xx → повтор, затем «не удалось» с кнопкой повтора (не выход)
-выход: POST /v1/auth/session/sign-out ─► revoked_at, 204, cookie сброшена
+native, запуск: сессия из SecureStore сразу (офлайн — в аккаунте) ─► фоновая ротация по телу
+        ─► новый refresh в SecureStore | 401 → выход, экран «Вход» | сеть (1 повтор) / 429 / 5xx → остаёмся
+выход: POST /v1/auth/session/sign-out (текущий или предыдущий refresh) ─► revoked_at, signed_out, 204,
+        cookie сброшена; приложение очищает кеш запросов и регистрацию, гард ведёт на «Вход»
 ```
 
-- Ротация — один условный `UPDATE … RETURNING` (жива, не отозвана, пользователь не удалён): из двух одновременных
-  refresh одним токеном выигрывает один. Лимит refresh — 60/мин на IP (Redis).
+- Ротация — один условный `UPDATE … RETURNING` (жива, не отозвана, пользователь не удалён; текущий refresh или
+  предыдущий в окне 60 с): предыдущим становится текущий хеш строки, срок — 30 дней от ротации, не дальше 180 от
+  входа. Из параллельных refresh одним токеном проходят ровно два (текущим и повтором в окне). Предыдущий вне окна —
+  reuse detection: сессия отозвана (`reuse_detected`, лог только с `sid`), ответ — тот же 401. Лимит refresh —
+  60/мин на IP (Redis).
 - HTTP API (`apps/api/src/http-app.ts`): CSRF — `enableCsrfProtection` (Fetch Metadata + `Origin`), доверенные
   origin-ы и CORS с credentials — `CORS_ORIGINS` (dev: web на другом порту); прод — один origin за Caddy, список пуст.
 - App: развилки файлами — `features/auth/session-persistence(.web).ts`, `secure-storage(.web).ts`,
   `lib/api-platform(.web).ts`; гарды допускают «сессия неизвестна» — SSR отдаёт HTML, вкладки — скелетон.
-  Web: refresh, poll регистрации и выход — под одним Web Lock (`session-lock.web.ts`): операции, меняющие cookie,
-  не перекрываются между вкладками; API на 401 без предъявленной cookie её не сбрасывает.
+  Web: вход, refresh, poll регистрации и выход — под одним Web Lock (`session-lock.web.ts`): операции, меняющие
+  cookie, не перекрываются между вкладками; API на 401 без предъявленной cookie её не сбрасывает. Native — замок в
+  памяти процесса (`session-lock.ts`): выход во время фоновой ротации ждёт её и отзывает уже новый refresh.
 
 ### Web (SSR, PWA)
 
