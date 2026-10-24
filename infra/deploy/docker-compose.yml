@@ -2,7 +2,12 @@
 # Кладётся деплоем в ${ON_BIKE_DIR:-~/on-bike}/docker-compose.yml; переменные — из .env рядом (bootstrap.sh,
 # секреты генерируются на сервере). Запуск — deploy.sh: compose project on-bike-dev, --env-file .env.
 # Наружу ничего: PostgreSQL, Redis, SMTP — только сеть проекта; api/web/admin и UI Mailpit — 127.0.0.1
-# (перед ними nginx хоста). Порты хоста свободны на сервере (занятые — в runbook).
+# (перед ними nginx хоста). Сервер общий: порты хоста выбраны свободными, перед сменой — `ss -ltnp`.
+# общий диск: ротация логов каждого контейнера (на сервере нет log-opts в daemon.json)
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 10m, max-file: '3' }
+
 x-api-env: &api-env
   NODE_ENV: production
   PORT: '3000'
@@ -40,18 +45,31 @@ services:
       retries: 20
     deploy: { resources: { limits: { memory: 512m } } }
     restart: unless-stopped
+    logging: *logging
 
   redis:
     image: redis:8.8@sha256:418e397fd48d66e450af13baab123397f2d2580b07ef310c3a5dbe96c3d731f1
-    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    # очереди BullMQ: noeviction (ключи задач не вытесняются), maxmemory ниже лимита контейнера — при заполнении
+    # запись получает ошибку OOM от Redis, а не kill контейнера (запас — на fork перезаписи AOF)
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory',
+        '192mb',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
     volumes: [redisdata:/data]
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 5s
       retries: 20
-    deploy: { resources: { limits: { memory: 256m } } }
+    deploy: { resources: { limits: { memory: 320m } } }
     restart: unless-stopped
+    logging: *logging
 
   # почта dev: письма не уходят наружу; UI — только 127.0.0.1 хоста (SSH-туннель, runbook)
   mailpit:
@@ -61,6 +79,7 @@ services:
     ports: ['127.0.0.1:${ON_BIKE_MAIL_UI_PORT:-8125}:8025']
     deploy: { resources: { limits: { memory: 128m } } }
     restart: unless-stopped
+    logging: *logging
 
   # миграции — отдельный одноразовый шаг деплоя (AGENTS.md §4.6): docker compose run --rm migrate
   migrate:
@@ -72,6 +91,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
     restart: 'no'
+    logging: *logging
 
   api:
     image: *api-image
@@ -93,6 +113,7 @@ services:
       start_period: 20s
     deploy: { resources: { limits: { memory: 512m } } }
     restart: unless-stopped
+    logging: *logging
 
   worker:
     image: *api-image
@@ -103,6 +124,7 @@ services:
       redis: { condition: service_healthy }
     deploy: { resources: { limits: { memory: 512m } } }
     restart: unless-stopped
+    logging: *logging
 
   # web/PWA с SSR (ADR-0003): / сайта
   web:
@@ -128,6 +150,7 @@ services:
       start_period: 20s
     deploy: { resources: { limits: { memory: 512m } } }
     restart: unless-stopped
+    logging: *logging
 
   # панель «Протокол»: статика под /admin/
   admin:
@@ -140,6 +163,7 @@ services:
       retries: 6
     deploy: { resources: { limits: { memory: 64m } } }
     restart: unless-stopped
+    logging: *logging
 
 volumes:
   pgdata:

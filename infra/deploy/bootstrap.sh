@@ -122,7 +122,9 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
+    # без http2 и default_server: в nginx < 1.25 (Ubuntu 24.04 — 1.24) параметры listen относятся ко всему
+    # сокету *:443 — http2 здесь включил бы HTTP/2 всем соседним сайтам
+    listen 443 ssl;
     server_name ${PUBLIC_HOST};
 
     ssl_certificate ${cert_dir}/fullchain.pem;
@@ -148,6 +150,8 @@ EOF
   cat <<EOF
 
     server_tokens off;
+    # dev-стенд не индексируется
+    add_header X-Robots-Tag "noindex, nofollow" always;
     client_max_body_size 20m;
     gzip on;
     gzip_proxied any;
@@ -216,6 +220,32 @@ install_vhost() {
   die "nginx -t не прошёл с новым vhost ${SITE_NAME} — свой файл откачен, nginx не перезагружался"
 }
 
+# Какой файл отвечает на :<port> по умолчанию (запросы без SNI или с чужим Host): server с default_server,
+# иначе первый по порядку включения (sites-enabled — по алфавиту). on-bike default быть не должен — иначе чужие
+# запросы получат его сертификат и сайт; при таком раскладе — предупреждение, сам деплой этого не меняет.
+default_vhost_file() {
+  sudo nginx -T 2>/dev/null | awk -v port="$1" '
+    /^# configuration file / { file = $4; sub(/:$/, "", file) }
+    $1 == "listen" && $2 ~ ("(^|:)" port ";?$") {
+      if (first == "") first = file
+      if ($0 ~ /default_server/ && def == "") def = file
+    }
+    END { print (def != "" ? def : first) }'
+}
+
+check_not_default() {
+  local port file
+  for port in 80 443; do
+    file="$(default_vhost_file "${port}")"
+    if [[ "${file}" == "${SITE_LINK}" || "${file}" == "${SITE_FILE}" ]]; then
+      warn "nginx: vhost ${SITE_NAME} — сервер по умолчанию для :${port} (нет default_server у соседей, ${SITE_NAME} первый по алфавиту) — runbook «nginx»"
+    else
+      # имя чужого файла в лог не выводится (лог Actions публичный)
+      log "nginx: сервер по умолчанию для :${port} — не ${SITE_NAME}"
+    fi
+  done
+}
+
 cert_present() {
   sudo test -s "/etc/letsencrypt/live/${PUBLIC_HOST}/fullchain.pem" &&
     sudo test -s "/etc/letsencrypt/live/${PUBLIC_HOST}/privkey.pem"
@@ -252,14 +282,15 @@ domain_points_here() {
   fi
   ip="$(public_ip)"
   if [[ -n "${ip}" && " ${resolved}" == *" ${ip} "* ]]; then
-    log "DNS: ${PUBLIC_HOST} → ${ip} (этот сервер)"
+    log "DNS: ${PUBLIC_HOST} → этот сервер"
     return 0
   fi
   if acme_probe; then
-    log "DNS: ${PUBLIC_HOST} → ${resolved}; проба HTTP-01 через этот nginx прошла"
+    log "DNS: ${PUBLIC_HOST} — проба HTTP-01 через этот nginx прошла"
     return 0
   fi
-  warn "DNS: ${PUBLIC_HOST} → ${resolved}, не этот сервер (${ip:-IP не определён}) — сертификат не выпускается"
+  # адреса в лог не выводятся (лог Actions публичный); сверить вручную — runbook «TLS»
+  warn "DNS: ${PUBLIC_HOST} ведёт не на этот сервер — сертификат не выпускается"
   return 1
 }
 
@@ -271,7 +302,8 @@ issue_cert() {
   local account=(--register-unsafely-without-email)
   [[ -z "${CERTBOT_EMAIL:-}" ]] || account=(--email "${CERTBOT_EMAIL}" --no-eff-email)
   log "certbot: выпуск сертификата ${PUBLIC_HOST} (webroot ${WEBROOT})"
-  if sudo certbot certonly --webroot -w "${WEBROOT}" -d "${PUBLIC_HOST}" \
+  # --cert-name: lineage строго live/<хост> (без -0001), его и проверяет cert_present
+  if sudo certbot certonly --webroot -w "${WEBROOT}" -d "${PUBLIC_HOST}" --cert-name "${PUBLIC_HOST}" \
     --non-interactive --agree-tos "${account[@]}" --keep-until-expiring \
     --deploy-hook 'systemctl reload nginx'; then
     return 0
@@ -288,19 +320,20 @@ configure_nginx() {
       warn "старый сертификат ${PREVIOUS_HOST} остался — удалить: sudo certbot delete --cert-name ${PREVIOUS_HOST}"
     fi
   fi
+  local tls=http
   if cert_present; then
     install_vhost https
-    echo "ONBIKE_TLS=https"
-    return 0
+    tls=https
+  else
+    # сначала :80 с ACME-путём — нужен и certbot, и пробе
+    install_vhost http
+    if domain_points_here && issue_cert && cert_present; then
+      install_vhost https
+      tls=https
+    fi
   fi
-  # сначала :80 с ACME-путём — нужен и certbot, и пробе
-  install_vhost http
-  if domain_points_here && issue_cert && cert_present; then
-    install_vhost https
-    echo "ONBIKE_TLS=https"
-    return 0
-  fi
-  echo "ONBIKE_TLS=http"
+  check_not_default
+  echo "ONBIKE_TLS=${tls}"
 }
 
 PREVIOUS_HOST=""

@@ -4,6 +4,8 @@ name: deploy-dev
 # образы api/web/admin в GHCR → деплой по SSH (infra/deploy/deploy.sh). dev = develop; prod = main — отдельный
 # workflow позже. Ручной запуск (Actions → deploy-dev → Run workflow) виден в UI, только когда этот файл есть на
 # default-ветке; image_tag — откат/повтор на уже собранный тег без CI и сборки.
+# Секреты DEV_SSH_* и переменная DEV_PUBLIC_HOST — в GitHub Environment `dev` (Deployment branches: develop):
+# их получают только джобы с `environment: dev` на ветке develop (runbook «Первичная настройка»).
 # Сторонние actions закреплены по SHA (тег — в комментарии).
 on:
   push:
@@ -24,33 +26,42 @@ permissions:
   contents: read
 
 env:
-  # публичный хост стенда; смена домена — repo variable DEV_PUBLIC_HOST и повторный деплой
-  DEV_PUBLIC_HOST: ${{ vars.DEV_PUBLIC_HOST || 'pokatim-dev.13-61-174-165.sslip.io' }}
   IMAGE_PREFIX: ghcr.io/rkarakulov/on-bike
 
 jobs:
   preflight:
     runs-on: ubuntu-latest
+    # секреты и переменные окружения dev — только для ветки develop (правило Environment)
+    environment: dev
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
       build: ${{ steps.meta.outputs.build }}
+      host: ${{ steps.meta.outputs.host }}
     steps:
       - name: Секреты и параметры деплоя
         id: meta
         env:
           DEV_SSH_HOST: ${{ secrets.DEV_SSH_HOST }}
           DEV_SSH_KEY: ${{ secrets.DEV_SSH_KEY }}
+          DEV_SSH_KNOWN_HOSTS: ${{ secrets.DEV_SSH_KNOWN_HOSTS }}
+          # публичный хост стенда; смена домена — переменная DEV_PUBLIC_HOST окружения dev и повторный деплой
+          DEV_PUBLIC_HOST: ${{ vars.DEV_PUBLIC_HOST }}
           INPUT_TAG: ${{ inputs.image_tag }}
         run: |
           set -euo pipefail
           missing=()
-          [ -n "${DEV_SSH_HOST:-}" ] || missing+=("DEV_SSH_HOST")
-          [ -n "${DEV_SSH_KEY:-}" ] || missing+=("DEV_SSH_KEY")
+          [ -n "${DEV_SSH_HOST:-}" ] || missing+=("секрет DEV_SSH_HOST")
+          [ -n "${DEV_SSH_KEY:-}" ] || missing+=("секрет DEV_SSH_KEY")
+          [ -n "${DEV_SSH_KNOWN_HOSTS:-}" ] || missing+=("секрет DEV_SSH_KNOWN_HOSTS")
+          [ -n "${DEV_PUBLIC_HOST:-}" ] || missing+=("переменная DEV_PUBLIC_HOST")
           if [ ${#missing[@]} -gt 0 ]; then
-            echo "::error::Не заданы секреты GitHub Actions: ${missing[*]}"
-            echo "Settings → Secrets and variables → Actions, команды — docs/runbooks/deploy.md («Первичная настройка»):"
-            echo "  gh secret set DEV_SSH_HOST --body '<IP или имя сервера>'"
-            echo "  gh secret set DEV_SSH_KEY < ~/.ssh/<ключ деплоя>"
+            echo "::error::Окружение dev не настроено: ${missing[*]}"
+            echo "Settings → Environments → dev; команды — docs/runbooks/deploy.md («Первичная настройка»):"
+            echo "  gh secret set DEV_SSH_HOST --env dev --body '<хост сервера>'"
+            echo "  gh secret set DEV_SSH_KEY --env dev < ~/.ssh/on-bike-deploy"
+            echo "  ssh-keyscan -t ed25519 <хост сервера> > known_hosts   # сверить отпечаток с сервером"
+            echo "  gh secret set DEV_SSH_KNOWN_HOSTS --env dev < known_hosts"
+            echo "  gh variable set DEV_PUBLIC_HOST --env dev --body '<публичный хост стенда>'"
             exit 1
           fi
           if ! [[ "${DEV_PUBLIC_HOST}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]]; then
@@ -72,6 +83,7 @@ jobs:
             echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
+          echo "host=${DEV_PUBLIC_HOST}" >> "$GITHUB_OUTPUT"
 
   # те же проверки, что на PR и push (format, lint, arch, typecheck, test, сборка, web-смоук)
   ci:
@@ -89,11 +101,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # публикация образов в GHCR; @rkarakulov/* читаются тем же GITHUB_TOKEN (build secret)
+      # публикация образов в GHCR. @rkarakulov/* читаются тем же GITHUB_TOKEN (build secret): токена «только
+      # read» в джобе с push нет — принятый риск, task.md §8.3.5
       packages: write
     env:
       TAG: ${{ needs.preflight.outputs.tag }}
+      # у build нет environment (нужен только GITHUB_TOKEN) — хост приходит выходом preflight
+      DEV_PUBLIC_HOST: ${{ needs.preflight.outputs.host }}
     steps:
+      # GitHub отбрасывает выход джоба, похожий на секрет (например, DEV_PUBLIC_HOST = DEV_SSH_HOST)
+      - name: Хост стенда
+        run: |
+          [ -n "${DEV_PUBLIC_HOST}" ] || {
+            echo "::error::нет выхода preflight.host — DEV_PUBLIC_HOST не должен совпадать с секретом (runbook)"
+            exit 1
+          }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -143,17 +165,20 @@ jobs:
   deploy:
     needs: [preflight, ci, build]
     # сборка обязательна, если она была нужна; откат (image_tag) идёт без CI и сборки
+    # !cancelled(): Cancel прогона останавливает и деплой
     if: >-
-      always() && needs.preflight.result == 'success' &&
+      !cancelled() && needs.preflight.result == 'success' &&
       (needs.build.result == 'success' ||
        (needs.preflight.outputs.build == 'false' && needs.build.result == 'skipped'))
     runs-on: ubuntu-latest
+    environment: dev
     permissions:
       contents: read
       # короткоживущий GITHUB_TOKEN джоба — серверу на pull образов; на сервере не сохраняется
       packages: read
     env:
       TAG: ${{ needs.preflight.outputs.tag }}
+      DEV_PUBLIC_HOST: ${{ vars.DEV_PUBLIC_HOST }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -168,13 +193,8 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "${DEV_SSH_KEY}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # ключ хоста: закреплённый секретом DEV_SSH_KNOWN_HOSTS, иначе ssh-keyscan (без отключения проверки)
-          if [ -n "${DEV_SSH_KNOWN_HOSTS:-}" ]; then
-            printf '%s\n' "${DEV_SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
-          else
-            ssh-keyscan -T 15 -t ed25519,ecdsa,rsa "${DEV_SSH_HOST}" > ~/.ssh/known_hosts 2>/dev/null
-          fi
-          [ -s ~/.ssh/known_hosts ] || { echo "::error::нет ключа хоста ${DEV_SSH_HOST} (ssh-keyscan)"; exit 1; }
+          # ключ хоста — только закреплённый секретом DEV_SSH_KNOWN_HOSTS (обязателен, проверен в preflight)
+          printf '%s\n' "${DEV_SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
           cat > ~/.ssh/config <<EOF
           Host dev
             HostName ${DEV_SSH_HOST}

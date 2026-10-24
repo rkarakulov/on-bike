@@ -56,20 +56,26 @@ log "свободно на диске Docker: ${free_mb} МБ"
 [[ "${free_mb}" -ge "${MIN_FREE_MB}" ]] ||
   die "мало места: ${free_mb} МБ < ${MIN_FREE_MB} МБ — освободите диск (runbook «Диск»), чужие образы не трогаем"
 
-bash "${ON_BIKE_DIR}/bootstrap.sh"
+bootstrap_log="$(mktemp)"
+bash "${ON_BIKE_DIR}/bootstrap.sh" | tee "${bootstrap_log}"
+tls="$(sed -n 's/^ONBIKE_TLS=//p' "${bootstrap_log}" | tail -1)"
+rm -f "${bootstrap_log}"
 
 compose() {
   docker compose -p "${ON_BIKE_PROJECT}" -f "${ON_BIKE_DIR}/docker-compose.yml" \
     --env-file "${ON_BIKE_DIR}/.env" "$@"
 }
 
+# лог Actions публичный: только состояние и коды выхода контейнеров; логи приложений (могут содержать
+# персональные данные тестировщиков) — по SSH, runbook «Логи»
 show_state() {
-  compose ps -a || true
-  compose logs --no-color --tail 80 api worker web admin || true
+  compose ps -a --format 'table {{.Service}}\t{{.State}}\t{{.Status}}' || true
+  printf '::notice::логи контейнеров — по SSH: docker compose -p %s logs --tail 200 <сервис> (docs/runbooks/deploy.md)\n' \
+    "${ON_BIKE_PROJECT}"
 }
 on_failure() {
   local code=$?
-  printf '::error::деплой упал (код %s); состояние и последние логи ниже\n' "${code}"
+  printf '::error::деплой упал (код %s); состояние контейнеров ниже\n' "${code}"
   show_state
   exit "${code}"
 }
@@ -112,6 +118,18 @@ health="$(curl -fsS --max-time 10 "http://127.0.0.1:${API_PORT}/v1/health")" || 
 [[ "${health}" == *'"status":"ok"'* ]] || fail_smoke "/v1/health не ok: ${health}"
 curl -fsS --max-time 15 -o /dev/null "http://127.0.0.1:${WEB_PORT}/register" || fail_smoke "web /register не отвечает"
 curl -fsS --max-time 10 -o /dev/null "http://127.0.0.1:${ADMIN_PORT}/admin/" || fail_smoke "admin /admin/ не отвечает"
+# через vhost nginx хоста — тем же путём, что браузер (по https, если сертификат есть)
+case "${tls}" in
+  https)
+    curl -fsS --max-time 10 -o /dev/null --resolve "${PUBLIC_HOST}:443:127.0.0.1" "https://${PUBLIC_HOST}/v1/health" ||
+      fail_smoke "https://${PUBLIC_HOST}/v1/health через nginx не отвечает"
+    ;;
+  http)
+    curl -fsS --max-time 10 -o /dev/null -H "Host: ${PUBLIC_HOST}" "http://127.0.0.1/v1/health" ||
+      fail_smoke "http://${PUBLIC_HOST}/v1/health через nginx не отвечает"
+    ;;
+  *) log "vhost nginx не проверяется (ON_BIKE_SKIP_NGINX)" ;;
+esac
 log "health: ${health}"
 
 trap - ERR
