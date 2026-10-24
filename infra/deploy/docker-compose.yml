@@ -72,7 +72,8 @@ services:
     restart: unless-stopped
     logging: *logging
 
-  # почта dev: письма не уходят наружу (relay/forward не настроены); UI — 127.0.0.1 хоста, снаружи — nginx
+  # почта dev: все письма — в Mailpit; наружу (relay через внешний SMTP: SES, Gmail) — только получателям по
+  # регулярке MAILPIT_RELAY_MATCHING, если bootstrap.sh включил relay (иначе пусто). UI — 127.0.0.1 хоста, снаружи — nginx
   # https://<хост>/mail/ под basic-auth самого Mailpit (письма = ссылки подтверждения), runbook «Почта»
   mailpit:
     image: axllent/mailpit:v1.31@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
@@ -82,6 +83,17 @@ services:
       MP_WEBROOT: /mail/
       # basic-auth UI и API: пользователь dev, пароль — секрет .env (bootstrap.sh, hex без ':' и пробелов)
       MP_UI_AUTH: dev:${MAILPIT_UI_PASSWORD:?}
+      # relay: SMTP, логин и пароль — в файле (не в env контейнера); auto-relay только по регулярке, не «relay all».
+      # Пустая регулярка — relay выключен (конфиг не передаётся). REV — хеш файла: его смена пересоздаёт контейнер
+      MP_SMTP_RELAY_CONFIG: ${MAILPIT_RELAY_MATCHING:+/etc/mailpit/relay.yml}
+      MP_SMTP_RELAY_MATCHING: ${MAILPIT_RELAY_MATCHING:-}
+      ONBIKE_RELAY_REV: ${MAILPIT_RELAY_REV:-}
+    volumes:
+      - type: bind
+        source: ./mailpit-relay.yml
+        target: /etc/mailpit/relay.yml
+        read_only: true
+        bind: { create_host_path: false }
     ports: ['127.0.0.1:${ON_BIKE_MAIL_UI_PORT:-8125}:8025']
     deploy: { resources: { limits: { memory: 128m } } }
     restart: unless-stopped

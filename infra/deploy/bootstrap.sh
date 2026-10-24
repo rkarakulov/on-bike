@@ -3,16 +3,21 @@
 #   1. каталог стека ${ON_BIKE_DIR} (700);
 #   2. .env (600): недостающие ключи из env.template дописываются, @secret генерируется здесь же
 #      (openssl rand) — значения не печатаются и не покидают сервер; существующие значения не меняются,
-#      кроме управляемых деплоем PUBLIC_HOST, WEB_ORIGIN, APP_LINK_BASE, ON_BIKE_TAG и MAIL_FROM, равного
-#      прежнему умолчанию шаблона (migrate_mail_from);
+#      кроме управляемых деплоем PUBLIC_HOST, WEB_ORIGIN, APP_LINK_BASE, ON_BIKE_TAG, MAIL_RELAY_MATCHING,
+#      MAILPIT_RELAY_* и MAIL_FROM, равного прежнему умолчанию шаблона (migrate_mail_from);
+#   2a. relay Mailpit → внешний SMTP (Amazon SES, Gmail): ${ON_BIKE_DIR}/mailpit-relay.yml (600) из MAIL_RELAY_*
+#      .env и MAIL_RELAY_MATCHING; без логина, пароля или регулярки — relay выключен (письма только в Mailpit);
 #   3. vhost nginx хоста /etc/nginx/sites-available/on-bike (+ ссылка в sites-enabled): nginx -t перед reload,
 #      ошибка — откат своего файла; чужие сайты не трогаются;
 #   4. сертификат Let's Encrypt (certbot --webroot /var/www/html) — только если домен ведёт на этот сервер;
 #      иначе (или certbot не смог) vhost только на :80 и предупреждение, деплой не падает.
 #      UI Mailpit /mail/ — только в https-vhost (пароль basic-auth не идёт открытым текстом).
 # Env: PUBLIC_HOST (обязательно), ON_BIKE_TAG, ON_BIKE_DIR (~/on-bike), CERTBOT_EMAIL (необязательно),
+#      MAIL_RELAY_MATCHING (регулярка получателей relay; задана, даже пустая, — пишется в .env, не задана — остаётся
+#      прежняя),
 #      ON_BIKE_{API,WEB,ADMIN,MAIL_UI}_PORT, ON_BIKE_SKIP_NGINX=1 — без шагов 3–4 (локальная проверка).
-# Пишет строку `ONBIKE_TLS=https|http` для сводки деплоя; `::warning::` — аннотации GitHub Actions.
+# Пишет строки `ONBIKE_TLS=https|http` и `ONBIKE_MAIL_RELAY=on|off` для сводки деплоя; `::warning::` — аннотации
+# GitHub Actions.
 set -euo pipefail
 umask 077
 
@@ -27,7 +32,8 @@ SITE_NAME="on-bike"
 SITE_FILE="/etc/nginx/sites-available/${SITE_NAME}"
 SITE_LINK="/etc/nginx/sites-enabled/${SITE_NAME}"
 WEBROOT="/var/www/html"
-MANAGED_KEYS="PUBLIC_HOST WEB_ORIGIN APP_LINK_BASE ON_BIKE_TAG"
+RELAY_FILE="${ON_BIKE_DIR}/mailpit-relay.yml"
+MANAGED_KEYS="PUBLIC_HOST WEB_ORIGIN APP_LINK_BASE ON_BIKE_TAG MAIL_RELAY_MATCHING MAILPIT_RELAY_MATCHING MAILPIT_RELAY_REV"
 
 log() { printf '[bootstrap] %s\n' "$*"; }
 warn() { printf '::warning::%s\n' "$*"; }
@@ -46,6 +52,15 @@ for port in "${API_PORT}" "${WEB_PORT}" "${ADMIN_PORT}" "${MAIL_PORT}"; do
   [[ "${port}" =~ ^[0-9]{2,5}$ ]] || die "порт не число: '${port}'"
 done
 
+# регулярка получателей relay (RE2 Mailpit): пусто или ≤ 512 символов с «@», без кавычек, пробелов и управляющих
+# символов — значение пишется в .env и YAML в одинарных кавычках. Та же проверка — preflight deploy-dev.yml.
+RELAY_MATCHING_BAD="[\"'\`[:space:][:cntrl:]]"
+valid_matching() {
+  [[ -z "$1" ]] || [[ ${#1} -le 512 && "$1" == *@* && ! "$1" =~ ${RELAY_MATCHING_BAD} ]]
+}
+valid_matching "${MAIL_RELAY_MATCHING:-}" ||
+  die "MAIL_RELAY_MATCHING: нужна регулярка адресов (с «@», без кавычек, пробелов и переводов строк, ≤ 512)"
+
 # ---------- 1–2. каталог и .env ----------
 
 # значение ключа из .env (без вывода); пусто — ключа нет
@@ -55,18 +70,33 @@ env_get() {
     "${ENV_FILE}"
 }
 
+# то же без одной пары внешних кавычек ('…' или "…"), как их снимает docker compose
+env_value() {
+  local value
+  value="$(env_get "$1")"
+  if [[ ${#value} -ge 2 && "${value:0:1}" == "${value: -1}" && ( "${value:0:1}" == "'" || "${value:0:1}" == '"' ) ]]; then
+    value="${value:1:${#value}-2}"
+  fi
+  printf '%s' "${value}"
+}
+
 env_has() {
   [[ -f "${ENV_FILE}" ]] && grep -q "^$1=" "${ENV_FILE}"
 }
 
-# Бренд «Покатим» (docs/product/brand.md): MAIL_FROM, равный прежнему умолчанию шаблона, меняется на текущее
-# умолчание env.template; значение, заданное руками, не трогается. Значения в лог не выводятся.
-LEGACY_MAIL_FROM="'on-bike dev <no-reply@on-bike.by>'"
+# MAIL_FROM, равный одному из прежних умолчаний шаблона (бренд «Покатим» — docs/product/brand.md; домен отправителя,
+# проверенный в SES), меняется на текущее умолчание env.template; значение, заданное руками, не трогается.
+# Значения в лог не выводятся.
+LEGACY_MAIL_FROM=("'on-bike dev <no-reply@on-bike.by>'" "'Покатим dev <no-reply@on-bike.by>'")
 migrate_mail_from() {
-  [[ "$(env_get MAIL_FROM)" == "${LEGACY_MAIL_FROM}" ]] || return 0
-  local value tmp
+  local current legacy value tmp found=""
+  current="$(env_get MAIL_FROM)"
+  for legacy in "${LEGACY_MAIL_FROM[@]}"; do
+    [[ "${current}" != "${legacy}" ]] || found=1
+  done
+  [[ -n "${found}" ]] || return 0
   value="$(awk 'index($0, "MAIL_FROM=") == 1 { sub(/^[^=]*=/, ""); print; exit }' "${TEMPLATE}")"
-  [[ -n "${value}" && "${value}" != "${LEGACY_MAIL_FROM}" ]] || return 0
+  [[ -n "${value}" && "${value}" != "${current}" ]] || return 0
   tmp="$(mktemp "${ON_BIKE_DIR}/.env.XXXXXX")"
   awk -v line="MAIL_FROM=${value}" 'index($0, "MAIL_FROM=") == 1 { print line; next } { print }' \
     "${ENV_FILE}" >"${tmp}"
@@ -100,9 +130,10 @@ ensure_env() {
   [[ -z "${added}" ]] || log "в .env добавлены ключи:${added}"
   migrate_mail_from
 
-  # управляемые деплоем ключи — всегда из параметров (смена домена, новый тег)
+  # управляемые деплоем ключи — всегда из параметров (смена домена, новый тег, регулярка relay)
   PREVIOUS_HOST="$(env_get PUBLIC_HOST)"
   local tag="${ON_BIKE_TAG:-$(env_get ON_BIKE_TAG)}"
+  configure_mail_relay
   local tmp
   tmp="$(mktemp "${ON_BIKE_DIR}/.env.XXXXXX")"
   awk -v keys="${MANAGED_KEYS}" '
@@ -114,10 +145,71 @@ ensure_env() {
     printf 'WEB_ORIGIN=https://%s\n' "${PUBLIC_HOST}"
     printf 'APP_LINK_BASE=https://%s/\n' "${PUBLIC_HOST}"
     [[ -z "${tag}" ]] || printf 'ON_BIKE_TAG=%s\n' "${tag}"
+    # одинарные кавычки — без подстановки ${…} в compose (в регулярке бывает «$»)
+    printf "MAIL_RELAY_MATCHING='%s'\n" "${RELAY_MATCHING}"
+    printf "MAILPIT_RELAY_MATCHING='%s'\n" "${RELAY_ACTIVE_MATCHING}"
+    printf 'MAILPIT_RELAY_REV=%s\n' "${RELAY_REV}"
   } >>"${tmp}"
   chmod 600 "${tmp}"
   mv -f "${tmp}" "${ENV_FILE}"
   log ".env: PUBLIC_HOST=${PUBLIC_HOST}${tag:+, ON_BIKE_TAG=${tag}} (секреты не выводятся)"
+}
+
+# ---------- 2a. relay Mailpit → внешний SMTP (Amazon SES, Gmail) ----------
+
+# строка YAML в одинарных кавычках ('' внутри)
+yaml_quote() {
+  local q="'"
+  printf "'%s'" "${1//${q}/${q}${q}}"
+}
+
+# Пишет ${RELAY_FILE} (всегда: compose монтирует файл) и задаёт RELAY_MATCHING (для .env), RELAY_ACTIVE_MATCHING
+# (регулярка, если relay включён, иначе пусто) и RELAY_REV (хеш файла: смена логина/пароля пересоздаёт mailpit).
+# Логин и пароль — только в переменных этого процесса и в файле 600: не в argv, не в лог, не в env контейнера.
+configure_mail_relay() {
+  if [[ -n "${MAIL_RELAY_MATCHING+set}" ]]; then
+    RELAY_MATCHING="${MAIL_RELAY_MATCHING}"
+  else
+    RELAY_MATCHING="$(env_value MAIL_RELAY_MATCHING)"
+    valid_matching "${RELAY_MATCHING}" || die "MAIL_RELAY_MATCHING в .env некорректна (см. проверку выше)"
+  fi
+  RELAY_ACTIVE_MATCHING=""
+  local host port username password missing="" tmp
+  host="$(env_value MAIL_RELAY_HOST)"
+  port="$(env_value MAIL_RELAY_PORT)"
+  username="$(env_value MAIL_RELAY_USERNAME)"
+  password="$(env_value MAIL_RELAY_PASSWORD)"
+  [[ -n "${RELAY_MATCHING}" ]] || missing="${missing} MAIL_RELAY_MATCHING"
+  [[ -n "${username}" ]] || missing="${missing} MAIL_RELAY_USERNAME"
+  [[ -n "${password}" ]] || missing="${missing} MAIL_RELAY_PASSWORD"
+
+  tmp="$(mktemp "${ON_BIKE_DIR}/.relay.XXXXXX")"
+  if [[ -n "${missing}" ]]; then
+    printf '# relay выключен: генерирует bootstrap.sh (нет%s в .env)\n' "${missing}" >"${tmp}"
+    log "почта: relay выключен (нет${missing}) — письма только в Mailpit"
+  else
+    [[ "${host}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] ||
+      die "MAIL_RELAY_HOST в .env не похож на имя хоста"
+    [[ "${port}" =~ ^[1-9][0-9]{0,4}$ && "${port}" -le 65535 ]] || die "MAIL_RELAY_PORT в .env не порт"
+    [[ ! "${username}${password}" =~ [[:space:][:cntrl:]] ]] ||
+      die "MAIL_RELAY_USERNAME/MAIL_RELAY_PASSWORD в .env: пробелы или управляющие символы"
+    # STARTTLS обязателен, сертификат проверяется (allow-insecure: false); allowed-recipients ограничивает и
+    # ручной «Release» из UI той же регуляркой
+    {
+      printf '# relay Mailpit: генерирует bootstrap.sh из .env (MAIL_RELAY_*) — правки руками перезапишутся\n'
+      printf 'host: %s\nport: %s\nstarttls: true\ntls: false\nallow-insecure: false\nauth: plain\n' \
+        "$(yaml_quote "${host}")" "${port}"
+      printf 'username: %s\n' "$(yaml_quote "${username}")"
+      printf 'password: %s\n' "$(yaml_quote "${password}")"
+      printf 'allowed-recipients: %s\n' "$(yaml_quote "${RELAY_MATCHING}")"
+    } >"${tmp}"
+    RELAY_ACTIVE_MATCHING="${RELAY_MATCHING}"
+    log "почта: relay включён через ${host}:${port} (STARTTLS) — получателям по MAIL_RELAY_MATCHING, копия в Mailpit"
+  fi
+  chmod 600 "${tmp}"
+  mv -f "${tmp}" "${RELAY_FILE}"
+  RELAY_REV="$(openssl dgst -sha256 -r <"${RELAY_FILE}" | cut -c1-16)"
+  echo "ONBIKE_MAIL_RELAY=$([[ -n "${RELAY_ACTIVE_MATCHING}" ]] && echo on || echo off)"
 }
 
 # ---------- 3–4. nginx и сертификат ----------

@@ -46,6 +46,8 @@ jobs:
           DEV_SSH_KNOWN_HOSTS: ${{ secrets.DEV_SSH_KNOWN_HOSTS }}
           # публичный хост стенда; смена домена — переменная DEV_PUBLIC_HOST окружения dev и повторный деплой
           DEV_PUBLIC_HOST: ${{ vars.DEV_PUBLIC_HOST }}
+          # регулярка получателей, которым письма стенда реально уходят (relay Mailpit → внешний SMTP); пусто — только Mailpit
+          DEV_MAIL_RELAY_MATCHING: ${{ vars.DEV_MAIL_RELAY_MATCHING }}
           INPUT_TAG: ${{ inputs.image_tag }}
         run: |
           set -euo pipefail
@@ -66,6 +68,14 @@ jobs:
           fi
           if ! [[ "${DEV_PUBLIC_HOST}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]]; then
             echo "::error::DEV_PUBLIC_HOST не похож на имя хоста: '${DEV_PUBLIC_HOST}'"
+            exit 1
+          fi
+          # та же проверка — bootstrap.sh (valid_matching): значение идёт в .env и YAML в одинарных кавычках
+          relay_bad="[\"'\`[:space:][:cntrl:]]"
+          if [ -n "${DEV_MAIL_RELAY_MATCHING}" ] && { [ ${#DEV_MAIL_RELAY_MATCHING} -gt 512 ] ||
+            [[ "${DEV_MAIL_RELAY_MATCHING}" != *@* || "${DEV_MAIL_RELAY_MATCHING}" =~ ${relay_bad} ]]; }; then
+            # значение в лог не выводится (адреса тестировщиков)
+            echo "::error::DEV_MAIL_RELAY_MATCHING: нужна регулярка адресов (RE2) с «@», без кавычек, пробелов и переводов строк, ≤ 512 символов"
             exit 1
           fi
           if [ "${GITHUB_REF}" != "refs/heads/develop" ]; then
@@ -219,10 +229,12 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CERTBOT_EMAIL: ${{ vars.DEV_CERTBOT_EMAIL }}
+          # проверена в preflight; пусто — relay выключен
+          MAIL_RELAY_MATCHING: ${{ vars.DEV_MAIL_RELAY_MATCHING }}
         run: |
           set -euo pipefail
-          remote_env="$(printf 'ON_BIKE_TAG=%q PUBLIC_HOST=%q GHCR_USER=%q CERTBOT_EMAIL=%q GHCR_TOKEN_STDIN=1' \
-            "${TAG}" "${DEV_PUBLIC_HOST}" "${GITHUB_ACTOR}" "${CERTBOT_EMAIL:-}")"
+          remote_env="$(printf 'ON_BIKE_TAG=%q PUBLIC_HOST=%q GHCR_USER=%q CERTBOT_EMAIL=%q MAIL_RELAY_MATCHING=%q GHCR_TOKEN_STDIN=1' \
+            "${TAG}" "${DEV_PUBLIC_HOST}" "${GITHUB_ACTOR}" "${CERTBOT_EMAIL:-}" "${MAIL_RELAY_MATCHING:-}")"
           # токен — только stdin (не аргумент и не env удалённой команды: не виден в ps и логах);
           # remote_env раскрывается здесь намеренно — значения уже экранированы %q
           # shellcheck disable=SC2029
@@ -233,6 +245,7 @@ jobs:
         run: |
           tls="$(grep -oE '^ONBIKE_TLS=[a-z]+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
           deployed="$(grep -oE '^ONBIKE_DEPLOYED=.+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
+          relay="$(grep -oE '^ONBIKE_MAIL_RELAY=[a-z]+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
           scheme="https"; [ "${tls}" = "https" ] || scheme="http"
           {
             echo "## deploy-dev"
@@ -242,6 +255,11 @@ jobs:
             echo "- Сайт: ${scheme}://${DEV_PUBLIC_HOST}/ · админка: ${scheme}://${DEV_PUBLIC_HOST}/admin/ · API: ${scheme}://${DEV_PUBLIC_HOST}/v1/health"
             if [ "${tls:-}" = "https" ]; then
               echo "- Письма (Mailpit): https://${DEV_PUBLIC_HOST}/mail/ — логин \`dev\`, пароль на сервере (runbook «Почта»)"
+            fi
+            if [ "${relay:-}" = "on" ]; then
+              echo "- Почта наружу: relay включён (SMTP из .env сервера) — только адресам из \`DEV_MAIL_RELAY_MATCHING\`, копия в Mailpit"
+            elif [ "${relay:-}" = "off" ]; then
+              echo "- Почта наружу: relay выключен — письма только в Mailpit (runbook «Почта»)"
             fi
             if [ "${tls:-}" = "http" ]; then
               echo "- **Внимание:** сертификата нет — сайт только по http, web-сессия (cookie \`__Secure-\`) не работает. Причина — в логе шага «Деплой» (runbook «TLS»)."
