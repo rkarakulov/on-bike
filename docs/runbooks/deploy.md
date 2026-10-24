@@ -23,6 +23,7 @@ push develop ─► deploy-dev.yml
   nginx хоста :80/:443 ─ /etc/nginx/sites-available/on-bike (server_name = <хост>)
      /v1/*     → 127.0.0.1:3100  api      (NestJS)
      /admin/*  → 127.0.0.1:8181  admin    (статика, nginx без root)
+     /mail/*   → 127.0.0.1:8125  mailpit  (UI писем, basic-auth; только при https)
      /         → 127.0.0.1:8180  web      (SSR, expo-server)
   compose project on-bike-dev (~/on-bike/docker-compose.yml, .env):
      worker, postgres (PostGIS), redis — без портов хоста; mailpit — UI 127.0.0.1:8125, SMTP только внутри
@@ -30,7 +31,8 @@ push develop ─► deploy-dev.yml
 
 `deploy.sh` на каждом деплое: `bootstrap.sh` (каталог, `.env`, vhost, сертификат) → pull → postgres/redis/mailpit →
 **миграции одноразовым контейнером** (`compose run --rm migrate`) → api/worker/web/admin с ожиданием healthcheck →
-smoke (`/v1/health` = ok, `/register`, `/admin/`, `/v1/health` через vhost nginx) → прочистка образов on-bike без
+smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 401 и с паролем 200, `/v1/health` и `/mail/`
+через vhost nginx) → прочистка образов on-bike без
 контейнеров (по label `by.on-bike.project=on-bike`, чужие образы не трогаются).
 
 Свои порты хоста — 3100, 8180, 8181, 8125, только `127.0.0.1`; выбраны свободными. Менять — после `sudo ss -ltnp` на
@@ -108,8 +110,9 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/v1/health` через vhost 
 
 `~/on-bike/.env` (600) создаёт `bootstrap.sh` по `infra/deploy/env.template`:
 
-- `POSTGRES_PASSWORD`, `JWT_SECRET`, `EMAIL_TOKEN_SECRET` — генерируются на сервере (`openssl rand -hex 32`) при первом
-  деплое; в лог, git и GitHub не попадают; повторные деплои их не меняют.
+- `POSTGRES_PASSWORD`, `JWT_SECRET`, `EMAIL_TOKEN_SECRET`, `MAILPIT_UI_PASSWORD` — генерируются на сервере
+  (`openssl rand -hex 32`) при первом деплое (новый ключ — при первом деплое после его появления в шаблоне); в лог,
+  git и GitHub не попадают; повторные деплои их не меняют.
 - Недостающие ключи шаблона дописываются, существующие значения не трогаются (правка руками сохраняется).
 - `PUBLIC_HOST`, `WEB_ORIGIN` (`https://<хост>`), `APP_LINK_BASE` (`https://<хост>/`), `ON_BIKE_TAG` — **всегда** из
   деплоя (переменная окружения `dev` и тег).
@@ -133,6 +136,8 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/v1/health` через vhost 
   `default_server`) должен быть не `on-bike`. Если всё же он — согласовать с владельцами сервера явный
   `default_server` у их сайта; переименовывать свой файл «в конец алфавита» — крайняя мера (имя меняет и откат).
 - Dev-стенд отдаёт `X-Robots-Tag: noindex, nofollow` — поисковики его не индексируют.
+- `/mail/` (UI Mailpit) — только в https-блоке, с WebSocket (`map $http_upgrade $onbike_mail_connection` — своё имя
+  переменной: `map` общий для всех сайтов сервера). Без сертификата `/mail/` → 404.
 
 ## TLS
 
@@ -174,13 +179,38 @@ dc run --rm migrate                          # повторить миграци
 curl -s http://127.0.0.1:3100/v1/health      # version = развёрнутый тег
 ```
 
-Почта (Mailpit) и прямой доступ к сервисам — SSH-туннель, наружу порты не открыты:
-
-```bash
-ssh -N -L 8125:127.0.0.1:8125 ubuntu@<сервер>   # письма: http://127.0.0.1:8125
-```
-
 PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U on_bike on_bike`, `dc exec redis redis-cli`.
+
+## Почта
+
+Письма стенда (подтверждение e-mail и др.) ловит Mailpit: **наружу они не уходят** — relay и forward не настроены,
+выпуск письма («Release») из UI недоступен.
+
+- **Открыть:** `https://<хост>/mail/`, логин `dev` (basic-auth самого Mailpit; без пароля — 401). Ссылка — и в Summary
+  прогона `deploy-dev`. Только по https: пока сертификата нет, `/mail/` → 404 (пароль не идёт открытым текстом).
+- **Пароль** — `MAILPIT_UI_PASSWORD` в `.env` сервера (генерирует деплой, в git/GitHub/лог не попадает):
+
+  ```bash
+  ssh ubuntu@<сервер> 'grep ^MAILPIT_UI_PASSWORD= ~/on-bike/.env'
+  ```
+
+  Передавать тестировщикам — личным сообщением, не в общие каналы и не в issue/PR (репозиторий публичный).
+- **Сменить** (утёк, ушёл тестировщик) — удалить ключ и передеплоить (ручной запуск `deploy-dev` с текущим
+  `image_tag` или push в `develop`): деплой сгенерирует новый и пересоздаст контейнер mailpit.
+
+  ```bash
+  ssh ubuntu@<сервер> "sed -i '/^MAILPIT_UI_PASSWORD=/d' ~/on-bike/.env"
+  ```
+
+  Свой пароль — вписать `MAILPIT_UI_PASSWORD=<значение>` в `.env` (только `[A-Za-z0-9]`: значение уходит в
+  `MP_UI_AUTH` как `dev:<пароль>` и в конфиг curl smoke) и передеплоить.
+- **Доступ к письмам = доступ к чужим аккаунтам стенда** (ссылки подтверждения): пароль обязателен, UI не открывать
+  без него.
+- **Запасной путь** (нет https, проверка без nginx) — SSH-туннель к порту хоста, тот же логин и пароль:
+
+  ```bash
+  ssh -N -L 8125:127.0.0.1:8125 ubuntu@<сервер>   # письма: http://127.0.0.1:8125/mail/
+  ```
 
 ## Откат
 
@@ -204,7 +234,8 @@ GHCR → Packages → `on-bike-api`). CI и сборка пропускаютс�
 - Summary прогона: «Статус: success», адреса.
 - `https://<хост>/v1/health` → `{"status":"ok","version":"sha-…"}`.
 - `/register` — форма регистрации (SSR), `/admin/` — панель «Протокол» со статусом API.
-- Регистрация → письмо в Mailpit (туннель) → ссылка `https://<хост>/auth/verify/…`.
+- `https://<хост>/mail/` без пароля → 401; с логином `dev` — UI Mailpit.
+- Регистрация → письмо в Mailpit (`https://<хост>/mail/`) → ссылка `https://<хост>/auth/verify/…`.
 
 ## Убрать стенд
 
