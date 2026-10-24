@@ -1,0 +1,170 @@
+# Dev-сервер (общий EC2): стек on-bike из образов GHCR, docs/runbooks/deploy.md.
+# Кладётся деплоем в ${ON_BIKE_DIR:-~/on-bike}/docker-compose.yml; переменные — из .env рядом (bootstrap.sh,
+# секреты генерируются на сервере). Запуск — deploy.sh: compose project on-bike-dev, --env-file .env.
+# Наружу ничего: PostgreSQL, Redis, SMTP — только сеть проекта; api/web/admin и UI Mailpit — 127.0.0.1
+# (перед ними nginx хоста). Сервер общий: порты хоста выбраны свободными, перед сменой — `ss -ltnp`.
+# общий диск: ротация логов каждого контейнера (на сервере нет log-opts в daemon.json)
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 10m, max-file: '3' }
+
+x-api-env: &api-env
+  NODE_ENV: production
+  PORT: '3000'
+  # тег образа — в ответе /v1/health (version)
+  APP_VERSION: ${ON_BIKE_TAG:?}
+  DATABASE_URL: postgres://on_bike:${POSTGRES_PASSWORD:?}@postgres:5432/on_bike
+  REDIS_URL: redis://redis:6379
+  # один прокси перед API — nginx хоста: берётся адрес клиента, который он записал в X-Forwarded-For
+  TRUST_PROXY: ${TRUST_PROXY:-1}
+  JWT_SECRET: ${JWT_SECRET:?}
+  EMAIL_TOKEN_SECRET: ${EMAIL_TOKEN_SECRET:?}
+  SMTP_URL: smtp://mailpit:1025
+  MAIL_FROM: ${MAIL_FROM:?}
+  APP_LINK_BASE: ${APP_LINK_BASE:?}
+  AGREEMENT_VERSION: ${AGREEMENT_VERSION:?}
+  # web и API — один origin за прокси: CORS выключен
+  CORS_ORIGINS: ''
+
+x-api-image: &api-image ${ON_BIKE_IMAGE_PREFIX:-ghcr.io/rkarakulov/on-bike}-api:${ON_BIKE_TAG:?}
+
+services:
+  postgres:
+    image: postgis/postgis:18-3.6@sha256:e84455a058f60f06dd8c40e66a2c628b8fc113d9fca0896e1f308b25b897207f
+    environment:
+      POSTGRES_USER: on_bike
+      POSTGRES_DB: on_bike
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes: [pgdata:/var/lib/postgresql]
+    healthcheck:
+      # по TCP: при первом запуске initdb поднимает временный сервер только на unix-сокете и перезапускается —
+      # проверка через сокет «здорова» раньше времени, и миграции попадают в перезапуск
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U on_bike -d on_bike']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    deploy: { resources: { limits: { memory: 512m } } }
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:8.8@sha256:418e397fd48d66e450af13baab123397f2d2580b07ef310c3a5dbe96c3d731f1
+    # очереди BullMQ: noeviction (ключи задач не вытесняются), maxmemory ниже лимита контейнера — при заполнении
+    # запись получает ошибку OOM от Redis, а не kill контейнера (запас — на fork перезаписи AOF)
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory',
+        '192mb',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    deploy: { resources: { limits: { memory: 320m } } }
+    restart: unless-stopped
+    logging: *logging
+
+  # почта dev: письма не уходят наружу; UI — только 127.0.0.1 хоста (SSH-туннель, runbook)
+  mailpit:
+    image: axllent/mailpit:v1.31@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
+    environment:
+      MP_MAX_MESSAGES: '500'
+    ports: ['127.0.0.1:${ON_BIKE_MAIL_UI_PORT:-8125}:8025']
+    deploy: { resources: { limits: { memory: 128m } } }
+    restart: unless-stopped
+    logging: *logging
+
+  # миграции — отдельный одноразовый шаг деплоя (AGENTS.md §4.6): docker compose run --rm migrate
+  migrate:
+    image: *api-image
+    profiles: [migrate]
+    command: ['node', '../../node_modules/drizzle-kit/bin.cjs', 'migrate']
+    environment:
+      DATABASE_URL: postgres://on_bike:${POSTGRES_PASSWORD:?}@postgres:5432/on_bike
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+    logging: *logging
+
+  api:
+    image: *api-image
+    command: ['node', 'dist/main.js']
+    environment: *api-env
+    ports: ['127.0.0.1:${ON_BIKE_API_PORT:-3100}:3000']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/v1/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    deploy: { resources: { limits: { memory: 512m } } }
+    restart: unless-stopped
+    logging: *logging
+
+  worker:
+    image: *api-image
+    command: ['node', 'dist/worker.js']
+    environment: *api-env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 512m } } }
+    restart: unless-stopped
+    logging: *logging
+
+  # web/PWA с SSR (ADR-0003): / сайта
+  web:
+    image: ${ON_BIKE_IMAGE_PREFIX:-ghcr.io/rkarakulov/on-bike}-web:${ON_BIKE_TAG:?}
+    environment:
+      HOST: 0.0.0.0
+      PORT: '8080'
+      EXPO_PUBLIC_API_URL: ${WEB_ORIGIN:?}
+      API_INTERNAL_URL: http://api:3000
+      WEB_ORIGIN: ${WEB_ORIGIN:?}
+    ports: ['127.0.0.1:${ON_BIKE_WEB_PORT:-8180}:8080']
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/register').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    deploy: { resources: { limits: { memory: 512m } } }
+    restart: unless-stopped
+    logging: *logging
+
+  # панель «Протокол»: статика под /admin/
+  admin:
+    image: ${ON_BIKE_IMAGE_PREFIX:-ghcr.io/rkarakulov/on-bike}-admin:${ON_BIKE_TAG:?}
+    ports: ['127.0.0.1:${ON_BIKE_ADMIN_PORT:-8181}:8080']
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/admin/']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    deploy: { resources: { limits: { memory: 64m } } }
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  pgdata:
+  redisdata:

@@ -1,0 +1,247 @@
+name: deploy-dev
+
+# Dev-стенд on-bike на общем EC2 (docs/runbooks/deploy.md): push в develop → CI (ci.yml как reusable) →
+# образы api/web/admin в GHCR → деплой по SSH (infra/deploy/deploy.sh). dev = develop; prod = main — отдельный
+# workflow позже. Ручной запуск (Actions → deploy-dev → Run workflow) виден в UI, только когда этот файл есть на
+# default-ветке; image_tag — откат/повтор на уже собранный тег без CI и сборки.
+# Секреты DEV_SSH_* и переменная DEV_PUBLIC_HOST — в GitHub Environment `dev` (Deployment branches: develop):
+# их получают только джобы с `environment: dev` на ветке develop (runbook «Первичная настройка»).
+# Сторонние actions закреплены по SHA (тег — в комментарии).
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Существующий тег образов (sha-xxxxxxx) для отката; пусто — CI, сборка и деплой ветки develop'
+        required: false
+        default: ''
+
+# деплои на сервер — строго по одному, без отмены начатого
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_PREFIX: ghcr.io/rkarakulov/on-bike
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    # секреты и переменные окружения dev — только для ветки develop (правило Environment)
+    environment: dev
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      build: ${{ steps.meta.outputs.build }}
+      host: ${{ steps.meta.outputs.host }}
+    steps:
+      - name: Секреты и параметры деплоя
+        id: meta
+        env:
+          DEV_SSH_HOST: ${{ secrets.DEV_SSH_HOST }}
+          DEV_SSH_KEY: ${{ secrets.DEV_SSH_KEY }}
+          DEV_SSH_KNOWN_HOSTS: ${{ secrets.DEV_SSH_KNOWN_HOSTS }}
+          # публичный хост стенда; смена домена — переменная DEV_PUBLIC_HOST окружения dev и повторный деплой
+          DEV_PUBLIC_HOST: ${{ vars.DEV_PUBLIC_HOST }}
+          INPUT_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -n "${DEV_SSH_HOST:-}" ] || missing+=("секрет DEV_SSH_HOST")
+          [ -n "${DEV_SSH_KEY:-}" ] || missing+=("секрет DEV_SSH_KEY")
+          [ -n "${DEV_SSH_KNOWN_HOSTS:-}" ] || missing+=("секрет DEV_SSH_KNOWN_HOSTS")
+          [ -n "${DEV_PUBLIC_HOST:-}" ] || missing+=("переменная DEV_PUBLIC_HOST")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Окружение dev не настроено: ${missing[*]}"
+            echo "Settings → Environments → dev; команды — docs/runbooks/deploy.md («Первичная настройка»):"
+            echo "  gh secret set DEV_SSH_HOST --env dev --body '<хост сервера>'"
+            echo "  gh secret set DEV_SSH_KEY --env dev < ~/.ssh/on-bike-deploy"
+            echo "  ssh-keyscan -t ed25519 <хост сервера> > known_hosts   # сверить отпечаток с сервером"
+            echo "  gh secret set DEV_SSH_KNOWN_HOSTS --env dev < known_hosts"
+            echo "  gh variable set DEV_PUBLIC_HOST --env dev --body '<публичный хост стенда>'"
+            exit 1
+          fi
+          if ! [[ "${DEV_PUBLIC_HOST}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]]; then
+            echo "::error::DEV_PUBLIC_HOST не похож на имя хоста: '${DEV_PUBLIC_HOST}'"
+            exit 1
+          fi
+          if [ "${GITHUB_REF}" != "refs/heads/develop" ]; then
+            echo "::error::dev-стенд деплоится только из develop (запуск из ${GITHUB_REF})"
+            exit 1
+          fi
+          if [ -n "${INPUT_TAG}" ]; then
+            if ! [[ "${INPUT_TAG}" =~ ^sha-[0-9a-f]{7,40}$|^develop$ ]]; then
+              echo "::error::image_tag: ожидается sha-<коммит> или develop, получено '${INPUT_TAG}'"
+              exit 1
+            fi
+            echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "host=${DEV_PUBLIC_HOST}" >> "$GITHUB_OUTPUT"
+
+  # те же проверки, что на PR и push (format, lint, arch, typecheck, test, сборка, web-смоук)
+  ci:
+    needs: preflight
+    if: needs.preflight.outputs.build == 'true'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: read
+
+  build:
+    needs: [preflight, ci]
+    if: needs.preflight.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # публикация образов в GHCR. @rkarakulov/* читаются тем же GITHUB_TOKEN (build secret): токена «только
+      # read» в джобе с push нет — принятый риск, task.md §8.3.5
+      packages: write
+    env:
+      TAG: ${{ needs.preflight.outputs.tag }}
+      # у build нет environment (нужен только GITHUB_TOKEN) — хост приходит выходом preflight
+      DEV_PUBLIC_HOST: ${{ needs.preflight.outputs.host }}
+    steps:
+      # GitHub отбрасывает выход джоба, похожий на секрет (например, DEV_PUBLIC_HOST = DEV_SSH_HOST)
+      - name: Хост стенда
+        run: |
+          [ -n "${DEV_PUBLIC_HOST}" ] || {
+            echo "::error::нет выхода preflight.host — DEV_PUBLIC_HOST не должен совпадать с секретом (runbook)"
+            exit 1
+          }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: api (api, worker, миграции)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: infra/docker/Dockerfile
+          target: api
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}-api:${{ env.TAG }},${{ env.IMAGE_PREFIX }}-api:develop
+          secrets: NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          cache-from: type=gha,scope=on-bike-api
+          cache-to: type=gha,mode=max,scope=on-bike-api
+      - name: web (SSR)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: infra/docker/Dockerfile
+          target: web
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}-web:${{ env.TAG }},${{ env.IMAGE_PREFIX }}-web:develop
+          # публичный адрес API вшивается в клиентский бандл: образ web привязан к DEV_PUBLIC_HOST
+          build-args: EXPO_PUBLIC_API_URL=https://${{ env.DEV_PUBLIC_HOST }}
+          secrets: NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          cache-from: type=gha,scope=on-bike-web
+          cache-to: type=gha,mode=max,scope=on-bike-web
+      - name: admin (статика /admin/)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: infra/docker/Dockerfile
+          target: admin
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}-admin:${{ env.TAG }},${{ env.IMAGE_PREFIX }}-admin:develop
+          secrets: NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          cache-from: type=gha,scope=on-bike-admin
+          cache-to: type=gha,mode=max,scope=on-bike-admin
+
+  deploy:
+    needs: [preflight, ci, build]
+    # сборка обязательна, если она была нужна; откат (image_tag) идёт без CI и сборки
+    # !cancelled(): Cancel прогона останавливает и деплой
+    if: >-
+      !cancelled() && needs.preflight.result == 'success' &&
+      (needs.build.result == 'success' ||
+       (needs.preflight.outputs.build == 'false' && needs.build.result == 'skipped'))
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      # короткоживущий GITHUB_TOKEN джоба — серверу на pull образов; на сервере не сохраняется
+      packages: read
+    env:
+      TAG: ${{ needs.preflight.outputs.tag }}
+      DEV_PUBLIC_HOST: ${{ vars.DEV_PUBLIC_HOST }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: SSH
+        env:
+          DEV_SSH_HOST: ${{ secrets.DEV_SSH_HOST }}
+          DEV_SSH_KEY: ${{ secrets.DEV_SSH_KEY }}
+          DEV_SSH_KNOWN_HOSTS: ${{ secrets.DEV_SSH_KNOWN_HOSTS }}
+          DEV_SSH_USER: ${{ vars.DEV_SSH_USER || 'ubuntu' }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${DEV_SSH_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # ключ хоста — только закреплённый секретом DEV_SSH_KNOWN_HOSTS (обязателен, проверен в preflight)
+          printf '%s\n' "${DEV_SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host dev
+            HostName ${DEV_SSH_HOST}
+            User ${DEV_SSH_USER}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            BatchMode yes
+            ConnectTimeout 20
+            ServerAliveInterval 30
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Файлы стека на сервер
+        run: |
+          set -euo pipefail
+          ssh dev 'mkdir -p -m 700 on-bike'
+          scp -q infra/deploy/deploy.sh infra/deploy/bootstrap.sh infra/deploy/docker-compose.yml \
+            infra/deploy/env.template dev:on-bike/
+
+      - name: Деплой ${{ env.TAG }}
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CERTBOT_EMAIL: ${{ vars.DEV_CERTBOT_EMAIL }}
+        run: |
+          set -euo pipefail
+          remote_env="$(printf 'ON_BIKE_TAG=%q PUBLIC_HOST=%q GHCR_USER=%q CERTBOT_EMAIL=%q GHCR_TOKEN_STDIN=1' \
+            "${TAG}" "${DEV_PUBLIC_HOST}" "${GITHUB_ACTOR}" "${CERTBOT_EMAIL:-}")"
+          # токен — только stdin (не аргумент и не env удалённой команды: не виден в ps и логах);
+          # remote_env раскрывается здесь намеренно — значения уже экранированы %q
+          # shellcheck disable=SC2029
+          printf '%s\n' "${GHCR_TOKEN}" | ssh dev "${remote_env} bash on-bike/deploy.sh" 2>&1 | tee deploy.log
+
+      - name: Сводка
+        if: always()
+        run: |
+          tls="$(grep -oE '^ONBIKE_TLS=[a-z]+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
+          deployed="$(grep -oE '^ONBIKE_DEPLOYED=.+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
+          scheme="https"; [ "${tls}" = "https" ] || scheme="http"
+          {
+            echo "## deploy-dev"
+            echo "- Статус: ${{ job.status }}"
+            echo "- Запуск: ${{ github.event_name }} (${{ github.actor }}), коммит \`${GITHUB_SHA::7}\`"
+            echo "- Тег образов: \`${TAG}\`${deployed:+ (развёрнут)}"
+            echo "- Сайт: ${scheme}://${DEV_PUBLIC_HOST}/ · админка: ${scheme}://${DEV_PUBLIC_HOST}/admin/ · API: ${scheme}://${DEV_PUBLIC_HOST}/v1/health"
+            if [ "${tls:-}" = "http" ]; then
+              echo "- **Внимание:** сертификата нет — сайт только по http, web-сессия (cookie \`__Secure-\`) не работает. Причина — в логе шага «Деплой» (runbook «TLS»)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          rm -f ~/.ssh/deploy_key

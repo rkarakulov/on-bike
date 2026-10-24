@@ -4,9 +4,13 @@ on:
   pull_request:
   push:
     branches: [main]
+  # push в develop проверяется здесь же, но первым шагом деплоя (deploy-dev.yml вызывает этот workflow; вызывающий
+  # даёт contents/packages/pull-requests: read); PR в develop — событием pull_request
+  workflow_call:
 
+# github.workflow в вызванном workflow — имя вызывающего: прогон из деплоя не отменяет обычный CI той же ветки
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 # пакеты @rkarakulov/* читаются из GitHub Packages токеном GITHUB_TOKEN: доступ репозитория открывается
