@@ -1,6 +1,6 @@
 import type { Theme as BaseTheme, ThemeOf } from '@rkarakulov/design-tokens';
 
-import type { OnBikeRoleGroups, themes } from './brand.ts';
+import type { PokatimRoleGroups, themes } from './brand.ts';
 
 /**
  * Дизайн-система проекта поверх базы `@rkarakulov/design-tokens`: бренд (`brand.ts`) + структурные токены
@@ -26,11 +26,11 @@ export {
   type TextStyleName,
   type TextStyleToken,
 } from '@rkarakulov/design-tokens';
-export { font, fontStack, themes, type OnBikeRoleGroups, type ThemeName } from './brand.ts';
+export { font, fontStack, themes, type PokatimRoleGroups, type ThemeName } from './brand.ts';
 export { contrastPairs, contrastRatio, WCAG, type ContrastPair } from './contrast.ts';
 export { designSystemCss, skeletonCss, typographyCss, type DesignSystemCssOptions } from './css.ts';
 
 /** Тема проекта для `useTheme<AppTheme>()`: роли базы (+ свои группы ролей бренда). */
 export type AppTheme = ThemeOf<typeof themes>;
-/** Любая тема набора (у `panel` есть навигация); группы ролей on-bike — `map`, `surfaceBar`. */
-export type Theme = BaseTheme<OnBikeRoleGroups>;
+/** Любая тема набора (у `panel` есть навигация); группы ролей pokatim — `map`, `surfaceBar`. */
+export type Theme = BaseTheme<PokatimRoleGroups>;

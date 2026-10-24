@@ -1,4 +1,4 @@
-import { ApiError, RegisterResponse, VerificationLinkInfo } from '@on-bike/contracts';
+import { ApiError, RegisterResponse, VerificationLinkInfo } from '@pokatim/contracts';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 

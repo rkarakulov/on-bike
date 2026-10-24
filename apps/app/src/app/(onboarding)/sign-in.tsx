@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { SignInRequest } from '@on-bike/contracts';
-import { t } from '@on-bike/i18n';
+import { SignInRequest } from '@pokatim/contracts';
+import { t } from '@pokatim/i18n';
 import { Banner, Button, TextAction, TextField } from '@rkarakulov/ui';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { GenerateMetadataFunction } from 'expo-router/server';

@@ -1,7 +1,7 @@
 import { env, type Env } from '../src/config/env';
 
 // пользователь и пароль = имя dev-БД (infra/docker-compose.dev.yml); тестовая база — `<имя>_test`
-const DB = 'on_bike';
+const DB = 'pokatim';
 
 // тестовые адреса задаются только переменными *_TEST — dev-базу тесты не трогают
 export const DATABASE_URL_TEST =
@@ -18,8 +18,8 @@ export function testEnv(overrides: Partial<Record<keyof Env, string>> = {}): Env
     SMTP_URL: 'smtp://127.0.0.1:1025',
     JWT_SECRET: 'test-jwt-secret-test-jwt-secret-0000',
     EMAIL_TOKEN_SECRET: 'test-email-secret-test-email-secret-0',
-    MAIL_FROM: 'on-bike <no-reply@on-bike.test>',
-    APP_LINK_BASE: 'onbike://',
+    MAIL_FROM: 'pokatim <no-reply@pokatim.test>',
+    APP_LINK_BASE: 'pokatim://',
     AGREEMENT_VERSION: 'test-agreement',
     TRUST_PROXY: '0',
     ...overrides,

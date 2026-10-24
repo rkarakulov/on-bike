@@ -1,5 +1,5 @@
 {
-  "name": "@on-bike/admin",
+  "name": "@pokatim/admin",
   "version": "0.0.0",
   "private": true,
   "description": "Веб-панель организаторов и модерации (стиль «Протокол», только светлая тема)",
@@ -12,9 +12,9 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@on-bike/api-client": "workspace:*",
-    "@on-bike/design-tokens": "workspace:*",
-    "@on-bike/i18n": "workspace:*",
+    "@pokatim/api-client": "workspace:*",
+    "@pokatim/design-tokens": "workspace:*",
+    "@pokatim/i18n": "workspace:*",
     "@fontsource/inter": "catalog:",
     "@fontsource/playfair-display": "catalog:",
     "@tanstack/react-query": "catalog:",

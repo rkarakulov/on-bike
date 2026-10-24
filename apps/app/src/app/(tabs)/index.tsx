@@ -1,4 +1,4 @@
-import { t } from '@on-bike/i18n';
+import { t } from '@pokatim/i18n';
 import { TextAction } from '@rkarakulov/ui';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';

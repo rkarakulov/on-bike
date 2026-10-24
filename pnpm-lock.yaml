@@ -190,13 +190,13 @@ importers:
       '@fontsource/playfair-display':
         specifier: 'catalog:'
         version: 5.3.0
-      '@on-bike/api-client':
+      '@pokatim/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@on-bike/design-tokens':
+      '@pokatim/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
-      '@on-bike/i18n':
+      '@pokatim/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
       '@tanstack/react-query':
@@ -260,10 +260,10 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.2.2
         version: 2.2.2
-      '@on-bike/contracts':
+      '@pokatim/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@on-bike/tracks':
+      '@pokatim/tracks':
         specifier: workspace:*
         version: link:../../packages/tracks
       '@rkarakulov/api-kit':
@@ -348,16 +348,16 @@ importers:
       '@hookform/resolvers':
         specifier: ^6.0.0
         version: 6.0.0(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.90.0(@types/react@19.3.0)(react@19.3.0))(zod@4.6.7)
-      '@on-bike/api-client':
+      '@pokatim/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@on-bike/contracts':
+      '@pokatim/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@on-bike/design-tokens':
+      '@pokatim/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
-      '@on-bike/i18n':
+      '@pokatim/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
       '@react-native-community/datetimepicker':
@@ -499,7 +499,7 @@ importers:
 
   packages/api-client:
     dependencies:
-      '@on-bike/contracts':
+      '@pokatim/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@rkarakulov/api-client-core':

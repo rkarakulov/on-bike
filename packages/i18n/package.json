@@ -1,12 +1,12 @@
 {
-  "name": "@on-bike/i18n",
+  "name": "@pokatim/i18n",
   "version": "0.0.0",
   "private": true,
   "description": "Строки интерфейса (ru, формальное «вы») поверх словаря базы",
   "type": "module",
   "exports": {
     ".": {
-      "@on-bike/source": "./src/index.ts",
+      "@pokatim/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }

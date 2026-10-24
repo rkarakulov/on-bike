@@ -1,10 +1,10 @@
 /// <reference types="jest" />
-import { createApiClient } from '@on-bike/api-client';
+import { createApiClient } from '@pokatim/api-client';
 
 import { apiPlatformOptions } from './api-platform';
 import './api';
 
-jest.mock('@on-bike/api-client', () => ({ createApiClient: jest.fn(() => ({})) }));
+jest.mock('@pokatim/api-client', () => ({ createApiClient: jest.fn(() => ({})) }));
 
 describe('клиент API (web)', () => {
   it('refresh — в httpOnly cookie: credentials include, транспорт сессии cookie', () => {

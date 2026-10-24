@@ -1,13 +1,13 @@
 /// <reference types="jest" />
-import type * as ApiClient from '@on-bike/api-client';
-import type { Session } from '@on-bike/contracts';
+import type * as ApiClient from '@pokatim/api-client';
+import type { Session } from '@pokatim/contracts';
 
 import { revalidateSession } from './session-persistence';
 
 // настоящий клиент API (разбор ответа, классификация ошибок), подменён только fetch
 const mockFetch = jest.fn();
 jest.mock('@/lib/api', () => {
-  const { createApiClient } = jest.requireActual<typeof ApiClient>('@on-bike/api-client');
+  const { createApiClient } = jest.requireActual<typeof ApiClient>('@pokatim/api-client');
   return {
     api: createApiClient({
       baseUrl: 'https://api.test',
@@ -39,7 +39,7 @@ const okBody = (body: unknown) => new Response(JSON.stringify(body), { status: 2
 
 beforeEach(() => {
   mockFetch.mockReset();
-  stored().set('onbike.session', JSON.stringify(session));
+  stored().set('pokatim.session', JSON.stringify(session));
 });
 
 describe('native revalidateSession — ответ не получен целиком', () => {
@@ -54,7 +54,7 @@ describe('native revalidateSession — ответ не получен целик
         refreshToken: session.refreshToken,
       });
     }
-    expect(JSON.parse(stored().get('onbike.session') ?? '')).toEqual(rotated);
+    expect(JSON.parse(stored().get('pokatim.session') ?? '')).toEqual(rotated);
   });
 
   it('обрыв и при повторе — остаёмся в аккаунте, сохранённая сессия не тронута', async () => {
@@ -63,7 +63,7 @@ describe('native revalidateSession — ответ не получен целик
     await expect(revalidateSession(NOW)).resolves.toEqual({ status: 'unchanged' });
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(stored().get('onbike.session') ?? '')).toEqual(session);
+    expect(JSON.parse(stored().get('pokatim.session') ?? '')).toEqual(session);
   });
 
   it('ответ сервера с ошибкой (401) — без повтора, выход', async () => {
@@ -74,7 +74,7 @@ describe('native revalidateSession — ответ не получен целик
     await expect(revalidateSession(NOW)).resolves.toEqual({ status: 'signedOut' });
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(stored().has('onbike.session')).toBe(false);
+    expect(stored().has('pokatim.session')).toBe(false);
   });
 
   it('ответ 5xx — без повтора, остаёмся', async () => {

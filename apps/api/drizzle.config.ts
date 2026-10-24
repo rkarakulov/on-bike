@@ -1,7 +1,7 @@
 import { defineConfig } from 'drizzle-kit';
 
 // имя, пользователь и пароль dev-БД (infra/docker-compose.dev.yml)
-const DB = 'on_bike';
+const DB = 'pokatim';
 
 export default defineConfig({
   dialect: 'postgresql',

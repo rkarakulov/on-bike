@@ -4,7 +4,7 @@ import { testEnv } from '../../test/test-env';
 
 describe('env', () => {
   it('APP_LINK_BASE: схема приложения или Expo Go, всегда с завершающим слешем', () => {
-    expect(testEnv({ APP_LINK_BASE: 'onbike://' }).APP_LINK_BASE).toBe('onbike://');
+    expect(testEnv({ APP_LINK_BASE: 'pokatim://' }).APP_LINK_BASE).toBe('pokatim://');
     expect(testEnv({ APP_LINK_BASE: 'exp://127.0.0.1:8081/--/' }).APP_LINK_BASE).toBe(
       'exp://127.0.0.1:8081/--/',
     );

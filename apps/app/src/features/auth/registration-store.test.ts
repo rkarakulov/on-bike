@@ -20,7 +20,7 @@ describe('ожидающая регистрация', () => {
       resendAvailableAt: now + 60_000,
       expiresAt: now + 24 * HOUR,
     });
-    expect(JSON.parse(stored().get('onbike.registration') ?? '')).toEqual(pending);
+    expect(JSON.parse(stored().get('pokatim.registration') ?? '')).toEqual(pending);
   });
 
   it('переживает перезапуск, пока жив токен (24 ч), и просит открыть «Подтвердите e-mail»', async () => {
@@ -41,7 +41,7 @@ describe('ожидающая регистрация', () => {
 
     await useRegistrationStore.getState().hydrate(now + 24 * HOUR + 1);
     expect(useRegistrationStore.getState()).toMatchObject({ pending: null, resumeOnLaunch: false });
-    expect(stored().has('onbike.registration')).toBe(false);
+    expect(stored().has('pokatim.registration')).toBe(false);
   });
 
   it('повтор письма сдвигает паузу и продлевает срок (TTL скользящий, task.md §8.1)', async () => {
@@ -69,7 +69,7 @@ describe('ожидающая регистрация', () => {
     await useRegistrationStore.getState().clear();
 
     expect(useRegistrationStore.getState().pending).toBeNull();
-    expect(stored().has('onbike.registration')).toBe(false);
+    expect(stored().has('pokatim.registration')).toBe(false);
     expect(useRegistrationStore.getState().draft).toEqual({
       email: EMAIL,
       birthDate: '1991-03-14',

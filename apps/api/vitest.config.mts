@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [swc.vite({ module: { type: 'es6' } })],
   // своё условие + стандартные серверные условия Vite (иначе они затираются)
   ssr: {
-    resolve: { conditions: ['@on-bike/source', 'module', 'node', 'development|production'] },
+    resolve: { conditions: ['@pokatim/source', 'module', 'node', 'development|production'] },
   },
   test: {
     projects: [
@@ -19,7 +19,7 @@ export default defineConfig({
         },
       },
       {
-        // реальные PostgreSQL (on_bike_test) и Redis (db 1); файлы — по очереди, общая БД
+        // реальные PostgreSQL (pokatim_test) и Redis (db 1); файлы — по очереди, общая БД
         extends: true,
         test: {
           name: 'integration',

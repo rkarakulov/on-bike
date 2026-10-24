@@ -1,5 +1,5 @@
 {
-  "name": "on-bike",
+  "name": "pokatim",
   "private": true,
   "author": "Roman Karakulov",
   "packageManager": "pnpm@11.18.0",
@@ -15,7 +15,7 @@
   },
   "scripts": {
     "dev": "turbo run dev",
-    "dev:worker": "turbo run dev:worker --filter=@on-bike/api",
+    "dev:worker": "turbo run dev:worker --filter=@pokatim/api",
     "build": "turbo run build",
     "build:web": "turbo run build:web",
     "e2e:web": "turbo run e2e:web --env-mode=loose",

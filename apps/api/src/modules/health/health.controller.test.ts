@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 
 import { Test } from '@nestjs/testing';
-import { HealthResponse } from '@on-bike/contracts';
+import { HealthResponse } from '@pokatim/contracts';
 import { PG_POOL } from '@rkarakulov/api-kit';
 import { describe, expect, it } from 'vitest';
 

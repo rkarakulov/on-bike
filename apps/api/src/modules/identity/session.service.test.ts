@@ -31,7 +31,7 @@ describe('SessionService', () => {
     const { payload, protectedHeader } = await jwtVerify(
       session.accessToken,
       new TextEncoder().encode(secret),
-      { issuer: 'on-bike', audience: 'on-bike-app', currentDate: now },
+      { issuer: 'pokatim', audience: 'pokatim-app', currentDate: now },
     );
     expect(protectedHeader.alg).toBe('HS256');
     expect(payload).toMatchObject({

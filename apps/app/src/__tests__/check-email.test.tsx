@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
+import { ApiHttpError, ApiNetworkError } from '@pokatim/api-client';
 import { keepTogether } from '@rkarakulov/ui';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
@@ -48,7 +48,7 @@ describe('«Подтвердите e-mail»', () => {
     const getItem = jest.mocked(SecureStore.getItemAsync);
     const original = getItem.getMockImplementation();
     getItem.mockImplementation((key) =>
-      key === 'onbike.registration' ? new Promise(() => undefined) : Promise.resolve(null),
+      key === 'pokatim.registration' ? new Promise(() => undefined) : Promise.resolve(null),
     );
     try {
       const router = await renderRouter(appRoutes, { initialUrl: '/check-email' });
@@ -168,12 +168,12 @@ describe('«Подтвердите e-mail»', () => {
       screen.getByText(`Входим в аккаунт ${keepTogether(EMAIL)} — пароль вводить заново не нужно.`),
     ).toBeOnTheScreen();
     // сессия сохранена сразу — закрытие приложения в эту секунду её не теряет
-    expect(JSON.parse(storedValue('onbike.session') ?? '{}')).toEqual(session);
+    expect(JSON.parse(storedValue('pokatim.session') ?? '{}')).toEqual(session);
 
     await advance(1000);
     expect(await screen.findByRole('header', { name: 'Главная' })).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/');
-    expect(storedValue('onbike.registration')).toBeUndefined();
+    expect(storedValue('pokatim.registration')).toBeUndefined();
   });
 
   it('401 опроса (токен истёк или уже обменян) — «Войдите в аккаунт» и переход ко входу', async () => {
@@ -189,7 +189,7 @@ describe('«Подтвердите e-mail»', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Войти' }));
     expect(router.getPathname()).toBe('/sign-in');
-    expect(storedValue('onbike.registration')).toBeUndefined();
+    expect(storedValue('pokatim.registration')).toBeUndefined();
     // e-mail регистрации подставлен в форму входа
     expect(await screen.findByDisplayValue(EMAIL)).toBeOnTheScreen();
   });

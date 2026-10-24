@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { FieldErrorCode, SignInRequest } from '@on-bike/contracts';
+import { FieldErrorCode, SignInRequest } from '@pokatim/contracts';
 import { ZodValidationPipe } from '@rkarakulov/api-kit';
 import { describe, expect, it, vi } from 'vitest';
 

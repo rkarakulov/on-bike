@@ -1,5 +1,5 @@
 import { getQueueToken } from '@nestjs/bullmq';
-import { RegisterResponse } from '@on-bike/contracts';
+import { RegisterResponse } from '@pokatim/contracts';
 import { OutboxPublisher, type OutboxJobData } from '@rkarakulov/api-kit';
 import type { Job, Queue } from 'bullmq';
 import { desc, eq } from 'drizzle-orm';
@@ -42,7 +42,7 @@ afterAll(async () => {
   await h.close();
 });
 
-const linkPattern = /onbike:\/\/auth\/verify\/([A-Za-z0-9_-]{43})/;
+const linkPattern = /pokatim:\/\/auth\/verify\/([A-Za-z0-9_-]{43})/;
 const lastEventId = async () => {
   const [event] = await h.db.select().from(outbox).orderBy(desc(outbox.createdAt), desc(outbox.id));
   if (!event) throw new Error('no outbox event');
@@ -70,7 +70,7 @@ describe('IdentityEmailProcessor: письмо подтверждения', () =
     const mail = h.mailer.sent[0];
     expect(mail).toMatchObject({ to: 'rider@example.com', subject: 'Подтвердите e-mail' });
     const token = tokenFromMail(0);
-    expect(mail?.html).toContain(`href="onbike://auth/verify/${token}"`);
+    expect(mail?.html).toContain(`href="pokatim://auth/verify/${token}"`);
     const [row] = await h.db.select().from(emailVerificationTokens);
     expect(row?.tokenHash).toBe(sha256(token));
     expect(row?.sentAt).toEqual(h.clock.now());
@@ -172,7 +172,7 @@ describe('IdentityEmailProcessor: письмо подтверждения', () =
 });
 
 const EMAIL = 'rider@example.com';
-const resetPattern = /onbike:\/\/auth\/reset\/([A-Za-z0-9_-]{43})/;
+const resetPattern = /pokatim:\/\/auth\/reset\/([A-Za-z0-9_-]{43})/;
 const resetTokenFromMail = (index: number) => {
   const match = resetPattern.exec(h.mailer.sent[index]?.text ?? '');
   if (!match?.[1]) throw new Error('no reset link in mail');
@@ -201,7 +201,7 @@ describe('IdentityEmailProcessor: письмо сброса пароля', () =>
     const mail = h.mailer.sent[0];
     expect(mail).toMatchObject({ to: EMAIL, subject: 'Восстановление пароля' });
     const token = resetTokenFromMail(0);
-    expect(mail?.html).toContain(`href="onbike://auth/reset/${token}"`);
+    expect(mail?.html).toContain(`href="pokatim://auth/reset/${token}"`);
     const [row] = await h.db.select().from(passwordResetTokens);
     expect(row?.tokenHash).toBe(sha256(token));
     expect(row?.sentAt).toEqual(h.clock.now());
@@ -288,7 +288,7 @@ describe('IdentityEmailProcessor: «Пароль изменён»', () => {
     expect(mail).toMatchObject({ to: EMAIL, subject: 'Пароль изменён' });
     for (const body of [mail?.text ?? '', mail?.html ?? '']) {
       expect(body).not.toContain(token);
-      expect(body).not.toMatch(/onbike:\/\/|auth\/reset/);
+      expect(body).not.toMatch(/pokatim:\/\/|auth\/reset/);
       expect(body).toContain('по минскому времени');
     }
   });

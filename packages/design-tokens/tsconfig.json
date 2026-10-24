@@ -1,6 +1,6 @@
 {
   "extends": "@rkarakulov/config/tsconfig.library.json",
-  // исходники workspace-пакетов (@on-bike/*) — без сборки dist
-  "compilerOptions": { "customConditions": ["@on-bike/source"] },
+  // исходники workspace-пакетов (@pokatim/*) — без сборки dist
+  "compilerOptions": { "customConditions": ["@pokatim/source"] },
   "include": ["src"]
 }

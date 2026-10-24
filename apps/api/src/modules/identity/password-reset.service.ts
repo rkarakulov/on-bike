@@ -7,7 +7,7 @@ import {
   type PasswordResetLinkInfo,
   type RateLimitedDetails,
   type RequestPasswordResetResponse,
-} from '@on-bike/contracts';
+} from '@pokatim/contracts';
 import { CLOCK, type Clock, ENV, OutboxWriter, RateLimiter } from '@rkarakulov/api-kit';
 
 import type { Env } from '../../config/env';

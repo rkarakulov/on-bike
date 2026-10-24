@@ -20,7 +20,7 @@ describe('renderPasswordChangedEmail', () => {
   it('без ссылок: ни токена, ни адреса приложения', () => {
     const mail = renderPasswordChangedEmail({ changedAt });
     for (const body of [mail.text, mail.html]) {
-      expect(body).not.toMatch(/href=|https?:\/\/|onbike:\/\/|exp:\/\/|auth\/reset/);
+      expect(body).not.toMatch(/href=|https?:\/\/|pokatim:\/\/|exp:\/\/|auth\/reset/);
     }
   });
 
@@ -28,7 +28,7 @@ describe('renderPasswordChangedEmail', () => {
     const mail = renderPasswordChangedEmail({ changedAt });
     for (const body of [mail.text, mail.html]) {
       expect(body).toContain('«Покатим»');
-      expect(body).not.toMatch(/on-?bike/i);
+      expect(body).not.toMatch(/pokatim|on-?bike/i);
     }
   });
 });

@@ -14,7 +14,7 @@ export { BASE_ERROR_CODES, type BaseErrorCode } from '@rkarakulov/contracts-core
  * (установленные клиенты знают прежний состав). Тексты своих кодов — apps/api/src/error-messages.ts.
  */
 export const { ErrorCode, ApiError } = defineErrorCodes([
-  // регистрация on-bike
+  // регистрация pokatim
   'EMAIL_TAKEN',
   'EMAIL_UNAVAILABLE',
   'LINK_EXPIRED',

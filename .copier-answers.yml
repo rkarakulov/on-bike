@@ -1,11 +1,11 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
 _commit: v0.4.1
 _src_path: gh:rkarakulov/app-foundation
-app_scheme: onbike
+app_scheme: pokatim
 author: Roman Karakulov
-bundle_id: by.onbike.app
+bundle_id: by.pokatim.app
 database: postgres
-npm_scope: on-bike
-project_name: on-bike
-project_slug: on-bike
+npm_scope: pokatim
+project_name: pokatim
+project_slug: pokatim
 use_postgis: true

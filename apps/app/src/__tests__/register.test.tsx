@@ -1,6 +1,6 @@
 /// <reference types="jest" />
-import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
-import type { RegisterResponse } from '@on-bike/contracts';
+import { ApiHttpError, ApiNetworkError } from '@pokatim/api-client';
+import type { RegisterResponse } from '@pokatim/contracts';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
 
@@ -118,7 +118,7 @@ describe('«Создать аккаунт»', () => {
     await act(async () => resolve(registerResponse));
     expect(await screen.findByRole('header', { name: 'Подтвердите e-mail' })).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/check-email');
-    expect(JSON.parse(storedValue('onbike.registration') ?? '{}')).toMatchObject({
+    expect(JSON.parse(storedValue('pokatim.registration') ?? '{}')).toMatchObject({
       registrationToken: REGISTRATION_TOKEN,
       email: EMAIL,
     });

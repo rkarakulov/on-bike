@@ -63,6 +63,6 @@ describe('RefreshSessionRequest / SignOutRequest', () => {
 
 describe('SESSION_COOKIE', () => {
   it('имя с префиксом __Secure-, путь сужен до эндпоинтов сессии', () => {
-    expect(SESSION_COOKIE).toEqual({ name: '__Secure-onbike_rt', path: '/v1/auth/session' });
+    expect(SESSION_COOKIE).toEqual({ name: '__Secure-pokatim_rt', path: '/v1/auth/session' });
   });
 });

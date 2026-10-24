@@ -32,7 +32,7 @@ export const env = defineEnv({
   JWT_SECRET: Secret,
   /** Ключ HMAC для токенов ссылок в письмах: ссылку можно пересобрать по id строки, сырого токена нет нигде. */
   EMAIL_TOKEN_SECRET: Secret,
-  /** База ссылок приложения: `onbike://` в сборках, `exp://<host>:8081/--/` в Expo Go. */
+  /** База ссылок приложения: `pokatim://` в сборках, `exp://<host>:8081/--/` в Expo Go. */
   APP_LINK_BASE: z
     .string()
     .regex(/^[a-z][a-z0-9+.-]*:\/\/(.*\/)?$/i, 'схема://…/ — с завершающим слешем'),

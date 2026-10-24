@@ -6,7 +6,7 @@ import {
 } from '@rkarakulov/design-tokens';
 
 /**
- * Палитра on-bike из CSS прототипов («Воздух», визуальный слой «Ателье»). Только внутри этого файла:
+ * Палитра pokatim из CSS прототипов («Воздух», визуальный слой «Ателье»). Только внутри этого файла:
  * компоненты и приложения используют роли тем (`useTheme()` / CSS-переменные), не палитру.
  */
 const color = {
@@ -38,8 +38,8 @@ const color = {
   yellow400: '#F0CC3C',
 } as const;
 
-/** Группы ролей on-bike поверх ролей базы: карта маршрута и полоса покрытия. */
-export interface OnBikeRoleGroups {
+/** Группы ролей pokatim поверх ролей базы: карта маршрута и полоса покрытия. */
+export interface PokatimRoleGroups {
   map: {
     background: string;
     line: string;
@@ -55,10 +55,10 @@ export interface OnBikeRoleGroups {
 }
 
 /**
- * Слой 2 — семантика: роли, а не цвета. Роли базы (`text`, `surface`, …) + группы on-bike;
+ * Слой 2 — семантика: роли, а не цвета. Роли базы (`text`, `surface`, …) + группы pokatim;
  * значение роли в каждой теме — из CSS прототипов. Порядок ключей задаёт порядок CSS-переменных.
  */
-type ColorRoles = BaseColorRoles & OnBikeRoleGroups;
+type ColorRoles = BaseColorRoles & PokatimRoleGroups;
 
 const light: ColorRoles = {
   text: {

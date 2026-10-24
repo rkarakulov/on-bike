@@ -6,7 +6,7 @@
       "@/*": ["./src/*"],
       "@/assets/*": ["./assets/*"]
     },
-    "customConditions": ["@on-bike/source"],
+    "customConditions": ["@pokatim/source"],
     "allowImportingTsExtensions": true
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]

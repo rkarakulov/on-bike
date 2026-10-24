@@ -9,7 +9,7 @@ import { EMAIL, LINK_TOKEN } from './auth-fixtures';
 
 jest.mock('@/lib/api');
 
-const ORIGIN = 'https://on-bike.by';
+const ORIGIN = 'https://pokatim.by';
 
 afterEach(() => {
   delete process.env.WEB_ORIGIN;

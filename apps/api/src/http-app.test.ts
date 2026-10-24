@@ -4,7 +4,7 @@ import { Controller, Get, HttpCode, Logger, Post } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
-import { ApiError } from '@on-bike/contracts';
+import { ApiError } from '@pokatim/contracts';
 import { ApiExceptionFilter, createFastifyAdapter } from '@rkarakulov/api-kit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

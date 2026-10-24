@@ -1,5 +1,5 @@
-import { space } from '@on-bike/design-tokens';
-import { t, type MessageKey } from '@on-bike/i18n';
+import { space } from '@pokatim/design-tokens';
+import { t, type MessageKey } from '@pokatim/i18n';
 import { textStyle, useTheme } from '@rkarakulov/ui';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';

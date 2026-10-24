@@ -1,6 +1,6 @@
 /// <reference types="jest" />
-import { ApiHttpError } from '@on-bike/api-client';
-import type { HealthResponse } from '@on-bike/contracts';
+import { ApiHttpError } from '@pokatim/api-client';
+import type { HealthResponse } from '@pokatim/contracts';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 import { api } from '@/lib/api';

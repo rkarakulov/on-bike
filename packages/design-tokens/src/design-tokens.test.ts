@@ -79,7 +79,7 @@ describe('семантика совпадает с CSS прототипов', ()
   });
 });
 
-describe('контраст WCAG — темы on-bike', () => {
+describe('контраст WCAG — темы pokatim', () => {
   for (const themeName of Object.keys(themes) as ThemeName[]) {
     it.each(contrastPairs(themeName))(
       `${themeName}: $name ≥ $min`,
@@ -89,7 +89,7 @@ describe('контраст WCAG — темы on-bike', () => {
     );
   }
 
-  it('к парам базы добавлены пары карты on-bike', () => {
+  it('к парам базы добавлены пары карты pokatim', () => {
     const names = contrastPairs('light').map((p) => p.name);
     expect(names).toEqual(
       expect.arrayContaining([
@@ -106,10 +106,10 @@ describe('контраст WCAG — темы on-bike', () => {
   });
 });
 
-describe('CSS для веба (обёртка с брендом on-bike)', () => {
+describe('CSS для веба (обёртка с брендом pokatim)', () => {
   const rootBlock = (css: string) => css.slice(0, css.indexOf('\n}'));
 
-  it('переменные темы: семантика и группы on-bike, навигация только у panel', () => {
+  it('переменные темы: семантика и группы pokatim, навигация только у panel', () => {
     const light = designSystemCss({ theme: 'light' });
     expect(light).toContain('--color-text-primary: #111111;');
     expect(light).toContain('--color-map-route: #111111;');

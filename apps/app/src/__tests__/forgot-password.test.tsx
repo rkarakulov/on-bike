@@ -1,6 +1,6 @@
 /// <reference types="jest" />
-import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
-import type { RequestPasswordResetResponse } from '@on-bike/contracts';
+import { ApiHttpError, ApiNetworkError } from '@pokatim/api-client';
+import type { RequestPasswordResetResponse } from '@pokatim/contracts';
 import { keepTogether } from '@rkarakulov/ui';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import { onlineManager } from '@tanstack/react-query';

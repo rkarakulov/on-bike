@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import { Controller, HttpCode, Post, Res } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
-import { SESSION_COOKIE, type Session } from '@on-bike/contracts';
+import { SESSION_COOKIE, type Session } from '@pokatim/contracts';
 import { CLOCK, createFastifyAdapter } from '@rkarakulov/api-kit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -78,7 +78,7 @@ describe('SessionCookie', () => {
     });
     const value = onlySetCookie(res.headers['set-cookie']);
     expect(value.startsWith(`${SESSION_COOKIE.name}=${session.refreshToken}; `)).toBe(true);
-    expect(SESSION_COOKIE).toEqual({ name: '__Secure-onbike_rt', path: '/v1/auth/session' });
+    expect(SESSION_COOKIE).toEqual({ name: '__Secure-pokatim_rt', path: '/v1/auth/session' });
     expect(attributes(value)).toEqual(
       [
         `Max-Age=${10 * 24 * 60 * 60}`,

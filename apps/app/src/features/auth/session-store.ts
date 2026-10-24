@@ -1,4 +1,4 @@
-import { type AnySession, CookieSession } from '@on-bike/contracts';
+import { type AnySession, CookieSession } from '@pokatim/contracts';
 import { create } from 'zustand';
 
 import { isSessionAlive } from './session-expiry';

@@ -1,6 +1,6 @@
 /// <reference types="jest" />
-import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
-import type { SignInResponse } from '@on-bike/contracts';
+import { ApiHttpError, ApiNetworkError } from '@pokatim/api-client';
+import type { SignInResponse } from '@pokatim/contracts';
 import { onlineManager, QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
@@ -75,7 +75,7 @@ describe('«Вход»', () => {
     await act(async () => resolve({ state: 'signedIn', session }));
     expect(await screen.findByRole('header', { name: 'Главная' })).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/');
-    expect(JSON.parse(storedValue('onbike.session') ?? '{}')).toEqual(session);
+    expect(JSON.parse(storedValue('pokatim.session') ?? '{}')).toEqual(session);
   });
 
   it('401 — нейтральный баннер «Неверный e-mail или пароль.», без подсказки, что именно неверно', async () => {
@@ -153,7 +153,7 @@ describe('«Вход»', () => {
 
     expect(await screen.findByRole('header', { name: 'Подтвердите e-mail' })).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/check-email');
-    expect(JSON.parse(storedValue('onbike.registration') ?? '{}')).toMatchObject({
+    expect(JSON.parse(storedValue('pokatim.registration') ?? '{}')).toMatchObject({
       registrationToken: REGISTRATION_TOKEN,
       email: EMAIL,
     });
@@ -243,7 +243,7 @@ describe('выход', () => {
     expect(await screen.findByRole('header', { name: 'Вход' })).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/sign-in');
     expect(api.signOut).toHaveBeenCalledWith({ refreshToken: session.refreshToken });
-    expect(storedValue('onbike.session')).toBeUndefined();
+    expect(storedValue('pokatim.session')).toBeUndefined();
     expect(clear).toHaveBeenCalled();
     clear.mockRestore();
   });
@@ -260,7 +260,7 @@ describe('выход', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Выйти' }));
 
     expect(await screen.findByRole('header', { name: 'Вход' })).toBeOnTheScreen();
-    expect(storedValue('onbike.session')).toBeUndefined();
+    expect(storedValue('pokatim.session')).toBeUndefined();
     warn.mockRestore();
   });
 
@@ -271,7 +271,7 @@ describe('выход', () => {
 
     expect(await screen.findByRole('header', { name: 'Вход' })).toBeOnTheScreen();
     expect(router.getPathname()).toBe('/sign-in');
-    expect(storedValue('onbike.session')).toBeUndefined();
+    expect(storedValue('pokatim.session')).toBeUndefined();
   });
 
   it('офлайн-старт — в аккаунте (Главная), сессия не тронута', async () => {
@@ -282,6 +282,6 @@ describe('выход', () => {
     await renderRouter(appRoutes, { initialUrl: '/' });
 
     expect(await screen.findByRole('header', { name: 'Главная' })).toBeOnTheScreen();
-    expect(JSON.parse(storedValue('onbike.session') ?? '{}')).toEqual(session);
+    expect(JSON.parse(storedValue('pokatim.session') ?? '{}')).toEqual(session);
   });
 });

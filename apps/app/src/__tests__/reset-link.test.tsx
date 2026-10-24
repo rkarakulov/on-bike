@@ -1,6 +1,6 @@
 /// <reference types="jest" />
-import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
-import type { PasswordResetLinkInfo } from '@on-bike/contracts';
+import { ApiHttpError, ApiNetworkError } from '@pokatim/api-client';
+import type { PasswordResetLinkInfo } from '@pokatim/contracts';
 import { keepTogether } from '@rkarakulov/ui';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
@@ -119,7 +119,7 @@ describe('ссылка сброса пароля', () => {
     expect(await screen.findByRole('header', { name: 'Пароль изменён' })).toBeOnTheScreen();
     expect(api.signOut).toHaveBeenCalledTimes(1);
     expect(useSessionStore.getState().status).not.toBe('signedIn');
-    expect(storedValue('onbike.session')).toBeUndefined();
+    expect(storedValue('pokatim.session')).toBeUndefined();
   });
 
   it('410 на сохранении — состояние перечитано: «Пароль уже изменён» → «Войти»', async () => {
@@ -161,7 +161,7 @@ describe('ссылка сброса пароля', () => {
     expect(router.getPathname()).toBe('/sign-in');
     expect(api.signOut).toHaveBeenCalledTimes(1);
     expect(useSessionStore.getState().status).not.toBe('signedIn');
-    expect(storedValue('onbike.session')).toBeUndefined();
+    expect(storedValue('pokatim.session')).toBeUndefined();
   });
 
   it('«Пароль изменён» — вне загрузки ссылки: после выхода (кеш очищен) GET не повторяется, экран не пропадает', async () => {

@@ -1,4 +1,4 @@
-import { apiErrorOf, isNetworkError } from '@on-bike/api-client';
+import { apiErrorOf, isNetworkError } from '@pokatim/api-client';
 import {
   LinkExpiredDetails,
   PASSWORD_MIN_LENGTH,
@@ -6,8 +6,8 @@ import {
   ValidationErrorDetails,
   type ErrorCode,
   type FieldErrorCode,
-} from '@on-bike/contracts';
-import { t, type MessageKey } from '@on-bike/i18n';
+} from '@pokatim/contracts';
+import { t, type MessageKey } from '@pokatim/i18n';
 
 /** Коды, которые показываем у поля: коды zod-схемы + отказы сервера по e-mail. */
 const FIELD_MESSAGES = {

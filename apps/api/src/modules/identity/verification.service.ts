@@ -6,7 +6,7 @@ import type {
   ResendVerificationRequest,
   ResendVerificationResponse,
   VerificationLinkInfo,
-} from '@on-bike/contracts';
+} from '@pokatim/contracts';
 import { CLOCK, type Clock, ENV, OutboxWriter, RateLimiter } from '@rkarakulov/api-kit';
 
 import type { Env } from '../../config/env';

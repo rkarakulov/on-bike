@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import { typography, type TextStyleName } from '@on-bike/design-tokens';
+import { typography, type TextStyleName } from '@pokatim/design-tokens';
 import { textStyle } from '@rkarakulov/ui';
 
 import { fontAssets } from './fonts';

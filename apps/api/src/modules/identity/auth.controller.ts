@@ -17,7 +17,7 @@ import {
   type ResendVerificationResponse,
   type VerificationLinkInfo,
   VerificationToken,
-} from '@on-bike/contracts';
+} from '@pokatim/contracts';
 import { ZodValidationPipe } from '@rkarakulov/api-kit';
 
 import { domainError } from '../../error-messages';

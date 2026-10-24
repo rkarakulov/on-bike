@@ -1,6 +1,6 @@
-import { normalizeEmail, type VerificationLinkState } from '@on-bike/contracts';
-import { size } from '@on-bike/design-tokens';
-import { t } from '@on-bike/i18n';
+import { normalizeEmail, type VerificationLinkState } from '@pokatim/contracts';
+import { size } from '@pokatim/design-tokens';
+import { t } from '@pokatim/i18n';
 import {
   AsyncContent,
   Banner,

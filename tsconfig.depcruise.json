@@ -3,7 +3,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@on-bike/*": ["packages/*/src/index.ts"]
+      "@pokatim/*": ["packages/*/src/index.ts"]
     }
   }
 }

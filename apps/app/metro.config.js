@@ -2,7 +2,7 @@
 // экспорта, чтобы workspace-пакеты брались из исходников без сборки.
 const { getDefaultConfig } = require('expo/metro-config');
 
-const SOURCE = '@on-bike/source';
+const SOURCE = '@pokatim/source';
 
 const config = getDefaultConfig(__dirname);
 config.resolver.unstable_conditionNames = [

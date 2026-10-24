@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
+import { ApiHttpError, ApiNetworkError } from '@pokatim/api-client';
 import NetInfo from '@react-native-community/netinfo';
 import { onlineManager } from '@tanstack/react-query';
 

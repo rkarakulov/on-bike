@@ -5,7 +5,7 @@ import {
   Session,
   SESSION_COOKIE,
   SignInResponse,
-} from '@on-bike/contracts';
+} from '@pokatim/contracts';
 import { eq } from 'drizzle-orm';
 import { jwtVerify } from 'jose';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -93,7 +93,7 @@ describe('POST /v1/auth/session/sign-in — успех (AC1)', () => {
     const { payload } = await jwtVerify(
       session.accessToken,
       new TextEncoder().encode(h.env.JWT_SECRET),
-      { issuer: 'on-bike', audience: 'on-bike-app', currentDate: h.clock.now() },
+      { issuer: 'pokatim', audience: 'pokatim-app', currentDate: h.clock.now() },
     );
     expect(payload).toMatchObject({ sub: user?.id, sid: row?.id });
   });

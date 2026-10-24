@@ -1,4 +1,4 @@
-// дизайн-система (бренд, шрифты, i18n on-bike) — до любого модуля, который рендерит компоненты базы
+// дизайн-система (бренд, шрифты, i18n pokatim) — до любого модуля, который рендерит компоненты базы
 import '@/theme/design-system';
 import { useTheme } from '@rkarakulov/ui';
 import { QueryClientProvider } from '@tanstack/react-query';

@@ -5,7 +5,7 @@ import { messages, t } from './index.ts';
 import { ru } from './ru.ts';
 
 describe('t', () => {
-  it('возвращает строку on-bike по ключу', () => {
+  it('возвращает строку pokatim по ключу', () => {
     expect(t('tabs.home')).toBe('Главная');
   });
 
@@ -23,7 +23,7 @@ describe('t', () => {
   });
 });
 
-describe('словарь on-bike', () => {
+describe('словарь pokatim', () => {
   it('не повторяет строки базы: ключ базы с тем же текстом — дубль', () => {
     const base: Record<string, unknown> = baseMessages.ru;
     const duplicates = Object.entries(ru)
@@ -32,7 +32,7 @@ describe('словарь on-bike', () => {
     expect(duplicates).toEqual([]);
   });
 
-  it('слит с базой: все ключи базы и on-bike', () => {
+  it('слит с базой: все ключи базы и pokatim', () => {
     expect(Object.keys(messages)).toEqual(
       expect.arrayContaining([...Object.keys(baseMessages.ru), ...Object.keys(ru)]),
     );

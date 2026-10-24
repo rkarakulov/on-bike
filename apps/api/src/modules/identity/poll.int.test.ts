@@ -1,4 +1,4 @@
-import { RegisterResponse, RegistrationPollResponse, Session } from '@on-bike/contracts';
+import { RegisterResponse, RegistrationPollResponse, Session } from '@pokatim/contracts';
 import { jwtVerify } from 'jose';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -45,7 +45,7 @@ describe('POST /v1/auth/registration/poll', () => {
     const { payload } = await jwtVerify(
       body.session.accessToken,
       new TextEncoder().encode(h.env.JWT_SECRET),
-      { issuer: 'on-bike', audience: 'on-bike-app', currentDate: h.clock.now() },
+      { issuer: 'pokatim', audience: 'pokatim-app', currentDate: h.clock.now() },
     );
     expect(payload.sub).toBe(user?.id);
     const [session] = await h.db.select().from(sessions);

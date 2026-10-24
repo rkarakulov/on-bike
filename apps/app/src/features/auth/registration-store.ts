@@ -1,11 +1,11 @@
-import { RegistrationToken, type RegisterResponse } from '@on-bike/contracts';
+import { RegistrationToken, type RegisterResponse } from '@pokatim/contracts';
 import { z } from 'zod';
 import { create } from 'zustand';
 
 import { readJson } from './read-json';
 import { secureStorage } from './secure-storage';
 
-const KEY = 'onbike.registration';
+const KEY = 'pokatim.registration';
 /** Срок токена регистрации (ADR-0002); каждый повтор письма продлевает его (task.md §8.1). */
 export const REGISTRATION_TTL_MS = 24 * 3600_000;
 

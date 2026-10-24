@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { RateLimitedDetails, Session } from '@on-bike/contracts';
+import type { RateLimitedDetails, Session } from '@pokatim/contracts';
 import { CLOCK, type Clock, ENV, RateLimiter } from '@rkarakulov/api-kit';
 import { SignJWT } from 'jose';
 

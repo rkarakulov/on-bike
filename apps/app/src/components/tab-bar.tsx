@@ -1,4 +1,4 @@
-import { size, space, stroke } from '@on-bike/design-tokens';
+import { size, space, stroke } from '@pokatim/design-tokens';
 import { textStyle, useTheme } from '@rkarakulov/ui';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

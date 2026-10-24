@@ -1,6 +1,6 @@
 /// <reference types="jest" />
-import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
-import type { VerificationLinkInfo } from '@on-bike/contracts';
+import { ApiHttpError, ApiNetworkError } from '@pokatim/api-client';
+import type { VerificationLinkInfo } from '@pokatim/contracts';
 import { keepTogether } from '@rkarakulov/ui';
 import { onlineManager } from '@tanstack/react-query';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
@@ -122,9 +122,9 @@ describe('ссылка из письма', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Отправить новое письмо' }));
     await screen.findByText(`Новое письмо отправлено на ${keepTogether(EMAIL)}.`);
     // было «ещё 23 ч», стало «24 ч от нового письма»
-    expect(JSON.parse(storedValue('onbike.registration') ?? '{}').expiresAt).toBeGreaterThanOrEqual(
-      NOW.getTime() + 24 * 3600_000,
-    );
+    expect(
+      JSON.parse(storedValue('pokatim.registration') ?? '{}').expiresAt,
+    ).toBeGreaterThanOrEqual(NOW.getTime() + 24 * 3600_000);
   });
 
   it('«Ссылка устарела»: истёкшая регистрация в памяти не воскрешается (сервер её не продлевает)', async () => {
@@ -146,7 +146,7 @@ describe('ссылка из письма', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Отправить новое письмо' }));
     await screen.findByText(`Новое письмо отправлено на ${keepTogether(EMAIL)}.`);
     expect(useRegistrationStore.getState().pending?.expiresAt).toBe(expiredAt);
-    expect(storedValue('onbike.registration')).toBeUndefined();
+    expect(storedValue('pokatim.registration')).toBeUndefined();
   });
 
   it('подтверждено на этом устройстве, опрос отвечает 500 — «Не удалось загрузить», не «Нет соединения»', async () => {

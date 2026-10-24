@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 // разбор входящего URL тем же кодом, что у Router на устройстве (публичный путь пакета `./build/*`)
 import { extractExpoPathFromURL } from 'expo-router/build/fork/extractPathFromURL';
-import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
+import { ApiHttpError, ApiNetworkError } from '@pokatim/api-client';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
 
@@ -98,7 +98,7 @@ describe('гард сессии (Stack.Protected)', () => {
 
   it.each([
     ['Expo Go', `exp://127.0.0.1:8081/--/auth/verify/${LINK_TOKEN}`, true],
-    ['сборка', `onbike://auth/verify/${LINK_TOKEN}`, false],
+    ['сборка', `pokatim://auth/verify/${LINK_TOKEN}`, false],
   ])('deep link из письма (%s) открывает экран ссылки с токеном', async (_name, url, expoGo) => {
     jest.mocked(api.getVerificationLink).mockResolvedValue({ state: 'valid', email: 'a@b.by' });
     // Router узнаёт Expo Go по нативному модулю ExpoGo и срезает `<host>/--/`

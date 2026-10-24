@@ -1,4 +1,4 @@
-import type { RegistrationPollResponse } from '@on-bike/contracts';
+import type { RegistrationPollResponse } from '@pokatim/contracts';
 import { useEffect } from 'react';
 
 import { useRegistrationStore } from './registration-store';

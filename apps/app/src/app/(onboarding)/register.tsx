@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MIN_AGE_YEARS, MIN_BIRTH_DATE, RegisterRequest, minskToday } from '@on-bike/contracts';
-import { t } from '@on-bike/i18n';
+import { MIN_AGE_YEARS, MIN_BIRTH_DATE, RegisterRequest, minskToday } from '@pokatim/contracts';
+import { t } from '@pokatim/i18n';
 import { Banner, Button, Checkbox, DateField, TextAction, TextField } from '@rkarakulov/ui';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { GenerateMetadataFunction } from 'expo-router/server';

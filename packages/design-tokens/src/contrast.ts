@@ -17,7 +17,7 @@ export function contrastPairs(themeName: ThemeName): ContrastPair[] {
   const t = themes[themeName];
   return [
     ...baseContrastPairs(t),
-    // карта маршрута on-bike
+    // карта маршрута pokatim
     contrastPair('map.route / map.background', t.map.route, t.map.background, WCAG.ui),
     contrastPair('map.corridor / map.background', t.map.corridor, t.map.background, WCAG.ui),
   ];

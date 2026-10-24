@@ -22,7 +22,7 @@ describe('коды ошибок', () => {
     expect(ApiError.safeParse({ code: 'SOMETHING_NEW', message: 'x' }).success).toBe(false);
   });
 
-  it('состав и порядок кодов прежние: коды базы, затем on-bike (установленные клиенты)', () => {
+  it('состав и порядок кодов прежние: коды базы, затем pokatim (установленные клиенты)', () => {
     expect(ErrorCode.options).toEqual([
       'VALIDATION_FAILED',
       'UNAUTHORIZED',
@@ -48,7 +48,7 @@ describe('коды ошибок', () => {
     ]);
   });
 
-  it('fieldError — с кодами on-bike; undefined на входе — REQUIRED', () => {
+  it('fieldError — с кодами pokatim; undefined на входе — REQUIRED', () => {
     expect(fieldError('AGE_BELOW_18')({ input: '2020-01-01' })).toBe('AGE_BELOW_18');
     expect(fieldError('CONSENT_REQUIRED')({ input: undefined })).toBe('REQUIRED');
   });

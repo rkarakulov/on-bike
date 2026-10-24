@@ -22,7 +22,7 @@ import {
   type SessionTransport,
   type SignInRequest,
   type SignOutRequest,
-} from '@on-bike/contracts';
+} from '@pokatim/contracts';
 import {
   ApiHttpError,
   createHttpClient,

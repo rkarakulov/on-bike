@@ -1,5 +1,5 @@
-import { ApiHttpError } from '@on-bike/api-client';
-import { type AnySession, CookieSession } from '@on-bike/contracts';
+import { ApiHttpError } from '@pokatim/api-client';
+import { type AnySession, CookieSession } from '@pokatim/contracts';
 
 import { api } from '@/lib/api';
 
@@ -70,7 +70,7 @@ export async function revalidateSession(_now: number): Promise<Revalidation> {
  * подтверждён — httpOnly cookie JS стереть не может, и перезагрузка иначе вернула бы в аккаунт. Не токен и не данные
  * сессии. Хранилище недоступно (приватный режим, запрет) — без признака, не падаем.
  */
-const SIGN_OUT_PENDING = 'onbike.signOutPending';
+const SIGN_OUT_PENDING = 'pokatim.signOutPending';
 
 function setSignOutPending(pending: boolean): void {
   try {

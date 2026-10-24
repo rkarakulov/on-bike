@@ -1,5 +1,5 @@
-import { size } from '@on-bike/design-tokens';
-import { t } from '@on-bike/i18n';
+import { size } from '@pokatim/design-tokens';
+import { t } from '@pokatim/i18n';
 import {
   Banner,
   Button,

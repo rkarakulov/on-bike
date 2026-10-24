@@ -1,4 +1,4 @@
-import { t } from '@on-bike/i18n';
+import { t } from '@pokatim/i18n';
 import type { Metadata } from 'expo-router/server';
 
 interface PublicPageMetadata {
