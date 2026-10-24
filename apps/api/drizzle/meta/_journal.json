@@ -29,6 +29,13 @@
       "when": 1792682967452,
       "tag": "0003_verification_send_claim",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792851937157,
+      "tag": "0004_session_rotation",
+      "breakpoints": true
     }
   ]
 }

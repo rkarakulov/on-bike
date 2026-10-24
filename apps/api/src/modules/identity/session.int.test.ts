@@ -8,7 +8,8 @@ import {
 } from '@on-bike/contracts';
 import { eq } from 'drizzle-orm';
 import { jwtVerify } from 'jose';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { Logger } from '@nestjs/common';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createHarness, DAY, MINUTE, type Harness } from '../../../test/harness';
 import {
@@ -127,7 +128,7 @@ describe('POST /v1/auth/registration/poll — транспорт сессии', 
 });
 
 describe('POST /v1/auth/session/refresh', () => {
-  it('по cookie: новая cookie, тело — CookieSession, старый refresh → 401; срок сессии не продлевается', async () => {
+  it('по cookie: новая cookie, тело — CookieSession, предыдущий хеш и rotated_at; срок скользящий (Q5)', async () => {
     const first = await webSignIn();
     const [before] = await h.db.select().from(sessions);
     h.clock.advance(DAY);
@@ -141,16 +142,19 @@ describe('POST /v1/auth/session/refresh', () => {
     const next = cookieValue(res);
     expect(next).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(next).not.toBe(first);
-    // Max-Age — остаток срока (30 дней от выдачи минус прошедшие сутки)
+    // скользящий срок: 30 дней от ротации, Max-Age — весь этот срок
+    const slid = new Date(h.clock.now().getTime() + IDENTITY_POLICY.refreshTokenTtlMs);
     expect(setCookie(res)).toMatch(
-      new RegExp(`Max-Age=${(IDENTITY_POLICY.refreshTokenTtlMs - DAY) / 1000}(;|$)`),
+      new RegExp(`Max-Age=${IDENTITY_POLICY.refreshTokenTtlMs / 1000}(;|$)`),
     );
-    expect(body.refreshTokenExpiresAt).toBe(before?.expiresAt.toISOString());
+    expect(body.refreshTokenExpiresAt).toBe(slid.toISOString());
     const [after] = await h.db.select().from(sessions);
-    // та же сессия (sid в access), новый хеш, срок прежний; сырого токена в БД нет
+    // та же сессия (sid в access), новый хеш, прежний — в previous; сырого токена в БД нет
     expect(after?.id).toBe(before?.id);
     expect(after?.refreshTokenHash).toBe(sha256(next ?? ''));
-    expect(after?.expiresAt).toEqual(before?.expiresAt);
+    expect(after?.previousRefreshTokenHash).toBe(sha256(first));
+    expect(after?.rotatedAt).toEqual(h.clock.now());
+    expect(after?.expiresAt).toEqual(slid);
     const { payload } = await jwtVerify(
       body.accessToken,
       new TextEncoder().encode(h.env.JWT_SECRET),
@@ -162,13 +166,15 @@ describe('POST /v1/auth/session/refresh', () => {
     );
     expect(payload).toMatchObject({ sub: before?.userId, sid: before?.id });
 
+    // предыдущий вне окна повтора — reuse: 401, сессия отозвана, её текущий токен тоже мёртв
+    h.clock.advance(IDENTITY_POLICY.refreshReuseGraceMs + 1000);
     const replay = await refreshByCookie(first);
     expect(replay.status).toBe(401);
     expect(isCleared(replay)).toBe(true);
-    expect((await refreshByCookie(next ?? '')).status).toBe(200);
+    expect((await refreshByCookie(next ?? '')).status).toBe(401);
   });
 
-  it('по телу (native): новый refreshToken в теле, без Set-Cookie; старый → 401', async () => {
+  it('по телу (native): новый refreshToken в теле, без Set-Cookie; новый работает', async () => {
     const first = await nativeSignIn();
 
     const res = await refreshByBody(first);
@@ -179,17 +185,22 @@ describe('POST /v1/auth/session/refresh', () => {
     expect(body.refreshToken).not.toBe(first);
     const [row] = await h.db.select().from(sessions);
     expect(row?.refreshTokenHash).toBe(sha256(body.refreshToken));
-    expect((await refreshByBody(first)).status).toBe(401);
     expect((await refreshByBody(body.refreshToken)).status).toBe(200);
   });
 
-  it('access не живёт дольше сессии', async () => {
+  it('access не живёт дольше сессии (у абсолютного предела)', async () => {
     const token = await webSignIn();
-    const [row] = await h.db.select().from(sessions);
-    h.clock.advance(IDENTITY_POLICY.refreshTokenTtlMs - 5 * MINUTE);
+    // до абсолютного предела сессии — 5 минут, меньше срока access
+    await h.db.update(sessions).set({
+      createdAt: new Date(
+        h.clock.now().getTime() - IDENTITY_POLICY.sessionAbsoluteTtlMs + 5 * MINUTE,
+      ),
+    });
 
     const body = CookieSession.parse((await refreshByCookie(token)).body);
 
+    const [row] = await h.db.select().from(sessions);
+    expect(row?.expiresAt).toEqual(new Date(h.clock.now().getTime() + 5 * MINUTE));
     expect(body.accessTokenExpiresAt).toBe(row?.expiresAt.toISOString());
   });
 
@@ -229,15 +240,19 @@ describe('POST /v1/auth/session/refresh', () => {
     expect((await refreshByBody('short')).status).toBe(400);
   });
 
-  it('гонка двух refresh одним токеном — ровно один 200', async () => {
+  // F5b: [200, 401×4]; с окном повтора (R3 слайса 2) второй — повтор предыдущим токеном в окне
+  it('гонка 5 refresh одним токеном — ровно два 200 (текущим и повтором в окне), сессия жива', async () => {
     const token = await webSignIn();
 
     const results = await Promise.all(Array.from({ length: 5 }, () => refreshByCookie(token)));
 
-    expect(results.map((res) => res.status).sort()).toEqual([200, 401, 401, 401, 401]);
-    const winner = results.find((res) => res.status === 200);
+    expect(results.map((res) => res.status).sort()).toEqual([200, 200, 401, 401, 401]);
     const [row] = await h.db.select().from(sessions);
-    expect(row?.refreshTokenHash).toBe(sha256(cookieValue(winner as CallResult) ?? ''));
+    expect(row?.revokedAt).toBeNull();
+    const issued = results.filter((res) => res.status === 200).map((res) => cookieValue(res));
+    expect(issued.map((value) => sha256(value ?? ''))).toContain(row?.refreshTokenHash);
+    // проигравшие 401 — без отзыва и без reuse: токен в окне
+    expect(row?.revokedReason).toBeNull();
   });
 
   it(`лимит по IP: ${IDENTITY_POLICY.refreshPerIpLimit.limit} в окно, дальше 429 с retryAfterSec`, async () => {
@@ -257,7 +272,100 @@ describe('POST /v1/auth/session/refresh', () => {
   });
 });
 
+describe('окно повтора и reuse detection (R3, AC5)', () => {
+  const GRACE = IDENTITY_POLICY.refreshReuseGraceMs;
+
+  it('предыдущий токен в окне (+59 с) — 200, та же сессия; брошенный текущий становится предыдущим', async () => {
+    const first = await nativeSignIn();
+    const second = Session.parse((await refreshByBody(first)).body).refreshToken;
+    const [before] = await h.db.select().from(sessions);
+    h.clock.advance(GRACE - 1000);
+
+    // ответ с `second` потерялся — клиент повторяет `first`
+    const retry = await refreshByBody(first);
+
+    expect(retry.status).toBe(200);
+    const third = Session.parse(retry.body).refreshToken;
+    const [after] = await h.db.select().from(sessions);
+    expect(after?.id).toBe(before?.id);
+    expect(after?.refreshTokenHash).toBe(sha256(third));
+    expect(after?.previousRefreshTokenHash).toBe(sha256(second));
+    // брошенный `second` позже окна — reuse
+    h.clock.advance(GRACE + 1000);
+    expect((await refreshByBody(second)).status).toBe(401);
+    const [revoked] = await h.db.select().from(sessions);
+    expect(revoked?.revokedReason).toBe('reuse_detected');
+  });
+
+  it('предыдущий вне окна (+61 с) — 401, сессия отозвана (reuse_detected), текущий после — 401; лог без токена', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const first = await nativeSignIn();
+    const second = Session.parse((await refreshByBody(first)).body).refreshToken;
+    h.clock.advance(GRACE + 1000);
+
+    const reuse = await refreshByBody(first);
+
+    expect(reuse.status).toBe(401);
+    expect(reuse.body).toEqual({ code: 'UNAUTHORIZED', message: expect.any(String) });
+    const [row] = await h.db.select().from(sessions);
+    expect(row).toMatchObject({ revokedAt: h.clock.now(), revokedReason: 'reuse_detected' });
+    expect((await refreshByBody(second)).status).toBe(401);
+
+    expect(warn).toHaveBeenCalledWith({
+      msg: 'session revoked',
+      sid: row?.id,
+      reason: 'reuse_detected',
+    });
+    const logged = JSON.stringify(warn.mock.calls);
+    for (const secret of [first, second, sha256(first), 'rider@example.com']) {
+      expect(logged).not.toContain(secret);
+    }
+    warn.mockRestore();
+  });
+
+  it('неизвестный токен — 401 без отзыва чужих сессий', async () => {
+    await nativeSignIn();
+
+    expect((await refreshByBody(randomToken())).status).toBe(401);
+
+    const [row] = await h.db.select().from(sessions);
+    expect(row?.revokedAt).toBeNull();
+  });
+
+  it('скользящий срок упирается в абсолютный предел от входа (Q5)', async () => {
+    const token = await nativeSignIn();
+    const [row] = await h.db.select().from(sessions);
+    const createdAt = row?.createdAt ?? new Date(0);
+    // вход был давно: до предела остаётся 10 дней — меньше обычных 30
+    await h.db.update(sessions).set({
+      createdAt: new Date(
+        h.clock.now().getTime() - IDENTITY_POLICY.sessionAbsoluteTtlMs + 10 * DAY,
+      ),
+    });
+
+    const body = Session.parse((await refreshByBody(token)).body);
+
+    const limit = new Date(h.clock.now().getTime() + 10 * DAY);
+    expect(body.refreshTokenExpiresAt).toBe(limit.toISOString());
+    const [after] = await h.db.select().from(sessions);
+    expect(after?.expiresAt).toEqual(limit);
+    expect(createdAt).toEqual(h.clock.now());
+  });
+});
+
 describe('POST /v1/auth/session/sign-out', () => {
+  it('предыдущим токеном (гонка выхода с ротацией) — сессия отозвана, текущий после — 401', async () => {
+    const first = await nativeSignIn();
+    const second = Session.parse((await refreshByBody(first)).body).refreshToken;
+
+    const res = await call(h, 'POST', SIGN_OUT, { refreshToken: first });
+
+    expect(res.status).toBe(204);
+    const [row] = await h.db.select().from(sessions);
+    expect(row).toMatchObject({ revokedAt: h.clock.now(), revokedReason: 'signed_out' });
+    expect((await refreshByBody(second)).status).toBe(401);
+  });
+
   it('по cookie: 204 без тела, cookie сброшена, revoked_at; повтор — 204; refresh после — 401', async () => {
     const token = await webSignIn();
 
@@ -268,7 +376,7 @@ describe('POST /v1/auth/session/sign-out', () => {
     expect(res.headers['cache-control']).toBe('no-store');
     expect(isCleared(res)).toBe(true);
     const [row] = await h.db.select().from(sessions);
-    expect(row?.revokedAt).toEqual(h.clock.now());
+    expect(row).toMatchObject({ revokedAt: h.clock.now(), revokedReason: 'signed_out' });
 
     const again = await call(h, 'POST', SIGN_OUT, {}, cookieHeader(token));
     expect(again.status).toBe(204);

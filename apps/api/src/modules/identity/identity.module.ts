@@ -12,9 +12,10 @@ import { RegistrationService } from './registration.service';
 import { SessionController } from './session.controller';
 import { SessionCookie } from './session-cookie';
 import { SessionService } from './session.service';
+import { SignInService } from './sign-in.service';
 import { VerificationService } from './verification.service';
 
-/** HTTP-часть identity: регистрация, ссылки подтверждения, обмен токена регистрации на сессию, ротация и выход. */
+/** HTTP-часть identity: регистрация, ссылки подтверждения, обмен токена регистрации на сессию, вход, ротация, выход. */
 @Module({
   controllers: [AuthController, SessionController],
   providers: [
@@ -24,6 +25,7 @@ import { VerificationService } from './verification.service';
     SessionCookie,
     VerificationService,
     RegistrationService,
+    SignInService,
   ],
 })
 export class IdentityModule {}

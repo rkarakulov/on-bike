@@ -38,7 +38,7 @@ export class SessionCookie {
     const remainingMs = Date.parse(session.refreshTokenExpiresAt) - this.clock.now().getTime();
     this.adapter.setCookie(reply, SESSION_COOKIE.name, refreshToken, {
       ...ATTRIBUTES,
-      // остаток срока сессии: ротация срок не продлевает
+      // остаток срока сессии (скользящий, не дальше абсолютного предела — ADR-0005)
       maxAge: Math.max(0, Math.floor(remainingMs / 1000)),
     });
     return cookieSession satisfies CookieSession;

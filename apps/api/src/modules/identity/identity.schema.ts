@@ -99,7 +99,14 @@ export const registrationTokens = pgTable('registration_tokens', {
   consumedAt: at('consumed_at'),
 });
 
-/** Сессии: refresh-токен хранится только хешем. id сессии — claim `sid` в access JWT. */
+/** Причина отзыва сессии (аудит без журнала входов, task.md слайса 2, R6). */
+export const SESSION_REVOKED_REASONS = ['signed_out', 'reuse_detected', 'superseded'] as const;
+export type SessionRevokedReason = (typeof SESSION_REVOKED_REASONS)[number];
+
+/**
+ * Сессии: refresh-токен хранится только хешем. id сессии — claim `sid` в access JWT.
+ * Ротация (ADR-0005): предыдущий хеш действует ещё окно повтора после `rotated_at`; позже — reuse detection.
+ */
 export const sessions = pgTable(
   'sessions',
   {
@@ -110,9 +117,22 @@ export const sessions = pgTable(
     refreshTokenHash: text('refresh_token_hash')
       .notNull()
       .unique('sessions_refresh_token_hash_unique'),
+    /** хеш refresh до последней ротации: повтор в окне — та же сессия, позже — отзыв (reuse) */
+    previousRefreshTokenHash: text('previous_refresh_token_hash'),
+    rotatedAt: at('rotated_at'),
     createdAt: at('created_at').notNull().defaultNow(),
     expiresAt: at('expires_at').notNull(),
     revokedAt: at('revoked_at'),
+    revokedReason: text('revoked_reason', { enum: SESSION_REVOKED_REASONS }),
   },
-  (t) => [index('sessions_user_id_idx').on(t.userId)],
+  (t) => [
+    index('sessions_user_id_idx').on(t.userId),
+    uniqueIndex('sessions_previous_refresh_token_hash_unique')
+      .on(t.previousRefreshTokenHash)
+      .where(sql`previous_refresh_token_hash IS NOT NULL`),
+    check(
+      'sessions_revoked_reason_check',
+      sql`revoked_reason IN ('signed_out', 'reuse_detected', 'superseded')`,
+    ),
+  ],
 );
