@@ -424,6 +424,41 @@ S3 (деплой). Решения R1–R13 — архитектора, орке�
 - Прототип auth + keyfile + RS в `mongo:8.0` — первым шагом S3 (запасной путь — localhost exception); результат —
   ниже.
 
+**Отклонения при реализации (coder, 2026-10-25):**
+
+- **Прототип Q1 — запасной путь (localhost exception), без `MONGO_INITDB_ROOT_*`.** Docker Desktop на машине
+  разработки упал (диск хоста заполнен, VM не поднимается) — прототип в контейнере `mongo:8.0` не выполнен.
+  Прототип — нативный `mongod 8.2.7` (`--replSet rs0 --keyFile`, пустая БД) и `infra/deploy/mongo-init.js`:
+  1-й прогон — `rs.initiate`, root через localhost exception, пользователь `pokatim` (`readWrite` на `pokatim`);
+  2-й — «обновлён» (идемпотентно); смена `MONGO_PASSWORD` — пароль обновлён; неверный root-пароль — код 1 без
+  значений; `pokatim` пишет в свою БД, в `admin` — `Unauthorized`; `hello` без входа отвечает (healthcheck).
+  Поведение entrypoint образа (обёртка копирует keyfile в том `mongoconfig` с владельцем `mongodb`, 400) —
+  **NOT VERIFIED** (Docker).
+- **Healthcheck — `hello` без входа** (PRIMARY), root не нужен: root — только администрирование (`mongo-init.js`,
+  ручной доступ). Пароли в `mongo-init.js` — из env процесса `mongosh` (`exec -e ИМЯ` без значения), вывод — в
+  `~/pokatim/mongo-init.log`.
+- **Новый файл стека `infra/deploy/mongo-init.js`** (+ в список `scp` `deploy-dev.yml`): набор rs0 и пользователи
+  создаёт деплой до `compose up --wait` (healthcheck ждёт PRIMARY, а PRIMARY — после `rs.initiate`).
+- **Порядок Q5 в `deploy.sh`:** основной `compose up` api/worker/web/admin — без `--remove-orphans` (иначе контейнер
+  `postgres` снялся бы до smoke); после зелёного smoke — `retire_postgres` (контейнер, том `pokatim-dev_pgdata` с
+  проверкой label проекта, ключи `POSTGRES_*`/`DATABASE_URL` в `.env`), затем `compose up --remove-orphans`.
+- **`consumeRegistrationToken(session, tokenHash, now)`** — подтверждённость e-mail проверяет `poll` по документу
+  `lockUser` той же транзакции (§7), репозиторий — только условный обмен; прежний тест «не обменивает до
+  подтверждения» на уровне репозитория заменён: pending до подтверждения — `poll.int.test.ts`, после истечения —
+  репозиторий.
+- **Методы репозитория вне транзакции** (`findRegistrationByHash`, `findCredentialsByEmail`, `rotateSession`,
+  `markReuseDetected`, `revokeSession`, `claimLinkSend`, `completeLinkSend`, `releaseLinkSend`,
+  `findPasswordResetById`, `deleteUnverifiedBatch`) — без параметра `session`; чтения, нужные и в транзакции, —
+  `(…, session?)` последним параметром; транзакционные — `session` первым.
+- **Тестовая инфраструктура проверок агента** — нативные `mongod 8.2.7` (RS, `127.0.0.1:27118`), `redis-server`
+  (`:6391`), `mailpit` (`:1025/:8025`) вместо контейнеров (Docker недоступен); CI — `mongo:8.0` (шаг рендера).
+- **Отрицательное доказательство для `lockUser` в confirm сброса:** без `lockUser` «два confirm» остаётся
+  зелёным — транзакции всё равно конфликтуют на записи `passwordHash` и документа ссылки. Ключевое доказательство
+  R1 — `lockUserCredentials` без `$inc` во входе (§12).
+- Lockfile: `pg`/`drizzle-orm`/`@types/pg` оставались разрешёнными необязательными peer `bullmq`/`api-kit` из
+  прежнего lockfile; удалены точечно (снимки и суффиксы peer), без пересборки остальных версий (`pnpm install
+  --frozen-lockfile` — ок).
+
 # 8.3 Security checklist
 
 Затронуты: хранилище учётных данных и сессий (identity), гарантии гонок аутентификации, инфраструктура (compose,
@@ -657,5 +692,56 @@ app-foundation (follow-ups: помощник «удерживаемая тран
 
 # 12. Outcome
 
-Заполняется coder/оркестратором: коммиты слайсов, вывод проверок (`pnpm check`, тесты с числом, `db:migrate` ×2,
-CI, репетиция деплоя, `copier update`/`diff -r`), отрицательные доказательства, остатки `git grep`, ответы Q1–Q8.
+Ответы Q1–Q8 и отклонения — §8.2. Ветка `feature/pokatim-mongo` от `origin/develop` (`64bf48d`).
+
+**Коммиты:** `924b28d` спецификация и Q1–Q8; `892ea99` S1 каркас и identity; `ed75457` S2 TTL и гонки;
+`dd6ff32` S3 CI, образ, деплой; `0ea572c` S4 документы и ADR-0007; затем — этот Outcome.
+
+**Проверки** (инфраструктура агента — нативные mongod 8.2.7 RS `:27118`, redis `:6391`, mailpit; Docker недоступен):
+
+| Проверка | Результат |
+|---|---|
+| `pnpm check` (format, lint, arch, typecheck, test) | EXIT 0; api — 28 файлов, **198 тестов** (было 176 на `64bf48d`), app — 209 |
+| `db:migrate` (tsx) ×2 | «миграции применены: 0001_outbox, 0002_identity, 0003_identity_ttl» → «новых миграций нет» |
+| `node dist/db/migrate.js` ×2 | то же; `MONGO_URL` без имени БД — код 1, сообщение без значения URL |
+| `api dist loads` | ok |
+| `pnpm e2e:web` без API | 10 passed, 1 skipped |
+| `pnpm build:web` + `E2E_API=1 pnpm e2e:web` (API/worker из dist на MongoDB) | 11 passed (регистрация → письмо → подтверждение → вход → refresh → выход → сброс пароля) |
+| `expo export -p android` | ок |
+| `shellcheck -x deploy.sh bootstrap.sh` (shellcheck-py) | 0 замечаний |
+| `actionlint` (actionlint-py + shellcheck) | 0 замечаний |
+| `copier update --vcs-ref v0.4.1 --defaults` в копии ветки (AC10) | дифф — только 5 PNG иконок (как AC7 переименования), `*.rej` нет |
+| `diff -r` с рендером `v0.4.1 mongo` | project-дельты прежние (как `develop` ↔ рендер postgres) плюс: `apps/api/src/db/migrations/index.ts` (миграции identity), `tools/ai_review/review_contract.md` (строка R1 — HIGH); размер дельт `ci.yml`, `AGENTS.md`, `harness.int.test.ts`, `web.spec.ts`, `local-dev.md` — в пределах project-частей |
+| Ссылки в изменённых документах | живые (проверка относительных ссылок) |
+
+**Отрицательные доказательства** (механизм убран → тест красный по результату, затем возвращён):
+
+| Убрано | Тест | Результат |
+|---|---|---|
+| сверка хеша под `lockUserCredentials` во входе | вход ↔ сброс «в процессе» (удерживаемая транзакция); вход ↔ сброс (ворота) | `expected 200 to be 401` в обоих |
+| `$inc version` в `lockUserCredentials` (простое чтение) | вход ↔ сброс «в процессе» | `expected 200 to be 401` (R1) |
+| условия `findOneAndDelete` очистки | очистка ↔ подтверждение «в процессе» | `expected 1 to be +0` (аккаунт удалён) |
+| `revokedAt: null` в фильтре ротации | сброс «в процессе» ↔ ротация (а) | `expected 200 to be 401` |
+| отзыв ротированной сессии (фильтр `rotatedAt: null` в `revokeAllSessions`) | сброс ↔ ротация (б), ротация между снимком и отзывом | `expected 200 to be 401` |
+| `lockUser` в confirm сброса | «два confirm», «confirm ждал, ссылка истекла» | «два confirm» — **зелёный** (сериализует запись `passwordHash`/ссылки), второй — красный по ожиданию spy; см. §8.2 |
+
+**Остатки `git grep -i -E 'drizzle|postgis|postgres|pg_|FOR UPDATE'`** (кроме `docs/tasks/*`): ADR-история
+(`docs/adr/0001`–`0003`, `0005`–`0007`, `README.md`), `docs/proposal-stack-architecture.md` (исторический, с пометкой);
+рендер шаблона — `.ai/dev-kit` и `.agents/skills` (`backend-nest` про обе БД), `.dependency-cruiser.cjs`
+(`drizzle/meta`), `eslint.config.mjs` и `.claude/rules/db.md`, `AGENTS.md` (корни пакетов — PostgreSQL),
+`pnpm-workspace.yaml` (`packageExtensions`), `pnpm-lock.yaml` (метаданные peer `api-kit`/`test-kit`; пакетов
+`pg`/`drizzle-*` в lockfile нет); `apps/api/src/config/env.test.ts` (рендер: `postgres://` отвергается);
+переезд — `infra/deploy/deploy.sh` (`retire_postgres`), `docs/runbooks/{deploy,local-dev}.md`; комментарии
+`0002_identity.ts` (имена индексов из PG) и `identity-races.int.test.ts`.
+
+**NOT VERIFIED (Docker Desktop недоступен: диск хоста заполнен, VM не стартует; контейнеры `pokatim-dev-*` /
+`on-bike-dev-*` не трогались, Docker не перезапускался):**
+
+- `docker build --target api` и `node dist/db/migrate.js` в контейнере (AC7) — проверено только на хосте из `dist`.
+- Репетиция деплоя AC8 (стек `pokatim-dev` из `origin/develop` → новый `deploy.sh`, `retire_postgres`, повторный
+  деплой) — проверены только `bash -n`, shellcheck и логика `mongo-init.js` на нативном mongod.
+- Поведение entrypoint `mongo:8.0` с обёрткой keyfile; healthcheck `hello` в контейнере.
+- Тесты на `mongo:8.0` (локально — mongod 8.2.7; CI запустит `mongo:8.0`), CI GitHub Actions (не запускался — push
+  без PR).
+- Ручной смоук стенда после деплоя (человек): регистрация, письмо, вход, сброс; `docker volume ls` —
+  `pokatim-dev_pgdata` удалён, `pokatim-dev_mongodata` на месте.
