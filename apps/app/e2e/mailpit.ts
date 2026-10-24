@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext } from '@playwright/test';
 
-import { MAILPIT_URL } from './urls';
+/** HTTP API Mailpit (письма регистрации). */
+const MAILPIT_URL = (process.env.MAILPIT_URL ?? 'http://127.0.0.1:8025').replace(/\/$/, '');
 
 interface MailpitSearch {
   messages: { ID: string }[];

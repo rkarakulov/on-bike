@@ -1,0 +1,55 @@
+import type { PlaywrightTestConfig } from '@playwright/test';
+
+import type { ExpectedResourceError } from './console-errors';
+import { API_URL, BASE_URL, DEV_URL, WITH_API } from './urls';
+
+// Расширение смоука web проектом. Файл создаёт шаблон, `copier update` его не перезаписывает (`_skip_if_exists`
+// в copier.yml): проектное — здесь, playwright.config.ts, fixtures.ts и urls.ts остаются шаблонными.
+// Окружение смоука (`E2E_API`, env серверов) проходит из процесса: `pnpm e2e:web` — turbo с `--env-mode=loose`.
+
+type WebServer = Extract<
+  NonNullable<PlaywrightTestConfig['webServer']>,
+  readonly unknown[]
+>[number];
+
+/** on-bike: refresh web-сессии — аноним при каждой загрузке восстанавливает вход (без cookie → 401). */
+export const REFRESH_URL = `${API_URL}/v1/auth/session/refresh`;
+
+// on-bike, E2E_API=1: API и worker из apps/api/dist (`pnpm --filter @on-bike/api build`), остальное окружение —
+// apps/api/.env локально или переменные CI. Ссылки писем ведут на production-сборку смоука, её origin-ы —
+// доверенные для CORS/CSRF (иначе POST с web — 403). Свой процесс, не dev-API: у него другие APP_LINK_BASE и CORS.
+const api = {
+  PORT: new URL(API_URL).port || '80',
+  APP_LINK_BASE: `${BASE_URL}/`,
+  CORS_ORIGINS: `${BASE_URL},${DEV_URL}`,
+};
+
+/** Серверы проекта, которые Playwright поднимает до web-серверов смоука. */
+export const servers: WebServer[] = WITH_API
+  ? [
+      {
+        name: 'api',
+        command: 'node dist/main.js',
+        cwd: '../api',
+        url: `${API_URL}/v1/health`,
+        env: api,
+        reuseExistingServer: false,
+      },
+      {
+        // письма регистрации отправляет worker (outbox → BullMQ → SMTP Mailpit); готовность — по письму в тесте
+        name: 'worker',
+        command: 'node dist/worker.js',
+        cwd: '../api',
+        env: api,
+      },
+    ]
+  : [];
+
+/** Окружение web-серверов смоука: с API — посев SSR публичных экранов (loader /status). */
+export const webServerEnv: Record<string, string> = WITH_API ? { API_INTERNAL_URL: API_URL } : {};
+
+/**
+ * Ожидаемые отказы загрузки ресурсов в console.error production-сборки (task.md F5b §8.2): 401 на восстановление
+ * сессии анонима. Всё остальное — падение.
+ */
+export const expectedResourceErrors: ExpectedResourceError[] = [{ url: REFRESH_URL, status: 401 }];

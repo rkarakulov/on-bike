@@ -6,7 +6,7 @@ import { createFastifyAdapter } from '@rkarakulov/api-kit';
 
 import { AppModule } from './app.module';
 import { loadEnv } from './config/env';
-import { configureOnBikeHttp } from './http-app';
+import { configureHttp } from './http-app';
 
 async function bootstrap(): Promise<void> {
   const config = loadEnv();
@@ -14,7 +14,7 @@ async function bootstrap(): Promise<void> {
     AppModule,
     createFastifyAdapter(config),
   );
-  configureOnBikeHttp(app, config);
+  configureHttp(app, config);
   app.enableShutdownHooks();
   await app.listen(config.PORT, '0.0.0.0');
 }

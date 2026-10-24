@@ -11,7 +11,7 @@ import type { Env } from './config/env';
  * - CSRF — Fetch Metadata (`Sec-Fetch-Site`) с fallback `Origin`/`Host` глобально: небезопасный запрос
  *   с чужого сайта → 403, native без этих заголовков проходит. Доверены только те же `CORS_ORIGINS`.
  */
-export function configureOnBikeHttp(
+export function configureHttp(
   app: NestFastifyApplication,
   env: Pick<Env, 'CORS_ORIGINS'>,
 ): NestFastifyApplication {

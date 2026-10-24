@@ -8,7 +8,7 @@ import { ApiError } from '@on-bike/contracts';
 import { ApiExceptionFilter, createFastifyAdapter } from '@rkarakulov/api-kit';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { configureOnBikeHttp } from './http-app';
+import { configureHttp } from './http-app';
 
 @Controller('probe')
 class ProbeController {
@@ -36,7 +36,7 @@ async function createApp(corsOrigins: string[]): Promise<NestFastifyApplication>
     createFastifyAdapter({ TRUST_PROXY: 0 }),
     { logger: false },
   );
-  configureOnBikeHttp(app, { CORS_ORIGINS: corsOrigins });
+  configureHttp(app, { CORS_ORIGINS: corsOrigins });
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
   return app;
@@ -55,7 +55,7 @@ const post = (target: NestFastifyApplication, headers: Record<string, string> = 
     payload: '{}',
   });
 
-describe('configureOnBikeHttp: CSRF (Fetch Metadata + Origin)', () => {
+describe('configureHttp: CSRF (Fetch Metadata + Origin)', () => {
   it('префикс версии контракта: /v1/...', async () => {
     const res = await (await createApp([])).inject({ method: 'GET', url: '/v1/probe' });
     expect(res.statusCode).toBe(200);
@@ -140,7 +140,7 @@ describe('configureOnBikeHttp: CSRF (Fetch Metadata + Origin)', () => {
   });
 });
 
-describe('configureOnBikeHttp: CORS с credentials только для CORS_ORIGINS', () => {
+describe('configureHttp: CORS с credentials только для CORS_ORIGINS', () => {
   const preflight = (target: NestFastifyApplication, origin: string) =>
     target.inject({
       method: 'OPTIONS',
