@@ -23,7 +23,7 @@ export function VerifiedSigningIn({ email }: { email: string }) {
 }
 
 /** Для экрана входа: e-mail — через память (черновик), не через URL (история браузера, логи web-сервера). */
-function prefillSignInEmail(email: string) {
+export function prefillSignInEmail(email: string) {
   const store = useRegistrationStore.getState();
   store.saveDraft({ ...store.draft, email });
 }

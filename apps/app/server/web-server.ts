@@ -12,6 +12,12 @@ export const securityHeaders: Readonly<Record<string, string>> = {
   'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
 };
 
+/**
+ * Пути с токеном из письма (`/auth/verify/<token>`, `/auth/reset/<token>`): без `Referer` даже к своему origin —
+ * запросы страницы к API (прод — тот же origin) иначе несли бы полный URL с токеном.
+ */
+const TOKEN_PATH_PREFIX = '/auth/';
+
 /** Хешированные бандлы Expo: имя меняется с содержимым — кешируются навсегда. */
 const IMMUTABLE_PREFIX = '/_expo/static/';
 
@@ -26,8 +32,9 @@ export function createWebServer({ dist, render }: WebServerOptions): express.Exp
   const app = express();
   app.disable('x-powered-by');
 
-  app.use((_req, res, next) => {
+  app.use((req, res, next) => {
     res.set(securityHeaders);
+    if (req.path.startsWith(TOKEN_PATH_PREFIX)) res.set('Referrer-Policy', 'no-referrer');
     next();
   });
 

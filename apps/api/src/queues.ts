@@ -4,7 +4,10 @@
  */
 export const QUEUE = {
   trackProcessing: 'track-processing',
-  /** Письма модуля identity (подтверждение, позже — сброс пароля); jobId = id события outbox. */
+  /**
+   * Письма модуля identity: подтверждение e-mail, ссылка сброса пароля, «Пароль изменён». Один процессор разбирает
+   * задачи по имени (BullMQ раздаёт задачи очереди любому процессору); jobId = id события outbox.
+   */
   identityEmail: 'identity-email',
   /** Регламентные задачи identity по расписанию (очистка неподтверждённых). */
   identityMaintenance: 'identity-maintenance',

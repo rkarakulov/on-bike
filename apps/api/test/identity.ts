@@ -1,7 +1,11 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 
-import { users, emailVerificationTokens } from '../src/modules/identity/identity.schema';
-import { deriveVerificationToken } from '../src/modules/identity/tokens';
+import {
+  emailVerificationTokens,
+  passwordResetTokens,
+  users,
+} from '../src/modules/identity/identity.schema';
+import { derivePasswordResetToken, deriveVerificationToken } from '../src/modules/identity/tokens';
 import type { Harness } from './harness';
 
 export const validRegistration = (overrides: Record<string, unknown> = {}) => ({
@@ -71,3 +75,25 @@ export const poll = (h: Harness, registrationToken: string, sessionTransport?: '
 
 export const resend = (h: Harness, body: Record<string, string>) =>
   call(h, 'POST', '/v1/auth/verification/resend', body);
+
+/** Запрос ссылки сброса «с IP клиента» (за прокси — при `TRUST_PROXY=1`). */
+export const requestPasswordReset = (h: Harness, email: string, ip = '198.51.100.1') =>
+  call(h, 'POST', '/v1/auth/password-reset', { email }, { 'x-forwarded-for': ip });
+
+export const describePasswordReset = (h: Harness, token: string) =>
+  call(h, 'GET', `/v1/auth/password-reset/${token}`);
+
+export const confirmPasswordReset = (h: Harness, token: string, password: string) =>
+  call(h, 'POST', '/v1/auth/password-reset/confirm', { token, password });
+
+/** Токен последней ссылки сброса пользователя — тот же, что окажется в письме (HMAC от id строки). */
+export async function latestResetToken(h: Harness, email = 'rider@example.com'): Promise<string> {
+  const [row] = await h.db
+    .select({ id: passwordResetTokens.id })
+    .from(passwordResetTokens)
+    .innerJoin(users, eq(users.id, passwordResetTokens.userId))
+    .where(eq(users.email, email))
+    .orderBy(desc(passwordResetTokens.createdAt), desc(passwordResetTokens.id));
+  if (!row) throw new Error('no password reset token');
+  return derivePasswordResetToken(h.env.EMAIL_TOKEN_SECRET, row.id);
+}

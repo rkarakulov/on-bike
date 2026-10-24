@@ -1,13 +1,14 @@
 import type { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { verificationLink } from './mailpit';
+import { latestMailText, passwordResetLink, verificationLink } from './mailpit';
 import { REFRESH_URL, SIGN_IN_URL } from './project';
 import { API_URL, BASE_URL, DEV_URL, WITH_API } from './urls';
 
 // Смоук web-версии on-bike: SSR → гидрация → гард сессии, публичные экраны с OG, витрина (dev), PWA;
 // с API (E2E_API=1) — регистрация → письмо → подтверждение → вход → вход переживает перезагрузку (cookie) →
-// выход → вход по паролю (неверный пароль — баннер) → перезагрузка.
+// выход → вход по паролю (неверный пароль — баннер) → перезагрузка → выход → «Забыли пароль?» → письмо → новый пароль
+// → старый пароль не подходит → вход новым → письмо «Пароль изменён».
 // Ошибки страницы (исключения, рассинхрон гидрации, неожиданные отказы загрузки) проверяет фикстура (fixtures.ts);
 // ожидаемый 401 восстановления сессии анонима — в e2e/project.ts.
 
@@ -86,6 +87,41 @@ test('ссылка из письма /auth/verify/<токен>: HTML с серв
   expect(html).toMatch(/<meta property="og:title" content="Подтвердите e-mail"/);
   expect(html).not.toContain('og:url');
   expect(html.match(/<meta [^>]*>/g)?.join('\n')).not.toContain(token);
+});
+
+test('публичный экран /forgot-password: форма, заголовок и OG в HTML до JS, без персональных данных', async ({
+  page,
+  request,
+}) => {
+  const html = await (await request.get('/forgot-password')).text();
+  expect(html).toContain('Укажите e-mail аккаунта');
+  expect(html).toContain('<title>Восстановление пароля — Покатим</title>');
+  expect(html).toMatch(/<meta property="og:title" content="Восстановление пароля"/);
+  expect(html).toContain(`<meta property="og:url" content="${BASE_URL}/forgot-password"`);
+  expect(html.match(/<meta [^>]*>/g)?.join('\n')).not.toContain('@');
+
+  await page.goto('/forgot-password');
+  await expect(page.getByRole('button', { name: 'Отправить ссылку' })).toBeVisible();
+  await expect(page).toHaveTitle('Восстановление пароля — Покатим');
+});
+
+// экран после гидрации — в сценарии «с API»: неизвестный токен дал бы 404 в консоли
+test('ссылка сброса /auth/reset/<токен>: HTML с сервера без og:url и токена в мета, Referrer-Policy: no-referrer', async ({
+  request,
+}) => {
+  const token = 'y'.repeat(43);
+  const response = await request.get(`/auth/reset/${token}`);
+  expect(response.status()).toBe(200);
+  expect(response.headers()['referrer-policy']).toBe('no-referrer');
+  const html = await response.text();
+  expect(html).toContain('<title>Новый пароль — Покатим</title>');
+  expect(html).toMatch(/<meta property="og:title" content="Новый пароль"/);
+  expect(html).not.toContain('og:url');
+  expect(html.match(/<meta [^>]*>/g)?.join('\n')).not.toContain(token);
+  // прочие страницы — прежняя политика
+  expect((await request.get('/sign-in')).headers()['referrer-policy']).toBe(
+    'strict-origin-when-cross-origin',
+  );
 });
 
 test('публичный экран /status: заголовок и OG в HTML до JS, после гидрации — тот же экран', async ({
@@ -234,5 +270,43 @@ test.describe('с API', () => {
     await page.reload();
     expect((await restored).status()).toBe(200);
     await expect(page.getByRole('heading', { name: 'Главная' })).toBeVisible();
+
+    // сброс пароля: выход → «Забыли пароль?» (e-mail переносится из формы входа) → письмо со ссылкой
+    await page.getByRole('button', { name: 'Выйти' }).click();
+    await expect(page).toHaveURL(`${BASE_URL}/sign-in`);
+    await page.getByRole('textbox', { name: 'E-mail' }).fill(email);
+    await page.getByRole('button', { name: 'Забыли пароль?' }).click();
+    await expect(page).toHaveURL(`${BASE_URL}/forgot-password`);
+    await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveValue(email);
+    await page.getByRole('button', { name: 'Отправить ссылку' }).click();
+    await expect(page.getByText('Проверьте почту', { exact: true })).toBeVisible();
+
+    const resetLink = await passwordResetLink(request, email);
+    expect(resetLink).toMatch(new RegExp(`^${BASE_URL}/auth/reset/[\\w-]{43}$`));
+    await page.goto(resetLink);
+    await expect(page).toHaveTitle('Новый пароль — Покатим');
+    const newPassword = 'новый-пароль-on-bike';
+    const fresh = page.getByRole('textbox', { name: 'Новый пароль' });
+    await expect(fresh).toHaveAttribute('autocomplete', 'new-password');
+    await fresh.fill(newPassword);
+    await page.getByRole('textbox', { name: 'Повторите пароль' }).fill(newPassword);
+    await page.getByRole('button', { name: 'Сохранить пароль' }).click();
+    await expect(page.getByText('Пароль изменён', { exact: true })).toBeVisible();
+
+    // «Войти» → «Вход» с e-mail аккаунта; старый пароль не подходит, новый — вход
+    await page.getByRole('button', { name: 'Войти' }).click();
+    await expect(page).toHaveURL(`${BASE_URL}/sign-in`);
+    await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveValue(email);
+    await page.getByRole('textbox', { name: 'Пароль' }).fill('e2e-пароль-on-bike');
+    await page.getByRole('button', { name: 'Войти' }).click();
+    await expect(page.getByText('Неверный e-mail или пароль.')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Пароль' }).fill(newPassword);
+    await page.getByRole('button', { name: 'Войти' }).click();
+    await expect(page.getByRole('heading', { name: 'Главная' })).toBeVisible();
+
+    // уведомление о смене пароля — без ссылки с токеном
+    const changed = await latestMailText(request, `to:"${email}" subject:"Пароль изменён"`);
+    expect(changed).toContain('по минскому времени');
+    expect(changed).not.toMatch(/auth\/reset/);
   });
 });

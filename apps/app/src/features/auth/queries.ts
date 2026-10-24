@@ -1,6 +1,8 @@
 import type {
+  ConfirmPasswordResetRequest,
   RegisterRequest,
   RegistrationPollResponse,
+  RequestPasswordResetRequest,
   ResendVerificationRequest,
   SignInRequest,
   SignInResponse,
@@ -26,6 +28,7 @@ const AUTH_MUTATION = { networkMode: 'always' } as const;
 
 export const authKeys = {
   verificationLink: (token: string) => ['auth', 'verification-link', token] as const,
+  passwordResetLink: (token: string) => ['auth', 'password-reset-link', token] as const,
   registrationPoll: (registrationToken: string) =>
     ['auth', 'registration-poll', registrationToken] as const,
 };
@@ -116,5 +119,33 @@ export function useRegistrationPoll(registrationToken: string | undefined) {
         ? false
         : POLL_INTERVAL_MS,
     retry: (failureCount, error) => !isRegistrationRejected(error) && failureCount < 2,
+  });
+}
+
+// Сброс пароля — вне Web Lock сессии: пути `/v1/auth/password-reset*` cookie сессии не видят и не меняют (вне
+// `SESSION_COOKIE.path`). Локальный выход после смены пароля — через `useSignOut` (у него свой замок).
+
+/** Запрос ссылки сброса: один и тот же ответ для любого адреса. */
+export function useRequestPasswordReset() {
+  return useMutation({
+    ...AUTH_MUTATION,
+    mutationFn: (body: RequestPasswordResetRequest) => api.requestPasswordReset(body),
+  });
+}
+
+/** Чтение ссылки сброса — без побочных эффектов на сервере; `enabled: false` — после смены пароля (кеш очищен выходом). */
+export function usePasswordResetLink(token: string, enabled = true) {
+  return useQuery({
+    queryKey: authKeys.passwordResetLink(token),
+    queryFn: () => api.getPasswordResetLink(token),
+    enabled,
+  });
+}
+
+/** Смена пароля по ссылке: сервер отзывает все сессии аккаунта и новую не выдаёт. */
+export function useConfirmPasswordReset() {
+  return useMutation({
+    ...AUTH_MUTATION,
+    mutationFn: (body: ConfirmPasswordResetRequest) => api.confirmPasswordReset(body),
   });
 }

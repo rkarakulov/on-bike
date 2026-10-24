@@ -2,9 +2,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { SignInRequest } from '@on-bike/contracts';
 import { t } from '@on-bike/i18n';
 import { Banner, Button, TextAction, TextField } from '@rkarakulov/ui';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type { GenerateMetadataFunction } from 'expo-router/server';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
@@ -63,6 +63,15 @@ export default function SignInScreen() {
     defaultValues: { email: draftEmail ?? '', password: '' },
   });
 
+  // возврат к уже смонтированной форме («Вернуться ко входу», «Войти» после сброса пароля): адрес мог смениться в
+  // черновике — поле берёт его; defaultValues действуют только при первом монтировании
+  useFocusEffect(
+    useCallback(() => {
+      const { email } = useRegistrationStore.getState().draft;
+      if (email !== undefined && email !== getValues('email')) setValue('email', email);
+    }, [getValues, setValue]),
+  );
+
   const onSubmit = handleSubmit(async (values) => {
     try {
       const result = await signIn.mutateAsync(values);
@@ -89,6 +98,13 @@ export default function SignInScreen() {
     // явно к регистрации: к уже смонтированной в стеке (форма возьмёт e-mail из черновика), иначе — замена этого
     // экрана; «назад» привёл бы на любой предыдущий экран (вход, «Подтвердите e-mail»)
     router.dismissTo('/register');
+  };
+
+  // «Забыли пароль?»: введённый e-mail — на экран запроса через память, не через URL
+  const toForgotPassword = () => {
+    const store = useRegistrationStore.getState();
+    store.saveDraft({ ...store.draft, email: getValues('email') });
+    router.push('/forgot-password');
   };
 
   const failure = signIn.error;
@@ -149,6 +165,7 @@ export default function SignInScreen() {
           disabled={locked}
           loading={signIn.isPending}
         />
+        <TextAction label={t('auth.signIn.forgot')} onPress={toForgotPassword} />
         <AuthInline>
           <AuthMeta>{t('auth.signIn.noAccount')}</AuthMeta>
           <TextAction label={t('auth.signIn.toRegister')} onPress={toRegister} />

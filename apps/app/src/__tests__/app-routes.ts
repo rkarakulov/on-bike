@@ -1,4 +1,5 @@
 import CheckEmailScreen from '../app/(onboarding)/check-email';
+import ForgotPasswordScreen from '../app/(onboarding)/forgot-password';
 import OnboardingLayout from '../app/(onboarding)/_layout';
 import RegisterScreen from '../app/(onboarding)/register';
 import SignInScreen from '../app/(onboarding)/sign-in';
@@ -8,6 +9,7 @@ import TabsLayout from '../app/(tabs)/_layout';
 import RacesScreen from '../app/(tabs)/races';
 import RidesScreen from '../app/(tabs)/rides';
 import RoutesScreen from '../app/(tabs)/routes';
+import ResetPasswordScreen from '../app/auth/reset/[token]';
 import VerifyEmailScreen from '../app/auth/verify/[token]';
 import RootLayout from '../app/_layout';
 import StatusScreen from '../app/status';
@@ -31,7 +33,9 @@ export const appRoutes = {
   '(onboarding)/register': RegisterScreen,
   '(onboarding)/check-email': CheckEmailScreen,
   '(onboarding)/sign-in': SignInScreen,
+  '(onboarding)/forgot-password': ForgotPasswordScreen,
   'auth/verify/[token]': VerifyEmailScreen,
+  'auth/reset/[token]': ResetPasswordScreen,
   'ui-kit': UiKitScreen,
   status: StatusScreen,
 };

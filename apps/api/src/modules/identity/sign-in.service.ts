@@ -55,9 +55,12 @@ export class SignInService implements OnModuleInit {
     if (!known || !valid) throw invalidCredentials();
 
     return this.repository.db.transaction(async (tx) => {
-      // под блокировкой аккаунта: подтверждение, очистка и poll того же аккаунта идут по очереди
-      const user = await this.repository.lockUser(tx, account.id);
-      if (!user || user.deletedAt) throw invalidCredentials();
+      // под блокировкой аккаунта: подтверждение, очистка, poll и сброс пароля того же аккаунта идут по очереди
+      const user = await this.repository.lockUserCredentials(tx, account.id);
+      // пароль сменили между проверкой и блокировкой (сброс отозвал все сессии) — старый пароль сессию не получает (R4)
+      if (!user || user.deletedAt || user.passwordHash !== account.passwordHash) {
+        throw invalidCredentials();
+      }
       if (!user.emailVerifiedAt) {
         const pending = await this.registration.reissueToken(tx, user.id, user.email, now);
         return { state: 'verificationRequired' as const, ...pending };

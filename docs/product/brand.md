@@ -24,4 +24,5 @@ Scope пакетов `@on-bike/*`, репозиторий, образы GHCR, co
 пути и имена файлов, документы.
 
 Смена бренда — правка мест выше и тестов, которые сверяют тексты (`public-metadata.test.ts`, `e2e/web.spec.ts`,
-`verification-email.test.ts`, `packages/i18n/src/index.test.ts`).
+`verification-email.test.ts`, `password-reset-email.test.ts`, `password-changed-email.test.ts`,
+`packages/i18n/src/index.test.ts`).

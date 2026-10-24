@@ -4,7 +4,10 @@ import { VerificationToken } from '@on-bike/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
+  deriveLinkToken,
+  derivePasswordResetToken,
   deriveVerificationToken,
+  passwordResetLimitKeys,
   randomToken,
   rateLimitAddress,
   rateLimitKeyForIp,
@@ -89,5 +92,41 @@ describe('tokens', () => {
     expect(VerificationToken.safeParse(token).success).toBe(true);
     expect(deriveVerificationToken(secret, id)).toBe(token);
     expect(deriveVerificationToken('y'.repeat(32), id)).not.toBe(token);
+  });
+  it('общий вывод токена ссылки: подтверждение — прежний результат, сброс — другой токен того же id', () => {
+    const id = '0199f0d2-0000-7000-8000-000000000001';
+    const secret = 'x'.repeat(32);
+    expect(deriveLinkToken(secret, 'email-verify', id)).toBe(deriveVerificationToken(secret, id));
+    const reset = derivePasswordResetToken(secret, id);
+    expect(reset).toBe(
+      createHmac('sha256', secret).update(`password-reset:${id}`).digest('base64url'),
+    );
+    expect(reset).not.toBe(deriveVerificationToken(secret, id));
+    expect(VerificationToken.safeParse(reset).success).toBe(true);
+  });
+
+  it('ключи лимитов сброса — HMAC: без сырых e-mail и IP, свои префиксы, IPv6 — по /64', () => {
+    const secret = 'x'.repeat(32);
+    const keys = passwordResetLimitKeys(secret, 'rider@example.com', '203.0.113.7');
+
+    expect(Object.keys(keys).sort()).toEqual(['email', 'ip']);
+    expect(keys.ip).toMatch(/^pwreset-ip:[\w-]{43}$/);
+    expect(keys.email).toMatch(/^pwreset-email:[\w-]{43}$/);
+    for (const key of Object.values(keys)) {
+      expect(key).not.toContain('rider');
+      expect(key).not.toContain('203.0.113');
+    }
+    expect(keys.email).not.toBe(
+      signInLimitKeys(secret, 'rider@example.com', '203.0.113.7').email.replace(
+        'signin',
+        'pwreset',
+      ),
+    );
+    expect(passwordResetLimitKeys(secret, 'rider@example.com', '198.51.100.1').email).toBe(
+      keys.email,
+    );
+    expect(passwordResetLimitKeys(secret, 'a@b.by', '2001:db8:1:2::1').ip).toBe(
+      passwordResetLimitKeys(secret, 'a@b.by', '2001:db8:1:2::ff').ip,
+    );
   });
 });

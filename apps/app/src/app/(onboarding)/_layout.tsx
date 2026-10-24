@@ -17,6 +17,7 @@ export default function OnboardingLayout() {
       <Stack.Screen name="register" />
       <Stack.Screen name="check-email" />
       <Stack.Screen name="sign-in" />
+      <Stack.Screen name="forgot-password" />
     </Stack>
   );
 }

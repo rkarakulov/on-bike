@@ -77,6 +77,68 @@ describe('api-client: регистрация и подтверждение e-mai
   });
 });
 
+describe('api-client: сброс пароля', () => {
+  it('requestPasswordReset — POST e-mail, ответ — пауза повтора', async () => {
+    const { calls, api } = recorder(200, { resendAvailableInSec: 60 });
+    await expect(api.requestPasswordReset({ email: 'rider@example.com' })).resolves.toEqual({
+      resendAvailableInSec: 60,
+    });
+    expect(calls).toEqual([
+      {
+        url: 'https://api.test/v1/auth/password-reset',
+        method: 'POST',
+        body: { email: 'rider@example.com' },
+      },
+    ]);
+  });
+
+  it('getPasswordResetLink — GET без тела, токен в пути экранирован', async () => {
+    const { calls, api } = recorder(200, { state: 'used', email: 'rider@example.com' });
+    await expect(api.getPasswordResetLink(token)).resolves.toEqual({
+      state: 'used',
+      email: 'rider@example.com',
+    });
+    await api.getPasswordResetLink('a/b?c');
+    expect(calls).toEqual([
+      { url: `https://api.test/v1/auth/password-reset/${token}`, method: 'GET', body: undefined },
+      { url: 'https://api.test/v1/auth/password-reset/a%2Fb%3Fc', method: 'GET', body: undefined },
+    ]);
+  });
+
+  it('confirmPasswordReset — POST токена и пароля, без транспорта сессии', async () => {
+    const calls: Call[] = [];
+    const fetchImpl = ((url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method, body: JSON.parse(String(init?.body)) });
+      return Promise.resolve(
+        new Response(JSON.stringify({ state: 'passwordChanged', email: 'rider@example.com' }), {
+          status: 200,
+        }),
+      );
+    }) as typeof fetch;
+    const api = createApiClient({
+      baseUrl: 'https://api.test',
+      fetchImpl,
+      sessionTransport: 'cookie',
+    });
+    await expect(api.confirmPasswordReset({ token, password: 'new-password' })).resolves.toEqual({
+      state: 'passwordChanged',
+      email: 'rider@example.com',
+    });
+    expect(calls).toEqual([
+      {
+        url: 'https://api.test/v1/auth/password-reset/confirm',
+        method: 'POST',
+        body: { token, password: 'new-password' },
+      },
+    ]);
+  });
+
+  it('ответ не по схеме — ошибка (сессию сброс не выдаёт)', async () => {
+    const { api } = recorder(200, { state: 'signedIn', session: {} });
+    await expect(api.confirmPasswordReset({ token, password: 'new-password' })).rejects.toThrow();
+  });
+});
+
 describe('ApiHttpError.apiError — толерантный разбор ошибки', () => {
   const failWith = async (status: number, body: unknown) =>
     (await recorder(status, body)
