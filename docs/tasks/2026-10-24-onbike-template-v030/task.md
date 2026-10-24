@@ -186,3 +186,16 @@ README «Обновление проекта»); (2) смоук «без API» �
 - Визуально: Chrome headless (`channel: 'chrome'`, Pixel 7), собранный `dist`, `/register`, фокус в e-mail: у `input`
   `outline: solid 0px` (рамки браузера нет), остаются граница поля 1 px и кольцо фокуса FieldFrame 2 px с отступом —
   по дизайну `@rkarakulov/ui`; стиль `:-webkit-autofill` в `<head>` есть.
+
+### v0.4.1 (MongoDB как опция базы; on-bike — PostgreSQL)
+- `uvx copier@9.19.1 update --vcs-ref v0.4.1 --trust --defaults`: `_commit: v0.4.1`, в ответах — `database: postgres`
+  (умолчание нового вопроса), `use_postgis: true` сохранён; конфликтов и `.rej` нет. PNG on-bike (иконки PWA, favicon)
+  снова перезаписаны рендером — возвращены из HEAD (follow-up (1) актуален).
+- Изменилось: `pnpm-workspace.yaml` — каталог `@rkarakulov/*` 0.4.1 и `packageExtensions` (`mongodb` — необязательный
+  peer `api-kit`/`test-kit`); тексты `.ai/dev-kit` и `.agents/skills/backend-nest` (плагин 0.1.2, без привязки к одной БД).
+- `pnpm install`: в lockfile `mongodb` — только в объявлениях peer с `optional: true`, пакет драйвера не ставится.
+- Проверки: `pnpm check` EXIT 0 (depcruise 236 модулей, 0 нарушений; test 13/13: api 139, app 179; первый прогон —
+  сбой записи кеша jest в общем `/tmp/jest_dx`, повтор зелёный); `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000
+  pnpm build:web` — EXIT 0, `sw.js: 35 файлов`; `pnpm e2e:web` без API — 8 passed, 1 skipped; с `E2E_API=1` (`:3000`
+  свободен, сборка API, `db:migrate` dev-БД, окружение — как в CI `web`, Redis БД `/5`) — 9 passed.
+- NOT VERIFIED: GitHub Actions не запускались.

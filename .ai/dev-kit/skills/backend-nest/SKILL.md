@@ -1,6 +1,6 @@
 ---
 name: backend-nest
-description: Обязательный процесс для любой backend-работы в apps/api проекта на стеке app-foundation (NestJS 12 на Fastify, Drizzle, PostgreSQL, Redis, BullMQ, outbox, инфраструктура @rkarakulov/api-kit). Применяй, когда добавляешь или меняешь endpoint, controller, service, repository, модуль, миграцию, задачу очереди, outbox-событие, auth/роли, загрузку файлов, письмо, конфиг. Форсирует порядок placement → reuse → контракт → данные → очередь → TDD до написания кода.
+description: Обязательный процесс для любой backend-работы в apps/api проекта на стеке app-foundation (NestJS 12 на Fastify, БД проекта — PostgreSQL/Drizzle или MongoDB по AGENTS.md, Redis, BullMQ, outbox, инфраструктура @rkarakulov/api-kit). Применяй, когда добавляешь или меняешь endpoint, controller, service, repository, модуль, миграцию, задачу очереди, outbox-событие, auth/роли, загрузку файлов, письмо, конфиг. Форсирует порядок placement → reuse → контракт → данные → очередь → TDD до написания кода.
 ---
 
 # backend-nest — процесс для apps/api
@@ -9,10 +9,13 @@ description: Обязательный процесс для любой backend-�
 `security.md`), канон — `AGENTS.md` §4. Этот скил задаёт **порядок**.
 Для /task2 и /task3 результаты шагов 1–5 попадают в task.md и утверждаются до кода.
 
+БД проекта (PostgreSQL + Drizzle или MongoDB + драйвер `mongodb`), её миграции и правила запросов — в `AGENTS.md`
+§3–§4 и `.claude/rules/db.md` проекта: читай их, не предполагай БД.
+
 ## 1. Placement gate
 
 - Какой модуль `src/modules/<context>` владеет поведением? Нет подходящего — новый модуль только с обоснованием.
-- Слой: controller (тонкий) / service (логика) / repository (Drizzle) / `jobs/*.processor.ts` (worker).
+- Слой: controller (тонкий) / service (логика) / repository (доступ к БД) / `jobs/*.processor.ts` (worker).
 - Нужен чужой модуль — только через его `index.ts`; цикл зависимостей → перепроектировать, не `forwardRef`.
 - Код нужен ≥2 приложениям проекта → пакет в `packages/` проекта.
 - Инфраструктура, общая для любых проектов (env, БД, executor, outbox, очереди, лимитер, почта, clock,
@@ -36,9 +39,9 @@ description: Обязательный процесс для любой backend-�
 
 ## 4. Data & migration plan
 
-- Таблицы, колонки, индексы, constraint'ы.
-- Append-only? (аудит, решения, пересчёты — по инвариантам проекта) — только INSERT.
-- Миграция через генератор Drizzle (`db:generate` или скрипт из `AGENTS.md` §3); деструктивное —
+- Таблицы и колонки (или коллекции и поля документов), индексы, constraint'ы и уникальность.
+- Append-only? (аудит, решения, пересчёты — по инвариантам проекта) — только вставка.
+- Миграция — способом проекта (`AGENTS.md` §3, `.claude/rules/db.md`); деструктивное —
   expand → migrate → contract в разных релизах; миграции не при старте сервиса.
 - Удаление аккаунта: какие персональные данные анонимизируются и что остаётся.
 - Время — UTC в хранении; таймзона показа — по `AGENTS.md`.
@@ -53,14 +56,14 @@ description: Обязательный процесс для любой backend-�
 
 ## 6. TDD
 
-1. Тест, который падает: unit для сервиса; интеграционный на реальной PostgreSQL (и Redis, если нужен)
-   для репозитория, очередей и outbox — стенд `@rkarakulov/test-kit` (реальные PG/Redis, FakeMailer, часы);
+1. Тест, который падает: unit для сервиса; интеграционный на реальной БД проекта (и Redis, если нужен)
+   для репозитория, очередей и outbox — стенд `@rkarakulov/test-kit` (реальные БД/Redis, FakeMailer, часы);
    HTTP — через тестовый клиент приложения.
 2. Реализация до зелёного.
 3. `pnpm --filter <api-пакет> test` (имя — `AGENTS.md` §3), затем `pnpm check`.
 
 ## Красные флаги
 
-Логика в controller · SQL в service · `process.env` вне config · клиентское время или итог в расчёте ·
+Логика в controller · запросы к БД в service · `process.env` вне config · клиентское время или итог в расчёте ·
 UPDATE аудита · миграция при старте · задача без идемпотентности · `any` · `console.log` ·
 персональные данные (e-mail, токены, чувствительные поля) в логах · своя копия инфраструктуры из `api-kit`.
