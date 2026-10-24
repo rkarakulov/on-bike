@@ -9,6 +9,10 @@ describe('t', () => {
     expect(t('tabs.home')).toBe('Главная');
   });
 
+  it('название продукта — бренд «Покатим»', () => {
+    expect(t('app.name')).toBe('Покатим');
+  });
+
   it('строки базы доступны через тот же t', () => {
     expect(t('state.retry')).toBe('Повторить');
     expect(t('date.long', { day: 14, month: t('date.month.3'), year: 1991 })).toBe('14 марта 1991');

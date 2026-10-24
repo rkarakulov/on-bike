@@ -43,13 +43,13 @@ test('Главная без входа: HTML с сервера (скелетон
 test('публичный экран /register: форма, заголовок и OG в HTML до JS', async ({ page, request }) => {
   const html = await (await request.get('/register')).text();
   expect(html).toContain('Создать аккаунт');
-  expect(html).toContain('<title>Регистрация — on-bike</title>');
+  expect(html).toContain('<title>Регистрация — Покатим</title>');
   expect(html).toMatch(/<meta property="og:title" content="Регистрация"/);
   expect(html).toContain(`<meta property="og:url" content="${BASE_URL}/register"`);
 
   await page.goto('/register');
   await expect(page.getByRole('button', { name: 'Зарегистрироваться' })).toBeVisible();
-  await expect(page).toHaveTitle('Регистрация — on-bike');
+  await expect(page).toHaveTitle('Регистрация — Покатим');
 });
 
 // экран после гидрации (состояние ссылки из API) — в сценарии «с API»: неизвестный токен дал бы 404 в консоли
@@ -60,7 +60,7 @@ test('ссылка из письма /auth/verify/<токен>: HTML с серв
   const response = await request.get(`/auth/verify/${token}`);
   expect(response.status()).toBe(200);
   const html = await response.text();
-  expect(html).toContain('<title>Подтвердите e-mail — on-bike</title>');
+  expect(html).toContain('<title>Подтвердите e-mail — Покатим</title>');
   expect(html).toMatch(/<meta property="og:title" content="Подтвердите e-mail"/);
   expect(html).not.toContain('og:url');
   expect(html.match(/<meta [^>]*>/g)?.join('\n')).not.toContain(token);
@@ -108,7 +108,7 @@ test('PWA: manifest бренда без ошибок, устанавливает
   const cdp = await page.context().newCDPSession(page);
   const { errors: manifestErrors, data } = await cdp.send('Page.getAppManifest');
   expect(manifestErrors).toEqual([]);
-  expect(JSON.parse(data ?? '{}')).toMatchObject({ name: 'on-bike', theme_color: '#FFFFFF' });
+  expect(JSON.parse(data ?? '{}')).toMatchObject({ name: 'Покатим', theme_color: '#FFFFFF' });
   // контекст Playwright — инкогнито: эта причина есть всегда, остальные — реальные проблемы PWA
   const { installabilityErrors } = await cdp.send('Page.getInstallabilityErrors');
   expect(installabilityErrors.filter(({ errorId }) => errorId !== 'in-incognito')).toEqual([]);
@@ -153,7 +153,7 @@ test.describe('с API', () => {
     const mail = await context.newPage();
     watchErrors(mail);
     await mail.goto(link);
-    await expect(mail).toHaveTitle('Подтвердите e-mail — on-bike');
+    await expect(mail).toHaveTitle('Подтвердите e-mail — Покатим');
     await mail.getByRole('button', { name: 'Подтвердить e-mail' }).click();
     await expect(mail.getByText('E-mail подтверждён', { exact: true })).toBeVisible();
 
