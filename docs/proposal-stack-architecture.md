@@ -1,4 +1,4 @@
-# on-bike.by: стек, архитектура, AI-база (предложение)
+# pokatim: стек, архитектура, AI-база (предложение)
 
 Статус: черновик для обсуждения, 2026-10-22.
 Источники: инвесторская презентация, 19 прототипов, смета поддержки; анализ репозиториев webtrader, intera-app, AI-copilot-tri.
@@ -60,7 +60,7 @@ Expo с SDK 52+ сам настраивает Metro под монорепо; п�
 ### Структура
 
 ```
-on-bike/
+pokatim/
 ├─ apps/
 │  ├─ mobile/          Expo + Expo Router (iOS, Android)
 │  ├─ admin/           Vite + React — панель организаторов/модерации
@@ -106,7 +106,7 @@ on-bike/
 | Что | Откуда | Примечание |
 |---|---|---|
 | AGENTS.md — канон для всех агентов + тонкий CLAUDE.md-указатель | webtrader | держать ≤200 строк, детали — в rules |
-| `.claude/rules/*.md` с path-scope (backend, mobile, web, db, security, tests) | webtrader | содержание пишем под on-bike |
+| `.claude/rules/*.md` с path-scope (backend, mobile, web, db, security, tests) | webtrader | содержание пишем под pokatim |
 | `.claude/settings.json`: allow/deny (запрет force-push, rebase, `rm -rf`, DROP, merge) | webtrader | коммитится в git |
 | `/develop-task` + уровни task1/2/3 | intera-app (+ AI-copilot-tri) | UNDERSTAND → SPEC → PLAN → TDD → VERIFY → независимое ревью → FIX → DONE |
 | `/create-spec`, `/plan-task`, `/verify-task`, `/review-task`, `/finish-task`, `/understand-project` | AI-copilot-tri | убрать бот/Mongo/ветки интеграции |

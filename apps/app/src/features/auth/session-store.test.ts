@@ -1,6 +1,6 @@
 /// <reference types="jest" />
-import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
-import { CookieSession, type Session } from '@on-bike/contracts';
+import { ApiHttpError, ApiNetworkError } from '@pokatim/api-client';
+import { CookieSession, type Session } from '@pokatim/contracts';
 import * as SecureStore from 'expo-secure-store';
 
 import { api } from '@/lib/api';
@@ -61,7 +61,7 @@ describe('сессия', () => {
     signInApi.mockResolvedValue({ state: 'signedIn', session });
     await requestSignIn({ email: 'a@b.by', password: 'x' });
     expect(useSessionStore.getState().session).toEqual(inMemory(session));
-    expect(JSON.parse(stored().get('onbike.session') ?? '')).toEqual(session);
+    expect(JSON.parse(stored().get('pokatim.session') ?? '')).toEqual(session);
     expect(isSignedIn(useSessionStore.getState(), NOW.getTime())).toBe(true);
 
     resetSessionStore();
@@ -79,15 +79,15 @@ describe('сессия', () => {
   });
 
   it('просроченная или битая сессия при запуске удаляется', async () => {
-    stored().set('onbike.session', JSON.stringify(session));
+    stored().set('pokatim.session', JSON.stringify(session));
     await useSessionStore.getState().hydrate(new Date('2026-12-01T00:00:00Z').getTime());
     expect(useSessionStore.getState().status).toBe('signedOut');
-    expect(stored().has('onbike.session')).toBe(false);
+    expect(stored().has('pokatim.session')).toBe(false);
 
-    stored().set('onbike.session', '{"accessToken":1');
+    stored().set('pokatim.session', '{"accessToken":1');
     await useSessionStore.getState().hydrate(NOW.getTime());
     expect(useSessionStore.getState().status).toBe('signedOut');
-    expect(stored().has('onbike.session')).toBe(false);
+    expect(stored().has('pokatim.session')).toBe(false);
   });
 
   it('хранилище недоступно — запуск не блокируется, пользователь не вошёл', async () => {
@@ -100,7 +100,7 @@ describe('сессия', () => {
 describe('native: фоновая проверка сессии после локального восстановления (R5)', () => {
   it('200 — новый refresh в SecureStore и в сторе; ротация — по телу с сохранённым refresh', async () => {
     refresh.mockResolvedValue(rotated);
-    stored().set('onbike.session', JSON.stringify(session));
+    stored().set('pokatim.session', JSON.stringify(session));
 
     await useSessionStore.getState().hydrate(NOW.getTime());
     // вход — сразу по локальной сессии, без ожидания сети
@@ -108,14 +108,14 @@ describe('native: фоновая проверка сессии после лок
     await settle();
 
     expect(refresh).toHaveBeenCalledWith({ refreshToken: session.refreshToken });
-    expect(JSON.parse(stored().get('onbike.session') ?? '')).toEqual(rotated);
+    expect(JSON.parse(stored().get('pokatim.session') ?? '')).toEqual(rotated);
     expect(useSessionStore.getState().status).toBe('signedIn');
     expect(useSessionStore.getState().session).toEqual(inMemory(rotated));
   });
 
   it('401 (отозвана, reuse, выход на другом устройстве) — локальный выход, SecureStore пуст, гард ведёт на «Вход»', async () => {
     refresh.mockRejectedValue(unauthorized());
-    stored().set('onbike.session', JSON.stringify(session));
+    stored().set('pokatim.session', JSON.stringify(session));
 
     await useSessionStore.getState().hydrate(NOW.getTime());
     await settle();
@@ -125,11 +125,11 @@ describe('native: фоновая проверка сессии после лок
       session: null,
       returning: true,
     });
-    expect(stored().has('onbike.session')).toBe(false);
+    expect(stored().has('pokatim.session')).toBe(false);
   });
 
   it('офлайн-старт — остаёмся в аккаунте; одна немедленная повторная попытка', async () => {
-    stored().set('onbike.session', JSON.stringify(session));
+    stored().set('pokatim.session', JSON.stringify(session));
 
     await useSessionStore.getState().hydrate(NOW.getTime());
     await settle();
@@ -137,12 +137,12 @@ describe('native: фоновая проверка сессии после лок
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(useSessionStore.getState().status).toBe('signedIn');
     expect(useSessionStore.getState().session).toEqual(inMemory(session));
-    expect(JSON.parse(stored().get('onbike.session') ?? '')).toEqual(session);
+    expect(JSON.parse(stored().get('pokatim.session') ?? '')).toEqual(session);
   });
 
   it('сеть оборвалась один раз — повтор в пределах окна проходит', async () => {
     refresh.mockRejectedValueOnce(offline()).mockResolvedValueOnce(rotated);
-    stored().set('onbike.session', JSON.stringify(session));
+    stored().set('pokatim.session', JSON.stringify(session));
 
     await useSessionStore.getState().hydrate(NOW.getTime());
     await settle();
@@ -159,7 +159,7 @@ describe('native: фоновая проверка сессии после лок
     ['5xx', new ApiHttpError(503, null)],
   ])('%s — остаёмся в аккаунте без повторов', async (_case, error) => {
     refresh.mockRejectedValue(error);
-    stored().set('onbike.session', JSON.stringify(session));
+    stored().set('pokatim.session', JSON.stringify(session));
 
     await useSessionStore.getState().hydrate(NOW.getTime());
     await settle();
@@ -172,13 +172,13 @@ describe('native: фоновая проверка сессии после лок
 
 describe('native: выход', () => {
   it('сервер отзывает сессию по refresh из SecureStore, хранилище пусто, гард ведёт на «Вход»', async () => {
-    stored().set('onbike.session', JSON.stringify(session));
+    stored().set('pokatim.session', JSON.stringify(session));
     await useSessionStore.getState().signIn(session);
 
     await useSessionStore.getState().signOut();
 
     expect(signOut).toHaveBeenCalledWith({ refreshToken: session.refreshToken });
-    expect(stored().has('onbike.session')).toBe(false);
+    expect(stored().has('pokatim.session')).toBe(false);
     expect(useSessionStore.getState()).toMatchObject({
       status: 'signedOut',
       session: null,
@@ -189,12 +189,12 @@ describe('native: выход', () => {
   it('офлайн — локальный выход всё равно', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     signOut.mockRejectedValue(offline());
-    stored().set('onbike.session', JSON.stringify(session));
+    stored().set('pokatim.session', JSON.stringify(session));
     await useSessionStore.getState().signIn(session);
 
     await useSessionStore.getState().signOut();
 
-    expect(stored().has('onbike.session')).toBe(false);
+    expect(stored().has('pokatim.session')).toBe(false);
     expect(useSessionStore.getState().status).toBe('signedOut');
     // в предупреждении — только имя ошибки, без токенов
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/^sign-out failed: \w+$/));
@@ -205,7 +205,7 @@ describe('native: выход', () => {
   it('выход во время фоновой ротации ждёт её и отзывает уже новый refresh', async () => {
     const pending = deferred<Session>();
     refresh.mockReturnValue(pending.promise);
-    stored().set('onbike.session', JSON.stringify(session));
+    stored().set('pokatim.session', JSON.stringify(session));
     await useSessionStore.getState().hydrate(NOW.getTime());
 
     const out = useSessionStore.getState().signOut();
@@ -218,7 +218,7 @@ describe('native: выход', () => {
     await out;
 
     expect(signOut).toHaveBeenCalledWith({ refreshToken: rotated.refreshToken });
-    expect(stored().has('onbike.session')).toBe(false);
+    expect(stored().has('pokatim.session')).toBe(false);
     // запоздалый результат ротации не возвращает вошедшее состояние
     await settle();
     expect(useSessionStore.getState()).toMatchObject({ status: 'signedOut', session: null });
@@ -243,7 +243,7 @@ describe('native: выход', () => {
     await out;
 
     expect(signOut).toHaveBeenCalledWith({ refreshToken: session.refreshToken });
-    expect(stored().has('onbike.session')).toBe(false);
+    expect(stored().has('pokatim.session')).toBe(false);
     expect(useSessionStore.getState()).toMatchObject({ status: 'signedOut', session: null });
   });
 });

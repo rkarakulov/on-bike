@@ -1,12 +1,12 @@
 {
-  "name": "@on-bike/app",
+  "name": "@pokatim/app",
   "version": "0.0.0",
   "main": "expo-router/entry",
   "dependencies": {
-    "@on-bike/api-client": "workspace:*",
-    "@on-bike/contracts": "workspace:*",
-    "@on-bike/design-tokens": "workspace:*",
-    "@on-bike/i18n": "workspace:*",
+    "@pokatim/api-client": "workspace:*",
+    "@pokatim/contracts": "workspace:*",
+    "@pokatim/design-tokens": "workspace:*",
+    "@pokatim/i18n": "workspace:*",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/playfair-display": "^0.4.2",
     "@expo/metro-runtime": "~58.0.15",
@@ -76,5 +76,5 @@
     "build:play-internal": "eas build --profile production --platform android --auto-submit"
   },
   "private": true,
-  "description": "Универсальное приложение райдера on-bike (Expo: iOS, Android и web/PWA)"
+  "description": "Универсальное приложение райдера pokatim (Expo: iOS, Android и web/PWA)"
 }

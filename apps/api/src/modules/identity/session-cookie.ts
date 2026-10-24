@@ -6,7 +6,7 @@ import {
   type Session,
   SESSION_COOKIE,
   type SessionTransport,
-} from '@on-bike/contracts';
+} from '@pokatim/contracts';
 import { CLOCK, type Clock } from '@rkarakulov/api-kit';
 
 /**

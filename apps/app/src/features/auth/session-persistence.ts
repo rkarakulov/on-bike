@@ -1,5 +1,5 @@
-import { ApiHttpError } from '@on-bike/api-client';
-import { type AnySession, type CookieSession, Session } from '@on-bike/contracts';
+import { ApiHttpError } from '@pokatim/api-client';
+import { type AnySession, type CookieSession, Session } from '@pokatim/contracts';
 
 import { api } from '@/lib/api';
 
@@ -13,7 +13,7 @@ import { withSessionLock } from './session-lock';
  * Native: сессия целиком (с refresh) — в SecureStore, как до F5b. Web — `session-persistence.web.ts`
  * (refresh в httpOnly cookie, access в памяти). Стор сессии знает только эти операции.
  */
-const KEY = 'onbike.session';
+const KEY = 'pokatim.session';
 
 const readStored = (now: number) =>
   readJson(KEY, (value) => {

@@ -1,5 +1,5 @@
 # Домены — заглушки, пока не зарегистрирован .by (см. смету)
-{$PUBLIC_HOST:on-bike.localhost} {
+{$PUBLIC_HOST:pokatim.localhost} {
 	encode zstd gzip
 	handle /v1/* {
 		reverse_proxy api:3000
@@ -9,7 +9,7 @@
 	}
 }
 
-{$ADMIN_HOST:admin.on-bike.localhost} {
+{$ADMIN_HOST:admin.pokatim.localhost} {
 	encode zstd gzip
 	handle /v1/* {
 		reverse_proxy api:3000

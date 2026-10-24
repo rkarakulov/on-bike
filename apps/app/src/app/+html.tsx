@@ -1,5 +1,5 @@
-import { autofillCss, themes } from '@on-bike/design-tokens';
-import { i18n } from '@on-bike/i18n';
+import { autofillCss, themes } from '@pokatim/design-tokens';
+import { i18n } from '@pokatim/i18n';
 import { ScrollViewStyleReset, useServerDocumentContext } from 'expo-router/html';
 import type { ReactNode } from 'react';
 

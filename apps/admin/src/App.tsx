@@ -1,5 +1,5 @@
-import { isNetworkError } from '@on-bike/api-client';
-import { t } from '@on-bike/i18n';
+import { isNetworkError } from '@pokatim/api-client';
+import { t } from '@pokatim/i18n';
 import { useQuery } from '@tanstack/react-query';
 
 import { api } from './api';

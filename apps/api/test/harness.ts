@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { API_VERSION } from '@on-bike/contracts';
+import { API_VERSION } from '@pokatim/contracts';
 import { createApiHarness, type ApiHarness } from '@rkarakulov/test-kit';
 
 import { AppModule } from '../src/app.module';

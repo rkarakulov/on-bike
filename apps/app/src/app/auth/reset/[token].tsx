@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ConfirmPasswordResetRequest, type PasswordResetLinkState } from '@on-bike/contracts';
-import { size } from '@on-bike/design-tokens';
-import { t } from '@on-bike/i18n';
+import { ConfirmPasswordResetRequest, type PasswordResetLinkState } from '@pokatim/contracts';
+import { size } from '@pokatim/design-tokens';
+import { t } from '@pokatim/i18n';
 import {
   AsyncContent,
   Banner,

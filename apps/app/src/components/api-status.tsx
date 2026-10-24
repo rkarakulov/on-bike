@@ -1,6 +1,6 @@
-import type { HealthResponse } from '@on-bike/contracts';
-import { space } from '@on-bike/design-tokens';
-import { t } from '@on-bike/i18n';
+import type { HealthResponse } from '@pokatim/contracts';
+import { space } from '@pokatim/design-tokens';
+import { t } from '@pokatim/i18n';
 import { AsyncContent, SkeletonText, textStyle, useTheme, type AsyncState } from '@rkarakulov/ui';
 import { StyleSheet, Text, View } from 'react-native';
 

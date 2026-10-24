@@ -1,5 +1,5 @@
-import { HealthResponse } from '@on-bike/contracts';
-import { t } from '@on-bike/i18n';
+import { HealthResponse } from '@pokatim/contracts';
+import { t } from '@pokatim/i18n';
 import { useQuery } from '@tanstack/react-query';
 import type { GenerateMetadataFunction, LoaderFunction } from 'expo-router/server';
 

@@ -1,11 +1,11 @@
 import type { ArgumentsHost } from '@nestjs/common';
-import { ApiError, BASE_ERROR_CODES, ErrorCode } from '@on-bike/contracts';
+import { ApiError, BASE_ERROR_CODES, ErrorCode } from '@pokatim/contracts';
 import { ApiExceptionFilter, isDomainError, type ApiErrorMessages } from '@rkarakulov/api-kit';
 import { describe, expect, it } from 'vitest';
 
 import { domainError, PROJECT_ERROR_MESSAGES } from './error-messages';
 
-/** Ответ фильтра ошибок базы со словарём on-bike — как в AppModule. */
+/** Ответ фильтра ошибок базы со словарём pokatim — как в AppModule. */
 function respond(error: unknown) {
   let status = 0;
   let body: unknown;
@@ -27,8 +27,8 @@ function respond(error: unknown) {
   return { status, body: ApiError.parse(body) };
 }
 
-describe('сообщения кодов ошибок on-bike', () => {
-  it('у каждого кода on-bike (вне кодов базы) есть текст', () => {
+describe('сообщения кодов ошибок pokatim', () => {
+  it('у каждого кода pokatim (вне кодов базы) есть текст', () => {
     const projectCodes = ErrorCode.options.filter(
       (code) => !(BASE_ERROR_CODES as readonly string[]).includes(code),
     );
@@ -39,7 +39,7 @@ describe('сообщения кодов ошибок on-bike', () => {
     }
   });
 
-  it('фильтр базы отдаёт тексты on-bike, а не общий текст по статусу', () => {
+  it('фильтр базы отдаёт тексты pokatim, а не общий текст по статусу', () => {
     expect(respond(domainError('EMAIL_TAKEN', 409)).body).toEqual({
       code: 'EMAIL_TAKEN',
       message: 'E-mail уже зарегистрирован',

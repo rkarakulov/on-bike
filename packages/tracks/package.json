@@ -1,12 +1,12 @@
 {
-  "name": "@on-bike/tracks",
+  "name": "@pokatim/tracks",
   "version": "0.0.0",
   "private": true,
   "description": "Парсинг GPX/TCX/FIT/KML и геометрия треков",
   "type": "module",
   "exports": {
     ".": {
-      "@on-bike/source": "./src/index.ts",
+      "@pokatim/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }

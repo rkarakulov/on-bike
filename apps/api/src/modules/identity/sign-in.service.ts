@@ -4,7 +4,7 @@ import {
   type RateLimitedDetails,
   type RegisterResponse,
   type Session,
-} from '@on-bike/contracts';
+} from '@pokatim/contracts';
 import { CLOCK, type Clock, ENV, RateLimiter } from '@rkarakulov/api-kit';
 
 import type { Env } from '../../config/env';

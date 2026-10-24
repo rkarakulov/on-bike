@@ -1,4 +1,4 @@
-import { themes } from '@on-bike/design-tokens';
+import { themes } from '@pokatim/design-tokens';
 import { describe, expect, it, vi } from 'vitest';
 
 import { installDesignSystem } from './design-system';

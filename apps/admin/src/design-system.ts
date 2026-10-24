@@ -1,4 +1,4 @@
-import { designSystemCss } from '@on-bike/design-tokens';
+import { designSystemCss } from '@pokatim/design-tokens';
 
 /** Переменные темы panel и классы `.t-*` из пакета — до первого рендера, без ручных копий. */
 export function installDesignSystem(

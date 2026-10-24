@@ -2,8 +2,8 @@
   "extends": "@rkarakulov/config/tsconfig.react.json",
   "compilerOptions": {
     "types": ["vite/client", "node"],
-    // исходники workspace-пакетов (@on-bike/*) — без сборки dist
-    "customConditions": ["@on-bike/source"]
+    // исходники workspace-пакетов (@pokatim/*) — без сборки dist
+    "customConditions": ["@pokatim/source"]
   },
   "include": ["src", "vite.config.ts"]
 }

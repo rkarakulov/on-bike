@@ -1,6 +1,6 @@
 /// <reference types="jest" />
-import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
-import type { CookieSession } from '@on-bike/contracts';
+import { ApiHttpError, ApiNetworkError } from '@pokatim/api-client';
+import type { CookieSession } from '@pokatim/contracts';
 
 import { api } from '@/lib/api';
 
@@ -189,9 +189,9 @@ describe('сессия web: refresh в httpOnly cookie, access в памяти',
     await useSessionStore.getState().signOut();
 
     expect(request.mock.calls.map(([name]) => name)).toEqual([
-      'onbike.session-refresh',
-      'onbike.session-refresh',
-      'onbike.session-refresh',
+      'pokatim.session-refresh',
+      'pokatim.session-refresh',
+      'pokatim.session-refresh',
     ]);
     expect(pollRegistration).toHaveBeenCalledWith({ registrationToken: REGISTRATION_TOKEN });
   });
@@ -296,8 +296,8 @@ describe('сессия web: refresh в httpOnly cookie, access в памяти',
     await hydrating;
     const result = await signingIn;
     expect(locks.request.mock.calls.map(([name]) => name)).toEqual([
-      'onbike.session-refresh',
-      'onbike.session-refresh',
+      'pokatim.session-refresh',
+      'pokatim.session-refresh',
     ]);
     if (result.state !== 'signedIn') throw new Error('expected signedIn');
     await useSessionStore.getState().signIn(result.session);

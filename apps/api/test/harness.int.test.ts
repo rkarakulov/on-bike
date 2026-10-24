@@ -20,8 +20,8 @@ afterAll(async () => {
   await h.close();
 });
 
-describe('стенд on-bike (обёртка createApiHarness)', () => {
-  it('HTTP API on-bike под префиксом версии контракта', async () => {
+describe('стенд pokatim (обёртка createApiHarness)', () => {
+  it('HTTP API pokatim под префиксом версии контракта', async () => {
     const res = await h.app.inject({ method: 'GET', url: '/v1/health' });
     expect(res.statusCode).toBe(200);
   });
@@ -48,7 +48,7 @@ describe('стенд on-bike (обёртка createApiHarness)', () => {
     expect(h.worker.get(MAILER)).toBe(h.mailer);
   });
 
-  it('reset() чистит таблицы on-bike и outbox, справочник PostGIS не трогает', async () => {
+  it('reset() чистит таблицы pokatim и outbox, справочник PostGIS не трогает', async () => {
     expect((await register(h)).status).toBe(201);
     expect(await h.db.select().from(users)).toHaveLength(1);
     expect(await h.db.select().from(outbox)).toHaveLength(1);

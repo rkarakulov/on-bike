@@ -48,4 +48,4 @@ export type SignOutRequest = z.infer<typeof SignOutRequest>;
  * Cookie refresh для web: `HttpOnly; Secure; SameSite=Strict`, без `Domain`. Путь — только эндпоинты сессии:
  * cookie не уходит ни на регистрацию, ни на SSR-запросы web-сервера.
  */
-export const SESSION_COOKIE = { name: '__Secure-onbike_rt', path: '/v1/auth/session' } as const;
+export const SESSION_COOKIE = { name: '__Secure-pokatim_rt', path: '/v1/auth/session' } as const;

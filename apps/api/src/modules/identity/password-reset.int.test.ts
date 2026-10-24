@@ -5,7 +5,7 @@ import {
   RequestPasswordResetResponse,
   Session,
   SignInResponse,
-} from '@on-bike/contracts';
+} from '@pokatim/contracts';
 import { asc, desc, eq } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 

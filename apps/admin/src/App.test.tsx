@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { ApiHttpError, ApiNetworkError } from '@on-bike/api-client';
+import { ApiHttpError, ApiNetworkError } from '@pokatim/api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';

@@ -5,7 +5,7 @@ import { latestMailText, passwordResetLink, verificationLink } from './mailpit';
 import { REFRESH_URL, SIGN_IN_URL } from './project';
 import { API_URL, BASE_URL, DEV_URL, WITH_API } from './urls';
 
-// Смоук web-версии on-bike: SSR → гидрация → гард сессии, публичные экраны с OG, витрина (dev), PWA;
+// Смоук web-версии pokatim: SSR → гидрация → гард сессии, публичные экраны с OG, витрина (dev), PWA;
 // с API (E2E_API=1) — регистрация → письмо → подтверждение → вход → вход переживает перезагрузку (cookie) →
 // выход → вход по паролю (неверный пароль — баннер) → перезагрузка → выход → «Забыли пароль?» → письмо → новый пароль
 // → старый пароль не подходит → вход новым → письмо «Пароль изменён».
@@ -13,11 +13,11 @@ import { API_URL, BASE_URL, DEV_URL, WITH_API } from './urls';
 // ожидаемый 401 восстановления сессии анонима — в e2e/project.ts.
 
 /** Cookie refresh web-сессии — как задано (task.md F5b §7), а не импорт из contracts: смоук проверяет ответ API. */
-const SESSION_COOKIE = { name: '__Secure-onbike_rt', path: '/v1/auth/session' };
+const SESSION_COOKIE = { name: '__Secure-pokatim_rt', path: '/v1/auth/session' };
 
 /**
  * Главная гостя после гидрации. С API: восстановление сессии — 401, гард ведёт на регистрацию. Без API: сеть
- * недоступна — это не выход (onbike-app.md, «Сессия в вебе»): Главная остаётся, «Нет соединения» с повтором.
+ * недоступна — это не выход (pokatim-app.md, «Сессия в вебе»): Главная остаётся, «Нет соединения» с повтором.
  */
 async function expectGuestHome(page: Page) {
   if (WITH_API) {
@@ -184,12 +184,12 @@ test.describe('с API', () => {
     request,
     watchErrors,
   }) => {
-    const email = `e2e-${Date.now()}@on-bike.test`;
+    const email = `e2e-${Date.now()}@pokatim.test`;
 
     await page.goto('/');
     await expect(page).toHaveURL(`${BASE_URL}/register`);
     await page.getByLabel('E-mail').fill(email);
-    await page.getByLabel('Пароль').fill('e2e-пароль-on-bike');
+    await page.getByLabel('Пароль').fill('e2e-пароль-pokatim');
     await page.getByLabel('Дата рождения').fill('1990-05-15');
     await page.getByRole('checkbox').click();
     await page.getByRole('button', { name: 'Зарегистрироваться' }).click();
@@ -257,7 +257,7 @@ test.describe('с API', () => {
     const signedIn = page.waitForResponse(
       (response) => response.url() === SIGN_IN_URL && response.status() === 200,
     );
-    await page.getByRole('textbox', { name: 'Пароль' }).fill('e2e-пароль-on-bike');
+    await page.getByRole('textbox', { name: 'Пароль' }).fill('e2e-пароль-pokatim');
     await page.getByRole('button', { name: 'Войти' }).click();
     const signInBody = await (await signedIn).json();
     expect(signInBody.state).toBe('signedIn');
@@ -285,7 +285,7 @@ test.describe('с API', () => {
     expect(resetLink).toMatch(new RegExp(`^${BASE_URL}/auth/reset/[\\w-]{43}$`));
     await page.goto(resetLink);
     await expect(page).toHaveTitle('Новый пароль — Покатим');
-    const newPassword = 'новый-пароль-on-bike';
+    const newPassword = 'новый-пароль-pokatim';
     const fresh = page.getByRole('textbox', { name: 'Новый пароль' });
     await expect(fresh).toHaveAttribute('autocomplete', 'new-password');
     await fresh.fill(newPassword);
@@ -297,7 +297,7 @@ test.describe('с API', () => {
     await page.getByRole('button', { name: 'Войти' }).click();
     await expect(page).toHaveURL(`${BASE_URL}/sign-in`);
     await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveValue(email);
-    await page.getByRole('textbox', { name: 'Пароль' }).fill('e2e-пароль-on-bike');
+    await page.getByRole('textbox', { name: 'Пароль' }).fill('e2e-пароль-pokatim');
     await page.getByRole('button', { name: 'Войти' }).click();
     await expect(page.getByText('Неверный e-mail или пароль.')).toBeVisible();
     await page.getByRole('textbox', { name: 'Пароль' }).fill(newPassword);

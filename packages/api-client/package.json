@@ -1,12 +1,12 @@
 {
-  "name": "@on-bike/api-client",
+  "name": "@pokatim/api-client",
   "version": "0.0.0",
   "private": true,
-  "description": "Типизированный HTTP-клиент API поверх @on-bike/contracts",
+  "description": "Типизированный HTTP-клиент API поверх @pokatim/contracts",
   "type": "module",
   "exports": {
     ".": {
-      "@on-bike/source": "./src/index.ts",
+      "@pokatim/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
@@ -20,7 +20,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@on-bike/contracts": "workspace:*",
+    "@pokatim/contracts": "workspace:*",
     "@rkarakulov/api-client-core": "catalog:",
     "zod": "catalog:"
   },

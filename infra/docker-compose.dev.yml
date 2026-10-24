@@ -1,18 +1,18 @@
 # Локальная разработка: только stateful-зависимости. Приложения запускаются через pnpm dev.
-name: on-bike-dev
+name: pokatim-dev
 services:
   postgres:
     # postgis/postgis собирается только под amd64; imresamu/postgis — мультиарх-сборка
     # мейнтейнера docker-postgis (arm64 для Apple Silicon). В CI (amd64) — официальный образ.
     image: imresamu/postgis:18-3.6
     environment:
-      POSTGRES_USER: on_bike
-      POSTGRES_PASSWORD: on_bike
-      POSTGRES_DB: on_bike
+      POSTGRES_USER: pokatim
+      POSTGRES_PASSWORD: pokatim
+      POSTGRES_DB: pokatim
     ports: ['5432:5432']
     volumes: [pgdata:/var/lib/postgresql]
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U on_bike']
+      test: ['CMD-SHELL', 'pg_isready -U pokatim']
       interval: 5s
       retries: 10
   redis:

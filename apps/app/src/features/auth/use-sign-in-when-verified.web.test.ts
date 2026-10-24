@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import type { CookieSession } from '@on-bike/contracts';
+import type { CookieSession } from '@pokatim/contracts';
 import { act, renderHook } from '@testing-library/react';
 
 import { resetSessionStore, useSessionStore } from './session-store';
@@ -30,7 +30,7 @@ describe('вход после подтверждения (web)', () => {
       status: 'signedIn',
       session: cookieSession,
     });
-    expect(sessionStorage.getItem('onbike.session')).toBeNull();
+    expect(sessionStorage.getItem('pokatim.session')).toBeNull();
     expect(localStorage.length).toBe(0);
   });
 });

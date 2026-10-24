@@ -1,6 +1,6 @@
 import { createHash, createHmac } from 'node:crypto';
 
-import { VerificationToken } from '@on-bike/contracts';
+import { VerificationToken } from '@pokatim/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {

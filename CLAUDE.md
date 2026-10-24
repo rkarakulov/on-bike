@@ -17,7 +17,7 @@
 В проекте: `.claude/rules/*.md` — правила по путям (`paths:` frontmatter), `tools/ai_review/` — контракт ревью и
 Codex-мосты. `.ai/dev-kit/` — копия плагина для Codex; Claude Code её не читает.
 
-on-bike: доменные правила поверх правил шаблона — `.claude/rules/onbike-*.md` (те же `paths:`), продуктовые
+pokatim: доменные правила поверх правил шаблона — `.claude/rules/pokatim-*.md` (те же `paths:`), продуктовые
 решения — `docs/product/`, ADR — `docs/adr/`.
 
 ## Уровень задачи → superpowers

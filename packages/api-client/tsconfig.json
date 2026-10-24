@@ -1,7 +1,7 @@
 {
   "extends": "@rkarakulov/config/tsconfig.library.json",
   // fetch есть во всех средах-потребителях: браузер, React Native, Node 24;
-  // исходники workspace-пакетов (@on-bike/*) — без сборки dist
-  "compilerOptions": { "lib": ["ES2023", "DOM"], "customConditions": ["@on-bike/source"] },
+  // исходники workspace-пакетов (@pokatim/*) — без сборки dist
+  "compilerOptions": { "lib": ["ES2023", "DOM"], "customConditions": ["@pokatim/source"] },
   "include": ["src"]
 }

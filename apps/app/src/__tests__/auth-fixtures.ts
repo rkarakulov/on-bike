@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import type { RegisterResponse, Session } from '@on-bike/contracts';
+import type { RegisterResponse, Session } from '@pokatim/contracts';
 
 import { useSessionStore } from '@/features/auth/session-store';
 
@@ -28,7 +28,7 @@ const secureStore = () =>
 
 /** Сессия, сохранённая прошлым запуском. */
 export function storeSession(value: Session = session) {
-  secureStore().set('onbike.session', JSON.stringify(value));
+  secureStore().set('pokatim.session', JSON.stringify(value));
 }
 
 /** Вошедший пользователь без корневого layout: вкладки рендерят контент только при известной сессии. */
@@ -37,7 +37,7 @@ export const signInForTest = () => useSessionStore.setState({ status: 'signedIn'
 /** Регистрация, начатая прошлым запуском (токен жив). */
 export function storePendingRegistration(now = Date.now(), resendInSec = 60) {
   secureStore().set(
-    'onbike.registration',
+    'pokatim.registration',
     JSON.stringify({
       registrationToken: REGISTRATION_TOKEN,
       email: EMAIL,
@@ -47,5 +47,5 @@ export function storePendingRegistration(now = Date.now(), resendInSec = 60) {
   );
 }
 
-export const storedValue = (key: 'onbike.session' | 'onbike.registration') =>
+export const storedValue = (key: 'pokatim.session' | 'pokatim.registration') =>
   secureStore().get(key);

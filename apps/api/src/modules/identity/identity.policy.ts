@@ -52,5 +52,5 @@ export const IDENTITY_POLICY = {
   emailSendLeaseMs: MINUTE_MS,
 } as const;
 
-export const JWT_ISSUER = 'on-bike';
-export const JWT_AUDIENCE = 'on-bike-app';
+export const JWT_ISSUER = 'pokatim';
+export const JWT_AUDIENCE = 'pokatim-app';

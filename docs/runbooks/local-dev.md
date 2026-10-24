@@ -14,24 +14,24 @@
 2. Окружение API: `cp apps/api/.env.example apps/api/.env` и заполнить секреты:
    `JWT_SECRET` и `EMAIL_TOKEN_SECRET` — случайные строки не короче 32 символов
    (`openssl rand -hex 32`). Файл `.env` в git не попадает.
-3. Миграции (отдельный шаг, при старте API не выполняются): `pnpm --filter @on-bike/api db:migrate`.
-4. Запуск: `pnpm dev --filter=@on-bike/api` (HTTP `:3000`) и `pnpm dev:worker` (outbox → BullMQ, письма).
+3. Миграции (отдельный шаг, при старте API не выполняются): `pnpm --filter @pokatim/api db:migrate`.
+4. Запуск: `pnpm dev --filter=@pokatim/api` (HTTP `:3000`) и `pnpm dev:worker` (outbox → BullMQ, письма).
    Без worker письма не уходят — события копятся в `outbox`.
-5. Приложение: `pnpm --filter @on-bike/app dev` (QR → Expo Go, `i` / `a` — симуляторы, `w` — браузер,
+5. Приложение: `pnpm --filter @pokatim/app dev` (QR → Expo Go, `i` / `a` — симуляторы, `w` — браузер,
    `http://localhost:8081`; web — раздел «Web»).
-   Админка: `pnpm dev --filter=@on-bike/admin` (`http://127.0.0.1:5173`, `/v1` проксируется на API).
+   Админка: `pnpm dev --filter=@pokatim/admin` (`http://127.0.0.1:5173`, `/v1` проксируется на API).
 
 ## Переменные API
 
 | Переменная | Dev-значение | Назначение |
 |---|---|---|
-| `DATABASE_URL` | `postgres://on_bike:on_bike@127.0.0.1:5432/on_bike` | основная БД |
+| `DATABASE_URL` | `postgres://pokatim:pokatim@127.0.0.1:5432/pokatim` | основная БД |
 | `REDIS_URL` | `redis://127.0.0.1:6379` | BullMQ, rate-limit |
 | `TRUST_PROXY` | `0` | `1` за обратным прокси: доверять одному прокси в `X-Forwarded-For` |
 | `SMTP_URL` | `smtp://127.0.0.1:1025` | Mailpit |
 | `JWT_SECRET` | случайная строка ≥ 32 | подпись access JWT |
 | `EMAIL_TOKEN_SECRET` | случайная строка ≥ 32 | HMAC токенов ссылок в письмах (ADR-0002) |
-| `MAIL_FROM` | `'Покатим <no-reply@on-bike.by>'` | отправитель писем (в кавычках) |
+| `MAIL_FROM` | `'Покатим <no-reply@limedolphin.com>'` | отправитель писем (в кавычках) |
 | `APP_LINK_BASE` | `exp://127.0.0.1:8081/--/` | база ссылок в письмах, со слешем в конце |
 | `AGREEMENT_VERSION` | `2026-10-draft` | версия соглашения, записывается в `user_consents` |
 | `CORS_ORIGINS` | `http://localhost:8081,…` | origin-ы web в dev через запятую: `expo start` (:8081), `start:web` (:8080), `e2e:web` (:8090, :8091); пусто — CORS выключен (прод: один origin за прокси) |
@@ -40,11 +40,11 @@
 
 ## Ссылки из писем и Expo Go
 
-Expo Go не открывает схему `onbike://`. Для проверки на телефоне через Expo Go:
+Expo Go не открывает схему `pokatim://`. Для проверки на телефоне через Expo Go:
 
 - `APP_LINK_BASE=exp://<LAN-IP компьютера>:8081/--/` (тот же адрес, что показывает `expo start`);
   на симуляторе — `exp://127.0.0.1:8081/--/`;
-- в нативных dev/preview-сборках до появления домена — `APP_LINK_BASE=onbike://`;
+- в нативных dev/preview-сборках до появления домена — `APP_LINK_BASE=pokatim://`;
 - в браузере (web в dev) — `APP_LINK_BASE=http://127.0.0.1:8081/`: ссылка открывает маршрут приложения в браузере;
 - в проде — https-база приложения (ADR-0003 §5): ссылка открывается в браузере/PWA или в установленном приложении.
 
@@ -55,13 +55,13 @@ Expo Go не открывает схему `onbike://`. Для проверки 
 Приложение одно для iOS, Android и браузера: `web.output: 'server'` — HTML каждой страницы рендерится на сервере
 (SSR), публичные экраны отдают OG-мета; PWA — manifest и service worker (кеш только статики сборки).
 
-- **Dev:** `pnpm --filter @on-bike/app dev` и `w`; открывайте `http://127.0.0.1:8081` при
+- **Dev:** `pnpm --filter @pokatim/app dev` и `w`; открывайте `http://127.0.0.1:8081` при
   `EXPO_PUBLIC_API_URL=http://127.0.0.1:3000` — тот же хост, что у API: `localhost` и `127.0.0.1` — разные
   сайты, cookie сессии web (`SameSite=Strict`) между ними не ходит. Браузер ходит в API на другом порту — origin
   должен быть в `CORS_ORIGINS` API (`.env.example` — значения для dev): он же доверенный для CSRF-защиты, иначе
   POST из браузера получит 403. Пустой `CORS_ORIGINS` вне production API отмечает предупреждением в логе при
   старте. Ссылки из писем в браузер — `APP_LINK_BASE=http://127.0.0.1:8081/`.
-- **Сессия web:** refresh — httpOnly cookie `__Secure-onbike_rt` (`Path=/v1/auth/session`), access — в памяти
+- **Сессия web:** refresh — httpOnly cookie `__Secure-pokatim_rt` (`Path=/v1/auth/session`), access — в памяти
   вкладки; после перезагрузки приложение восстанавливает вход запросом `POST /v1/auth/session/refresh` по cookie.
   Без входа этот запрос отвечает 401 — в консоли браузера «Failed to load resource … 401», это ожидаемо.
   Регистрация «Подтвердите e-mail» — в `sessionStorage` вкладки. Chrome и Firefox считают `http://127.0.0.1`
@@ -69,12 +69,12 @@ Expo Go не открывает схему `onbike://`. Для проверки 
   перезагрузку. Проверка в Safari — только по https (Caddy `infra/Caddyfile` локально) или принять ограничение dev.
 - **Production-сборка:** сначала `cp apps/app/.env.example apps/app/.env` (`EXPO_PUBLIC_API_URL` нужен уже сборке:
   без него `build:web` падает «EXPO_PUBLIC_API_URL не задан для сборки»), затем `pnpm build:web` (`apps/app/dist`:
-  `client/` — статика и `sw.js`, `server/` — рендер и API-маршруты) и `pnpm --filter @on-bike/app start:web`
+  `client/` — статика и `sw.js`, `server/` — рендер и API-маршруты) и `pnpm --filter @pokatim/app start:web`
   (`http://127.0.0.1:8080`). Кеш, сжатие и TLS — на обратном прокси перед сервером. Прод (`infra/`): Caddy
   `PUBLIC_HOST` отдаёт `/v1/*` → `api:3000`, остальное → `web:8080` — один origin, CORS выключен.
 - **Смоук в браузере:** `pnpm e2e:web` (Playwright, `apps/app/e2e/`): production- и dev-сборка (`dist-dev`, там
   витрина `/ui-kit`). Браузер — установленный Google Chrome; без него — `PW_CHANNEL=chromium` и один раз
-  `pnpm --filter @on-bike/app exec playwright install chromium` (~150 МБ). Ошибки страницы проверяет
+  `pnpm --filter @pokatim/app exec playwright install chromium` (~150 МБ). Ошибки страницы проверяет
   фикстура `e2e/fixtures.ts` (тесты импортируют `test`, `expect` из неё): исключения и `console.error`
   production-сборки; отказ загрузки ресурса допустим, только если он в списке (URL + статус), отказ соединения с
   API — только без `E2E_API=1`.
@@ -83,7 +83,7 @@ Expo Go не открывает схему `onbike://`. Для проверки 
   web-серверов, например `API_INTERNAL_URL`), `expectedResourceErrors` (ожидаемые отказы: URL и HTTP-статус).
   `playwright.config.ts`, `fixtures.ts`, `urls.ts` — шаблонные. `pnpm e2e:web` запускает turbo с `--env-mode=loose`:
   окружение процесса (`E2E_*`, env серверов) доходит до Playwright и его серверов без списка в `turbo.json`.
-  on-bike: ожидаемые отказы — 401 `POST /v1/auth/session/refresh` анонима и 401 `POST /v1/auth/session/sign-in`
+  pokatim: ожидаемые отказы — 401 `POST /v1/auth/session/refresh` анонима и 401 `POST /v1/auth/session/sign-in`
   (шаг «неверный пароль»); письма — `e2e/mailpit.ts` (`MAILPIT_URL`).
 - **Смоук с API** (регистрация → письмо → подтверждение → вход → перезагрузка → выход → вход по паролю →
   перезагрузка → выход → «Забыли пароль?» → письмо → новый пароль → старый пароль 401 → вход новым → письмо
@@ -93,12 +93,12 @@ Expo Go не открывает схему `onbike://`. Для проверки 
   и свободный порт API из `EXPO_PUBLIC_API_URL` (dev-API на `:3000` — остановить или взять другой порт):
 
   ```bash
-  pnpm turbo run build --filter=@on-bike/api
-  pnpm --filter @on-bike/api db:migrate
+  pnpm turbo run build --filter=@pokatim/api
+  pnpm --filter @pokatim/api db:migrate
   EXPO_PUBLIC_API_URL=http://127.0.0.1:3000 E2E_API=1 pnpm e2e:web
   ```
 
-  Каждый прогон регистрирует подтверждённый аккаунт `e2e-<время>@on-bike.test` в dev-БД (очисткой неподтверждённых
+  Каждый прогон регистрирует подтверждённый аккаунт `e2e-<время>@pokatim.test` в dev-БД (очисткой неподтверждённых
   не удаляется). Без `E2E_API=1` сценарий регистрации пропускается (`skipped`), остальные шаги — без API.
 - **Блокировка входа в dev** (ADR-0005: 5 попыток на e-mail+IP, 20 на e-mail, 50 на IP за 15 мин): ключи в Redis —
   `rl:signin-ip:*`, `rl:signin-email:*`, `rl:signin-email-ip:*` (HMAC, адресов в них нет). Снять все блокировки
@@ -136,11 +136,11 @@ Expo Go не открывает схему `onbike://`. Для проверки 
 
 `pnpm test` поднимает интеграционные тесты API на реальных PostgreSQL и Redis:
 
-- `DATABASE_URL_TEST` (по умолчанию `postgres://on_bike:on_bike@127.0.0.1:5432/on_bike_test`) —
+- `DATABASE_URL_TEST` (по умолчанию `postgres://pokatim:pokatim@127.0.0.1:5432/pokatim_test`) —
   база **пересоздаётся** перед прогоном и мигрируется; имя обязано оканчиваться на `_test`;
 - `REDIS_URL_TEST` (по умолчанию `redis://127.0.0.1:6379/1`) — db 1, очищается перед каждым тестом.
 
-Только unit: `pnpm --filter @on-bike/api exec vitest run --project unit`.
+Только unit: `pnpm --filter @pokatim/api exec vitest run --project unit`.
 
 ## CI и сборки
 
@@ -151,7 +151,7 @@ Expo Go не открывает схему `onbike://`. Для проверки 
 - **Web в CI:** job `web` — `pnpm e2e:web` (web-сборка и Playwright-смоук на Google Chrome раннера). Отчёт при
   падении — артефакт `playwright-report`. Смоук с API — в отмеченных комментариями местах job: `services`, `env`
   (`E2E_API: '1'`, окружение API — только тестовые значения) и шаги подготовки (сборка API, миграции) перед
-  `pnpm e2e:web`. on-bike: services PostgreSQL, Redis и Mailpit, секреты API в job — фиктивные значения.
+  `pnpm e2e:web`. pokatim: services PostgreSQL, Redis и Mailpit, секреты API в job — фиктивные значения.
 - **EAS Build** (облачная сборка) не видит ваш `~/.npmrc`: перед первой сборкой создайте в EAS секрет
   `NODE_AUTH_TOKEN` (токен с `read:packages`, видимость — secret) и хук `eas-build-pre-install` в
   `apps/app/package.json`, который дописывает строку авторизации в `~/.npmrc` сборщика — тот же вид, что
@@ -164,19 +164,34 @@ Expo Go не открывает схему `onbike://`. Для проверки 
 в файлах и `*.rej`; разрешить, удалить `*.rej`, затем `pnpm install && pnpm check`. Проверить наличие новой
 версии — `uvx copier check-update`.
 
-## Переход существующего тома на БД `on_bike` (F3b)
+## Переезд on-bike → pokatim (2026-10-25)
 
-С F3b dev-БД, CI и тесты используют имя шаблона `on_bike` (было `onbike`). Том `pgdata`, созданный раньше,
-не пересоздаётся: роль и база добавляются в него, старая база `onbike` остаётся как есть.
+С переименования проекта dev compose — project `pokatim-dev`, БД, пользователь и пароль — `pokatim`, тестовая БД —
+`pokatim_test`. Прежний стек `on-bike-dev` (БД `on_bike`) занимает те же порты. Один из двух путей:
 
-```bash
-docker compose -f infra/docker-compose.dev.yml exec postgres psql -U onbike -d onbike \
-  -c "CREATE ROLE on_bike LOGIN SUPERUSER PASSWORD 'on_bike';" -c "CREATE DATABASE on_bike OWNER on_bike;"
-DATABASE_URL=postgres://on_bike:on_bike@127.0.0.1:5432/on_bike pnpm --filter @on-bike/api db:migrate
-```
+- **Новый стек (рекомендуется; данные dev не переносятся):**
 
-Потом в своём `apps/api/.env` — тот же `DATABASE_URL` и `MAIL_FROM` в кавычках (как в `.env.example`).
-Порядок важен: без явного `DATABASE_URL` миграции уйдут в старую базу `onbike`, а `on_bike` останется пустой. Тестовая база `on_bike_test` создаётся сама при `pnpm test`.
+  ```bash
+  docker compose -p on-bike-dev down          # без -v: тома on-bike-dev_* остаются
+  pnpm infra:up
+  pnpm --filter @pokatim/api db:migrate
+  ```
+
+  В своём `apps/api/.env` — `DATABASE_URL` из `.env.example`, `APP_LINK_BASE` со схемой `pokatim://` (сборки).
+  Старые тома убрать, когда не нужны: `docker volume rm on-bike-dev_pgdata on-bike-dev_redisdata`.
+- **Прежний стек с новыми именами (данные dev сохраняются в старом томе, отдельной базой):**
+
+  ```bash
+  docker exec on-bike-dev-postgres-1 psql -U on_bike -d on_bike \
+    -c "CREATE ROLE pokatim LOGIN SUPERUSER PASSWORD 'pokatim';" -c "CREATE DATABASE pokatim OWNER pokatim;"
+  pnpm --filter @pokatim/api db:migrate
+  ```
+
+  `pnpm infra:up` / `infra:down` при этом не использовать (они поднимают `pokatim-dev`); старый стек —
+  `docker start|stop on-bike-dev-postgres-1 on-bike-dev-redis-1 on-bike-dev-mailpit-1`.
+
+Тестовая БД `pokatim_test` создаётся сама при `pnpm test`. Сессии приложения (ключи `pokatim.*`, cookie
+`__Secure-pokatim_rt`) — новые: после обновления — вход заново.
 
 ## Откат
 

@@ -1,5 +1,5 @@
 {
-  "name": "@on-bike/api",
+  "name": "@pokatim/api",
   "version": "0.0.0",
   "private": true,
   "description": "NestJS модульный монолит: HTTP API (main.ts) и воркер очередей (worker.ts)",
@@ -16,8 +16,8 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@on-bike/contracts": "workspace:*",
-    "@on-bike/tracks": "workspace:*",
+    "@pokatim/contracts": "workspace:*",
+    "@pokatim/tracks": "workspace:*",
     "@nestjs/bullmq": "catalog:",
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",

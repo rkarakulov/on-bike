@@ -1,7 +1,7 @@
 # Прод: одна VPS (hoster.by), Docker Compose, без Kubernetes.
 # Секреты — в infra/.env на сервере (не в git). Миграции — отдельным шагом деплоя:
 #   docker compose run --rm api node node_modules/drizzle-kit/bin.cjs migrate
-name: on-bike
+name: pokatim
 services:
   caddy:
     image: caddy:2
@@ -13,20 +13,20 @@ services:
     depends_on: [api, web]
     restart: unless-stopped
   api:
-    image: ghcr.io/rkarakulov/on-bike-api:${APP_VERSION:-latest}
+    image: ghcr.io/rkarakulov/pokatim-api:${APP_VERSION:-latest}
     command: ['node', 'apps/api/dist/main.js']
     env_file: .env
     depends_on: [postgres, redis]
     restart: unless-stopped
   worker:
-    image: ghcr.io/rkarakulov/on-bike-api:${APP_VERSION:-latest}
+    image: ghcr.io/rkarakulov/pokatim-api:${APP_VERSION:-latest}
     command: ['node', 'apps/api/dist/worker.js']
     env_file: .env
     depends_on: [postgres, redis]
     restart: unless-stopped
   # web/PWA с SSR (expo-server, apps/app/server) — то же приложение, что iOS/Android (ADR-0003)
   web:
-    image: ghcr.io/rkarakulov/on-bike-web:${APP_VERSION:-latest}
+    image: ghcr.io/rkarakulov/pokatim-web:${APP_VERSION:-latest}
     environment:
       HOST: 0.0.0.0
       PORT: '8080'

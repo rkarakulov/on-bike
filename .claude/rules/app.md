@@ -10,14 +10,14 @@ paths:
 ## Правила
 
 - Маршруты — файловые в `src/app/` (не-роутовый код — вне `src/app/`); deep links — через Router,
-  схема `onbike://`.
-- Данные — только через `@on-bike/api-client` (TanStack Query, `src/lib/api.ts`). Локальное состояние — минимум.
-- Строки UI — только из `@on-bike/i18n`.
+  схема `pokatim://`.
+- Данные — только через `@pokatim/api-client` (TanStack Query, `src/lib/api.ts`). Локальное состояние — минимум.
+- Строки UI — только из `@pokatim/i18n`.
 - Оформление — только семантика: `useTheme()` (роли `text.*`, `surface.*`, `border.*`…), `textStyle(name)`,
-  `space` / `inset` / `size` / `stroke` из `@on-bike/design-tokens`. Примитивы (`color.*`) и hex — нельзя.
+  `space` / `inset` / `size` / `stroke` из `@pokatim/design-tokens`. Примитивы (`color.*`) и hex — нельзя.
 - Дизайн-система — единственный источник оформления (`AGENTS.md` §4): сначала компоненты `@rkarakulov/ui`
   (Button, TextAction, TextField, Banner, Skeleton…). Чего не хватает — расширяй систему: токен/роль в
-  `@on-bike/design-tokens` (бренд) или задачей в app-foundation (общий токен/компонент `@rkarakulov/ui` с
+  `@pokatim/design-tokens` (бренд) или задачей в app-foundation (общий токен/компонент `@rkarakulov/ui` с
   тестом и примером на витрине `UiKit`, экран `/ui-kit` в dev).
 - Дизайн-система настраивается в `src/theme/design-system.ts` (`configureDesignSystem`) — первым импортом
   корня приложения и `jest.setup.ts`; сторож — тест первого импорта.
@@ -46,7 +46,7 @@ paths:
   `EXPO_PUBLIC_*` — публичные значения: попадают в клиентский бандл, секретов там нет.
 - Service worker (`scripts/service-worker.ts`) кеширует только статику сборки с хешем в имени (версия кеша — от
   содержимого): HTML, данные loader-ов (`/_expo/loaders`), API, manifest и `public/` — мимо, офлайн-данных нет.
-- Проверка в браузере: `pnpm build:web` + `pnpm --filter @on-bike/app start:web`, смоук — `pnpm e2e:web`
+- Проверка в браузере: `pnpm build:web` + `pnpm --filter @pokatim/app start:web`, смоук — `pnpm e2e:web`
   (`e2e/web.spec.ts`: новый маршрут — шаг смоука; `test`/`expect` — из `e2e/fixtures.ts`, ошибки страницы не
   глушить); серверы, env и ожидаемые отказы смоука проекта — только `e2e/project.ts` (`playwright.config.ts`
   шаблонный); web-варианты модулей — тесты `*.web.test.ts(x)` (jest, web).

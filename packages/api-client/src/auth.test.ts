@@ -145,7 +145,7 @@ describe('ApiHttpError.apiError — толерантный разбор ошиб
       .api.getVerificationLink(token)
       .catch((e: unknown) => e)) as ApiHttpError;
 
-  it('известный код on-bike — как есть, с деталями (клиент разбирает по схеме on-bike)', async () => {
+  it('известный код pokatim — как есть, с деталями (клиент разбирает по схеме pokatim)', async () => {
     const error = await failWith(410, {
       code: 'LINK_EXPIRED',
       message: 'Ссылка устарела',
@@ -171,8 +171,8 @@ describe('ApiHttpError.apiError — толерантный разбор ошиб
   });
 });
 
-describe('apiErrorOf — код on-bike независимо от того, кто создал ошибку', () => {
-  it('ошибка без схемы on-bike (тест, другой клиент) — код on-bike не теряется', () => {
+describe('apiErrorOf — код pokatim независимо от того, кто создал ошибку', () => {
+  it('ошибка без схемы pokatim (тест, другой клиент) — код pokatim не теряется', () => {
     const error = new ApiHttpError(409, { code: 'EMAIL_TAKEN', message: 'Занят' });
     expect(error.apiError.code).toBe('UNKNOWN');
     expect(apiErrorOf(error)).toEqual({ code: 'EMAIL_TAKEN', message: 'Занят' });

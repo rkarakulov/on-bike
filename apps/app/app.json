@@ -1,14 +1,14 @@
 {
   "expo": {
     "name": "Покатим",
-    "slug": "on-bike",
+    "slug": "pokatim",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "onbike",
+    "scheme": "pokatim",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "by.onbike.app",
+      "bundleIdentifier": "by.pokatim.app",
       "icon": "./assets/expo.icon"
     },
     "android": {
@@ -19,7 +19,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "by.onbike.app"
+      "package": "by.pokatim.app"
     },
     "web": {
       "favicon": "./assets/images/favicon.png",

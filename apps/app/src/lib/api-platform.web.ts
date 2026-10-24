@@ -1,4 +1,4 @@
-import type { ApiClientOptions } from '@on-bike/api-client';
+import type { ApiClientOptions } from '@pokatim/api-client';
 
 /**
  * Web (ADR-0003 п. 4): refresh — в httpOnly cookie, которую ставит API. `credentials: 'include'` — cookie уходит

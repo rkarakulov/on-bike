@@ -1,5 +1,5 @@
-import { themes } from '@on-bike/design-tokens';
-import { t } from '@on-bike/i18n';
+import { themes } from '@pokatim/design-tokens';
+import { t } from '@pokatim/i18n';
 
 const ICONS = '/icons';
 

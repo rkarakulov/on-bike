@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { HealthResponse } from '@on-bike/contracts';
+import type { HealthResponse } from '@pokatim/contracts';
 import { PG_POOL } from '@rkarakulov/api-kit';
 import { Pool } from 'pg';
 

@@ -1,4 +1,4 @@
-import { ApiHttpError } from '@on-bike/api-client';
+import { ApiHttpError } from '@pokatim/api-client';
 import { QueryClient } from '@tanstack/react-query';
 
 const MAX_RETRIES = 2;

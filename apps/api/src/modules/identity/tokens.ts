@@ -49,7 +49,7 @@ export function rateLimitAddress(ip: string): string {
 }
 
 /**
- * Ключ лимита по IP (все IP-лимиты on-bike): HMAC с серверным секретом — IP не восстановить перебором (в отличие от
+ * Ключ лимита по IP (все IP-лимиты pokatim): HMAC с серверным секретом — IP не восстановить перебором (в отличие от
  * голого sha256); IPv6 — по сети /64 (`rateLimitAddress`).
  */
 export function rateLimitKeyForIp(secret: string, ip: string): string {

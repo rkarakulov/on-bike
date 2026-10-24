@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import type { HealthResponse } from '@on-bike/contracts';
+import type { HealthResponse } from '@pokatim/contracts';
 
 import { HealthService } from './health.service';
 

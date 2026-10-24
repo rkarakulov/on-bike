@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import { stroke, themes } from '@on-bike/design-tokens';
+import { stroke, themes } from '@pokatim/design-tokens';
 import { fireEvent, renderRouter, screen, within } from 'expo-router/testing-library';
 import { useColorScheme } from 'react-native';
 

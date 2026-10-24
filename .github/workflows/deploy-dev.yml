@@ -1,6 +1,6 @@
 name: deploy-dev
 
-# Dev-стенд on-bike на общем EC2 (docs/runbooks/deploy.md): push в develop → CI (ci.yml как reusable) →
+# Dev-стенд pokatim на общем EC2 (docs/runbooks/deploy.md): push в develop → CI (ci.yml как reusable) →
 # образы api/web/admin в GHCR → деплой по SSH (infra/deploy/deploy.sh). dev = develop; prod = main — отдельный
 # workflow позже. Ручной запуск (Actions → deploy-dev → Run workflow) виден в UI, только когда этот файл есть на
 # default-ветке; image_tag — откат/повтор на уже собранный тег без CI и сборки.
@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 env:
-  IMAGE_PREFIX: ghcr.io/rkarakulov/on-bike
+  IMAGE_PREFIX: ghcr.io/rkarakulov/pokatim
 
 jobs:
   preflight:
@@ -61,7 +61,7 @@ jobs:
             echo "::error::Окружение dev не настроено: ${missing[*]}"
             echo "Settings → Environments → dev; команды — docs/runbooks/deploy.md («Первичная настройка»):"
             echo "  gh secret set DEV_SSH_HOST --env dev --body '<хост сервера>'"
-            echo "  gh secret set DEV_SSH_KEY --env dev < ~/.ssh/on-bike-deploy"
+            echo "  gh secret set DEV_SSH_KEY --env dev < ~/.ssh/pokatim-deploy"
             echo "  ssh-keyscan -t ed25519 <хост сервера> > known_hosts   # сверить отпечаток с сервером"
             echo "  gh secret set DEV_SSH_KNOWN_HOSTS --env dev < known_hosts"
             echo "  gh variable set DEV_PUBLIC_HOST --env dev --body '<публичный хост стенда>'"
@@ -162,8 +162,8 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_PREFIX }}-api:${{ env.TAG }},${{ env.IMAGE_PREFIX }}-api:develop
           secrets: NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          cache-from: type=gha,scope=on-bike-api
-          cache-to: type=gha,mode=max,scope=on-bike-api
+          cache-from: type=gha,scope=pokatim-api
+          cache-to: type=gha,mode=max,scope=pokatim-api
       - name: web (SSR)
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -176,8 +176,8 @@ jobs:
           # публичный адрес API вшивается в клиентский бандл: образ web привязан к DEV_PUBLIC_HOST
           build-args: EXPO_PUBLIC_API_URL=https://${{ env.DEV_PUBLIC_HOST }}
           secrets: NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          cache-from: type=gha,scope=on-bike-web
-          cache-to: type=gha,mode=max,scope=on-bike-web
+          cache-from: type=gha,scope=pokatim-web
+          cache-to: type=gha,mode=max,scope=pokatim-web
       - name: admin (статика /admin/)
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -188,8 +188,8 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_PREFIX }}-admin:${{ env.TAG }},${{ env.IMAGE_PREFIX }}-admin:develop
           secrets: NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          cache-from: type=gha,scope=on-bike-admin
-          cache-to: type=gha,mode=max,scope=on-bike-admin
+          cache-from: type=gha,scope=pokatim-admin
+          cache-to: type=gha,mode=max,scope=pokatim-admin
 
   deploy:
     needs: [preflight, ci, build]
@@ -240,9 +240,9 @@ jobs:
       - name: Файлы стека на сервер
         run: |
           set -euo pipefail
-          ssh dev 'mkdir -p -m 700 on-bike'
+          ssh dev 'mkdir -p -m 700 pokatim'
           scp -q infra/deploy/deploy.sh infra/deploy/bootstrap.sh infra/deploy/docker-compose.yml \
-            infra/deploy/env.template dev:on-bike/
+            infra/deploy/env.template dev:pokatim/
 
       - name: Деплой ${{ env.TAG }}
         env:
@@ -252,20 +252,20 @@ jobs:
           MAIL_RELAY_RECIPIENTS: ${{ secrets.DEV_MAIL_RELAY_RECIPIENTS }}
         run: |
           set -euo pipefail
-          remote_env="$(printf 'ON_BIKE_TAG=%q PUBLIC_HOST=%q GHCR_USER=%q CERTBOT_EMAIL=%q GHCR_TOKEN_STDIN=1 MAIL_RELAY_RECIPIENTS_STDIN=1' \
+          remote_env="$(printf 'POKATIM_TAG=%q PUBLIC_HOST=%q GHCR_USER=%q CERTBOT_EMAIL=%q GHCR_TOKEN_STDIN=1 MAIL_RELAY_RECIPIENTS_STDIN=1' \
             "${TAG}" "${DEV_PUBLIC_HOST}" "${GITHUB_ACTOR}" "${CERTBOT_EMAIL:-}")"
           # токен и получатели relay — только stdin, по строке (не аргументы и не env удалённой команды: не видны в
           # ps и логах); remote_env раскрывается здесь намеренно — значения уже экранированы %q
           # shellcheck disable=SC2029
           printf '%s\n%s\n' "${GHCR_TOKEN}" "${MAIL_RELAY_RECIPIENTS:-}" |
-            ssh dev "${remote_env} bash on-bike/deploy.sh" 2>&1 | tee deploy.log
+            ssh dev "${remote_env} bash pokatim/deploy.sh" 2>&1 | tee deploy.log
 
       - name: Сводка
         if: always()
         run: |
-          tls="$(grep -oE '^ONBIKE_TLS=[a-z]+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
-          deployed="$(grep -oE '^ONBIKE_DEPLOYED=.+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
-          relay="$(grep -oE '^ONBIKE_MAIL_RELAY=[a-z]+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
+          tls="$(grep -oE '^POKATIM_TLS=[a-z]+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
+          deployed="$(grep -oE '^POKATIM_DEPLOYED=.+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
+          relay="$(grep -oE '^POKATIM_MAIL_RELAY=[a-z]+' deploy.log 2>/dev/null | tail -1 | cut -d= -f2 || true)"
           scheme="https"; [ "${tls}" = "https" ] || scheme="http"
           {
             echo "## deploy-dev"

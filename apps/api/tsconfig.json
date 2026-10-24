@@ -7,8 +7,8 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    // исходники workspace-пакетов (@on-bike/*) — без сборки dist
-    "customConditions": ["@on-bike/source"],
+    // исходники workspace-пакетов (@pokatim/*) — без сборки dist
+    "customConditions": ["@pokatim/source"],
     "types": ["node"],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,

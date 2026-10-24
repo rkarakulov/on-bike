@@ -1,4 +1,4 @@
-import type { BaseErrorCode, ErrorCode } from '@on-bike/contracts';
+import type { BaseErrorCode, ErrorCode } from '@pokatim/contracts';
 import { DomainError } from '@rkarakulov/api-kit';
 
 /**

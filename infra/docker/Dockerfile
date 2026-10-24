@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1.10
-# Образы деплоя on-bike (docs/runbooks/deploy.md). Контекст — корень репозитория, цели:
+# Образы деплоя pokatim (docs/runbooks/deploy.md). Контекст — корень репозитория, цели:
 #   api   — NestJS HTTP (dist/main.js), worker (dist/worker.js) и миграции (drizzle-kit migrate) — один образ;
 #   web   — SSR-сервер приложения (apps/app/server, expo-server) со сборкой `build:web`;
 #   admin — статика панели «Протокол» под путём /admin/ (nginx без root).
 # Сборка (linux/amd64; токен GitHub Packages — build secret, в слои не попадает):
 #   docker build --platform linux/amd64 -f infra/docker/Dockerfile --target api \
-#     --secret id=NODE_AUTH_TOKEN,env=NODE_AUTH_TOKEN -t ghcr.io/rkarakulov/on-bike-api:<тег> .
+#     --secret id=NODE_AUTH_TOKEN,env=NODE_AUTH_TOKEN -t ghcr.io/rkarakulov/pokatim-api:<тег> .
 #   web дополнительно: --build-arg EXPO_PUBLIC_API_URL=https://<домен> (публичный адрес, вшивается в бандл).
 
 ARG NODE_IMAGE=node:24.22-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205
@@ -43,15 +43,15 @@ COPY . .
 
 # ---------- api: сборка и минимальный node_modules ----------
 FROM deps AS build-api
-RUN pnpm turbo run build --filter=@on-bike/api \
+RUN pnpm turbo run build --filter=@pokatim/api \
     && node infra/docker/runtime-deps.mjs /repo /out ./apps/api drizzle-kit \
     && mkdir -p /out/apps/api \
     && cp -r apps/api/dist apps/api/drizzle apps/api/drizzle.config.ts apps/api/package.json /out/apps/api/
 
 FROM ${NODE_IMAGE} AS api
-LABEL org.opencontainers.image.source="https://github.com/rkarakulov/on-bike" \
-      org.opencontainers.image.description="on-bike API, worker и миграции" \
-      by.on-bike.project="on-bike"
+LABEL org.opencontainers.image.source="https://github.com/rkarakulov/pokatim" \
+      org.opencontainers.image.description="pokatim API, worker и миграции" \
+      by.pokatim.project="pokatim"
 ENV NODE_ENV=production
 COPY --from=build-api /out /app
 WORKDIR /app/apps/api
@@ -65,16 +65,16 @@ FROM deps AS build-web
 # публичный адрес API (тот же origin, что сайт): клиентский бандл получает его при сборке
 ARG EXPO_PUBLIC_API_URL
 RUN test -n "$EXPO_PUBLIC_API_URL" || { echo 'нужен --build-arg EXPO_PUBLIC_API_URL' >&2; exit 1; }; \
-    EXPO_PUBLIC_API_URL="$EXPO_PUBLIC_API_URL" pnpm --filter @on-bike/app build:web \
+    EXPO_PUBLIC_API_URL="$EXPO_PUBLIC_API_URL" pnpm --filter @pokatim/app build:web \
     && node infra/docker/runtime-deps.mjs /repo /out express expo-server \
     && mkdir -p /out/apps/app/server \
     && cp -r apps/app/dist /out/apps/app/ \
     && cp apps/app/server/main.ts apps/app/server/web-server.ts apps/app/server/package.json /out/apps/app/server/
 
 FROM ${NODE_IMAGE} AS web
-LABEL org.opencontainers.image.source="https://github.com/rkarakulov/on-bike" \
-      org.opencontainers.image.description="on-bike web/PWA (SSR)" \
-      by.on-bike.project="on-bike"
+LABEL org.opencontainers.image.source="https://github.com/rkarakulov/pokatim" \
+      org.opencontainers.image.description="pokatim web/PWA (SSR)" \
+      by.pokatim.project="pokatim"
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8080
@@ -87,12 +87,12 @@ CMD ["node", "server/main.ts"]
 # ---------- admin: статика под /admin/ ----------
 FROM deps AS build-admin
 ARG ADMIN_BASE=/admin/
-RUN ADMIN_BASE="$ADMIN_BASE" pnpm --filter @on-bike/admin build
+RUN ADMIN_BASE="$ADMIN_BASE" pnpm --filter @pokatim/admin build
 
 FROM ${NGINX_IMAGE} AS admin
-LABEL org.opencontainers.image.source="https://github.com/rkarakulov/on-bike" \
-      org.opencontainers.image.description="on-bike admin (статика)" \
-      by.on-bike.project="on-bike"
+LABEL org.opencontainers.image.source="https://github.com/rkarakulov/pokatim" \
+      org.opencontainers.image.description="pokatim admin (статика)" \
+      by.pokatim.project="pokatim"
 COPY infra/docker/admin-nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build-admin /repo/apps/admin/dist /usr/share/nginx/html/admin
 EXPOSE 8080

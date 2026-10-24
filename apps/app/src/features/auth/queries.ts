@@ -6,7 +6,7 @@ import type {
   ResendVerificationRequest,
   SignInRequest,
   SignInResponse,
-} from '@on-bike/contracts';
+} from '@pokatim/contracts';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';

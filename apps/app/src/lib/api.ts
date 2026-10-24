@@ -1,4 +1,4 @@
-import { createApiClient } from '@on-bike/api-client';
+import { createApiClient } from '@pokatim/api-client';
 
 import { apiPlatformOptions } from './api-platform';
 

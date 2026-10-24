@@ -1,4 +1,4 @@
-import { size, space } from '@on-bike/design-tokens';
+import { size, space } from '@pokatim/design-tokens';
 import { Kicker, textStyle, useTheme } from '@rkarakulov/ui';
 import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';

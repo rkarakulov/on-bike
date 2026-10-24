@@ -3,7 +3,7 @@ paths:
   - "apps/app/**"
 ---
 
-# on-bike — приложение райдера (дополняет `app.md`)
+# pokatim — приложение райдера (дополняет `app.md`)
 
 Процесс — скил `app-dev-kit:mobile-expo`; начинай с рамок MVP.
 
@@ -16,7 +16,7 @@ paths:
 - Заезды и маршруты — импорт файла через системный picker (заезд: GPX/TCX/FIT; маршрут: GPX/KML).
 - Уведомления — in-app центр, обновление polling'ом (`refetchInterval`, не сокеты); статусы обработки — так же.
 
-## Правила on-bike
+## Правила pokatim
 
 - Deep links / universal links для 5 типов объектов (заезд, маршрут, календарь, результат, карточка) — через
   Router; возврат к объекту после регистрации.
@@ -31,7 +31,7 @@ paths:
 
 - **Карта:** MapLibre — линия маршрута, старт, коридор, трек пользователя, подсветка вне коридора; тема карты
   следует теме приложения.
-- **Файлы:** системный picker; pre-check расширения, размера и пустого файла (`@on-bike/tracks`); resumable upload
+- **Файлы:** системный picker; pre-check расширения, размера и пустого файла (`@pokatim/tracks`); resumable upload
   с процентом, отменой и паузой без сети; очередь загрузок переживает перезапуск, очищается при выходе.
 - **Шеринг:** системный share sheet и копирование ссылки; карточку рендерит сервер.
 - **Удаление аккаунта:** нативный alert с последствиями.
@@ -46,14 +46,14 @@ paths:
   токеном (ссылки писем) — без `og:url`; `loader` — только для публичных данных (e-mail в HTML не попадает).
   Образцы — `register`, `auth/verify/[token]`. Новый публичный экран — шаг смоука `e2e/web.spec.ts`.
 
-## Сессия в вебе (ADR-0003 п. 4, правила сервера — `onbike-security.md`)
+## Сессия в вебе (ADR-0003 п. 4, правила сервера — `pokatim-security.md`)
 
 - Развилка платформ — файлами: `features/auth/session-persistence(.web).ts`, `secure-storage(.web).ts`,
   `lib/api-platform(.web).ts`. Web: access — только в памяти стора, refresh — httpOnly cookie (JS его не видит и не
   хранит), восстановление — `api.refreshSession()`; токен регистрации — `sessionStorage` вкладки. Native —
   SecureStore, как было.
 - Всё, что меняет cookie сессии (вход, refresh, poll регистрации, выход), — под одним Web Lock
-  `onbike.session-refresh` (`withSessionLock`, `features/auth/session-lock(.web).ts`): ответ одной операции не
+  `pokatim.session-refresh` (`withSessionLock`, `features/auth/session-lock(.web).ts`): ответ одной операции не
   приходит поверх результата другой. Native — тот же `withSessionLock`, замок в памяти процесса (одна сессионная
   операция за раз: выход ждёт фоновую ротацию).
 - Восстановление: 401 — «не вошёл»; 429, сеть, сбой API — не выход: повторы (429 — через `retryAfterSec`), затем
@@ -65,7 +65,7 @@ paths:
   `fetchRegistrationPoll`); `useSessionStore.signIn` — только память (без refresh).
 - Выход — `useSignOut`: сервер (native — refresh из SecureStore) + очистка хранилища, `queryClient.clear()` и
   регистрации; офлайн — локально всё равно. Web: отзыв не подтверждён (сеть, 5xx) — признак
-  `onbike.signOutPending` в `localStorage`: запуск не восстанавливает аккаунт по cookie и повторяет отзыв; снимается
+  `pokatim.signOutPending` в `localStorage`: запуск не восстанавливает аккаунт по cookie и повторяет отзыв; снимается
   подтверждённым отзывом или явным входом. Признак ставится, проверяется и снимается только под Web Lock — внутри
   операций выхода, восстановления и входа/poll (выход, вставший в очередь позже входа, побеждает).
 - Мутации онбординга — `networkMode: 'always'`: офлайн даёт сетевую ошибку и баннер с повтором, а не вечную паузу. После выхода или отзыва сессии гард ведёт на «Вход» (`returning`).
@@ -81,5 +81,5 @@ paths:
 
 ## Проверка
 
-`pnpm --filter @on-bike/app typecheck` и тесты; сборку EAS (`build:*`) агент не запускает. Ручная проверка на
+`pnpm --filter @pokatim/app typecheck` и тесты; сборку EAS (`build:*`) агент не запускает. Ручная проверка на
 симуляторе — в pr.md как `NOT VERIFIED`, если не делалась.

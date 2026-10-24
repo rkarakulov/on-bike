@@ -1,5 +1,5 @@
 /** Один межвкладочный замок на все операции, меняющие cookie сессии: вход, refresh, обмен регистрации (poll), выход. */
-export const SESSION_LOCK = 'onbike.session-refresh';
+export const SESSION_LOCK = 'pokatim.session-refresh';
 
 /**
  * Cookie сессии одна на все вкладки, а ответ каждой операции её переписывает: refresh ротирует (две вкладки с одной

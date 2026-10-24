@@ -1,4 +1,4 @@
-import { space } from '@on-bike/design-tokens';
+import { space } from '@pokatim/design-tokens';
 import { AsyncContent, SkeletonText, useTheme, type AsyncState } from '@rkarakulov/ui';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

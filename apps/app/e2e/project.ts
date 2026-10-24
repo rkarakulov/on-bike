@@ -12,12 +12,12 @@ type WebServer = Extract<
   readonly unknown[]
 >[number];
 
-/** on-bike: refresh web-сессии — аноним при каждой загрузке восстанавливает вход (без cookie → 401). */
+/** pokatim: refresh web-сессии — аноним при каждой загрузке восстанавливает вход (без cookie → 401). */
 export const REFRESH_URL = `${API_URL}/v1/auth/session/refresh`;
-/** on-bike: вход по паролю (слайс 2); неверный пароль — 401 INVALID_CREDENTIALS, шаг смоука его проверяет. */
+/** pokatim: вход по паролю (слайс 2); неверный пароль — 401 INVALID_CREDENTIALS, шаг смоука его проверяет. */
 export const SIGN_IN_URL = `${API_URL}/v1/auth/session/sign-in`;
 
-// on-bike, E2E_API=1: API и worker из apps/api/dist (`pnpm --filter @on-bike/api build`), остальное окружение —
+// pokatim, E2E_API=1: API и worker из apps/api/dist (`pnpm --filter @pokatim/api build`), остальное окружение —
 // apps/api/.env локально или переменные CI. Ссылки писем ведут на production-сборку смоука, её origin-ы —
 // доверенные для CORS/CSRF (иначе POST с web — 403). Свой процесс, не dev-API: у него другие APP_LINK_BASE и CORS.
 const api = {

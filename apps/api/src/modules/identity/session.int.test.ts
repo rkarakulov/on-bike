@@ -5,7 +5,7 @@ import {
   RegistrationPollResponse,
   Session,
   SESSION_COOKIE,
-} from '@on-bike/contracts';
+} from '@pokatim/contracts';
 import { eq } from 'drizzle-orm';
 import { jwtVerify } from 'jose';
 import { Logger } from '@nestjs/common';
@@ -159,8 +159,8 @@ describe('POST /v1/auth/session/refresh', () => {
       body.accessToken,
       new TextEncoder().encode(h.env.JWT_SECRET),
       {
-        issuer: 'on-bike',
-        audience: 'on-bike-app',
+        issuer: 'pokatim',
+        audience: 'pokatim-app',
         currentDate: h.clock.now(),
       },
     );

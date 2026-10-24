@@ -1,41 +1,48 @@
 #!/usr/bin/env bash
-# Идемпотентная подготовка dev-сервера под on-bike (вызывается deploy.sh на каждом деплое):
-#   1. каталог стека ${ON_BIKE_DIR} (700);
+# Идемпотентная подготовка dev-сервера под pokatim (вызывается deploy.sh на каждом деплое):
+#   1. каталог стека ${POKATIM_DIR} (700);
 #   2. .env (600): недостающие ключи из env.template дописываются, @secret генерируется здесь же
 #      (openssl rand) — значения не печатаются и не покидают сервер; существующие значения не меняются,
-#      кроме управляемых деплоем PUBLIC_HOST, WEB_ORIGIN, APP_LINK_BASE, ON_BIKE_TAG, MAIL_RELAY_RECIPIENTS,
+#      кроме управляемых деплоем PUBLIC_HOST, WEB_ORIGIN, APP_LINK_BASE, POKATIM_TAG, MAIL_RELAY_RECIPIENTS,
 #      MAILPIT_RELAY_* и MAIL_FROM, равного прежнему умолчанию шаблона (migrate_mail_from);
-#   2a. relay Mailpit → внешний SMTP (Amazon SES, Gmail): ${ON_BIKE_DIR}/mailpit-relay.yml (600) из MAIL_RELAY_*
+#   2a. relay Mailpit → внешний SMTP (Amazon SES, Gmail): ${POKATIM_DIR}/mailpit-relay.yml (600) из MAIL_RELAY_*
 #      .env; получатели MAIL_RELAY_RECIPIENTS — точные адреса (регулярку для Mailpit собирает этот скрипт) или «*»
 #      (relay всех писем); без логина, пароля или получателей — relay выключен (письма только в Mailpit);
-#   3. vhost nginx хоста /etc/nginx/sites-available/on-bike (+ ссылка в sites-enabled): nginx -t перед reload,
-#      ошибка — откат своего файла; чужие сайты не трогаются;
+#   3. vhost nginx хоста /etc/nginx/sites-available/pokatim (+ ссылка в sites-enabled): nginx -t перед reload,
+#      ошибка — откат своего файла; чужие сайты не трогаются; vhost стенда до переименования
+#      (sites-available/on-bike с маркером прежнего bootstrap) снимается (remove_legacy_vhost);
 #   4. сертификат Let's Encrypt (certbot --webroot /var/www/html) — только если домен ведёт на этот сервер;
 #      иначе (или certbot не смог) vhost только на :80 и предупреждение, деплой не падает.
 #      UI Mailpit /mail/ — только в https-vhost (пароль basic-auth не идёт открытым текстом).
-# Env: PUBLIC_HOST (обязательно), ON_BIKE_TAG, ON_BIKE_DIR (~/on-bike), CERTBOT_EMAIL (необязательно),
+# Env: PUBLIC_HOST (обязательно), POKATIM_TAG, POKATIM_DIR (~/pokatim), CERTBOT_EMAIL (необязательно),
 #      MAIL_RELAY_RECIPIENTS_STDIN=1 — получатели relay (адреса через запятую или «*») первой строкой stdin: в .env,
 #      пустая строка выключает relay; без флага — прежние из .env,
-#      ON_BIKE_{API,WEB,ADMIN,MAIL_UI}_PORT, ON_BIKE_SKIP_NGINX=1 — без шагов 3–4 (локальная проверка).
-# Пишет строки `ONBIKE_TLS=https|http` и `ONBIKE_MAIL_RELAY=list|all|off` для сводки деплоя; `::warning::` — аннотации
+#      POKATIM_{API,WEB,ADMIN,MAIL_UI}_PORT, POKATIM_SKIP_NGINX=1 — без шагов 3–4 (локальная проверка).
+# Пишет строки `POKATIM_TLS=https|http` и `POKATIM_MAIL_RELAY=list|all|off` для сводки деплоя; `::warning::` — аннотации
 # GitHub Actions.
 set -euo pipefail
 umask 077
 
-ON_BIKE_DIR="${ON_BIKE_DIR:-${HOME}/on-bike}"
-ENV_FILE="${ON_BIKE_DIR}/.env"
-TEMPLATE="${ON_BIKE_DIR}/env.template"
-API_PORT="${ON_BIKE_API_PORT:-3100}"
-WEB_PORT="${ON_BIKE_WEB_PORT:-8180}"
-ADMIN_PORT="${ON_BIKE_ADMIN_PORT:-8181}"
-MAIL_PORT="${ON_BIKE_MAIL_UI_PORT:-8125}"
-SITE_NAME="on-bike"
+POKATIM_DIR="${POKATIM_DIR:-${HOME}/pokatim}"
+ENV_FILE="${POKATIM_DIR}/.env"
+TEMPLATE="${POKATIM_DIR}/env.template"
+API_PORT="${POKATIM_API_PORT:-3100}"
+WEB_PORT="${POKATIM_WEB_PORT:-8180}"
+ADMIN_PORT="${POKATIM_ADMIN_PORT:-8181}"
+MAIL_PORT="${POKATIM_MAIL_UI_PORT:-8125}"
+SITE_NAME="pokatim"
 SITE_FILE="/etc/nginx/sites-available/${SITE_NAME}"
 SITE_LINK="/etc/nginx/sites-enabled/${SITE_NAME}"
 WEBROOT="/var/www/html"
-RELAY_FILE="${ON_BIKE_DIR}/mailpit-relay.yml"
-MANAGED_KEYS="PUBLIC_HOST WEB_ORIGIN APP_LINK_BASE ON_BIKE_TAG MAIL_RELAY_RECIPIENTS"
+RELAY_FILE="${POKATIM_DIR}/mailpit-relay.yml"
+MANAGED_KEYS="PUBLIC_HOST WEB_ORIGIN APP_LINK_BASE POKATIM_TAG MAIL_RELAY_RECIPIENTS"
 MANAGED_KEYS="${MANAGED_KEYS} MAILPIT_RELAY_CONFIG MAILPIT_RELAY_ALL MAILPIT_RELAY_MATCHING MAILPIT_RELAY_REV"
+# ключ тега до переименования on-bike → pokatim (.env, перенесённый deploy.sh из ~/on-bike): убирается и не пишется
+MANAGED_KEYS="${MANAGED_KEYS} ON_BIKE_TAG"
+# vhost стенда до переименования: снимается после установки своего, если его первая строка — маркер прежнего
+# bootstrap.sh (файл сгенерирован нами, а не чужой сайт с тем же именем)
+LEGACY_SITE_NAME="on-bike"
+LEGACY_SITE_MARKER="# on-bike dev: генерирует infra/deploy/bootstrap.sh"
 
 log() { printf '[bootstrap] %s\n' "$*"; }
 warn() { printf '::warning::%s\n' "$*"; }
@@ -47,9 +54,9 @@ die() {
 PUBLIC_HOST="${PUBLIC_HOST:-}"
 [[ "${PUBLIC_HOST}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] ||
   die "PUBLIC_HOST не задан или не похож на имя хоста: '${PUBLIC_HOST}'"
-ON_BIKE_TAG="${ON_BIKE_TAG:-}"
-[[ -z "${ON_BIKE_TAG}" || "${ON_BIKE_TAG}" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$ ]] ||
-  die "ON_BIKE_TAG не похож на тег образа: '${ON_BIKE_TAG}'"
+POKATIM_TAG="${POKATIM_TAG:-}"
+[[ -z "${POKATIM_TAG}" || "${POKATIM_TAG}" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$ ]] ||
+  die "POKATIM_TAG не похож на тег образа: '${POKATIM_TAG}'"
 for port in "${API_PORT}" "${WEB_PORT}" "${ADMIN_PORT}" "${MAIL_PORT}"; do
   [[ "${port}" =~ ^[0-9]{2,5}$ ]] || die "порт не число: '${port}'"
 done
@@ -143,7 +150,7 @@ migrate_mail_from() {
   [[ -n "${found}" ]] || return 0
   value="$(awk 'index($0, "MAIL_FROM=") == 1 { sub(/^[^=]*=/, ""); print; exit }' "${TEMPLATE}")"
   [[ -n "${value}" && "${value}" != "${current}" ]] || return 0
-  tmp="$(mktemp "${ON_BIKE_DIR}/.env.XXXXXX")"
+  tmp="$(mktemp "${POKATIM_DIR}/.env.XXXXXX")"
   awk -v line="MAIL_FROM=${value}" 'index($0, "MAIL_FROM=") == 1 { print line; next } { print }' \
     "${ENV_FILE}" >"${tmp}"
   chmod 600 "${tmp}"
@@ -152,8 +159,8 @@ migrate_mail_from() {
 }
 
 ensure_env() {
-  mkdir -p "${ON_BIKE_DIR}"
-  chmod 700 "${ON_BIKE_DIR}"
+  mkdir -p "${POKATIM_DIR}"
+  chmod 700 "${POKATIM_DIR}"
   [[ -f "${TEMPLATE}" ]] || die "нет ${TEMPLATE} (деплой копирует его рядом со скриптом)"
   [[ -f "${ENV_FILE}" ]] || {
     : >"${ENV_FILE}"
@@ -178,10 +185,10 @@ ensure_env() {
 
   # управляемые деплоем ключи — всегда из параметров (смена домена, новый тег, регулярка relay)
   PREVIOUS_HOST="$(env_get PUBLIC_HOST)"
-  local tag="${ON_BIKE_TAG:-$(env_get ON_BIKE_TAG)}"
+  local tag="${POKATIM_TAG:-$(env_get POKATIM_TAG)}"
   configure_mail_relay
   local tmp
-  tmp="$(mktemp "${ON_BIKE_DIR}/.env.XXXXXX")"
+  tmp="$(mktemp "${POKATIM_DIR}/.env.XXXXXX")"
   awk -v keys="${MANAGED_KEYS}" '
     BEGIN { n = split(keys, list, " "); for (i = 1; i <= n; i++) managed[list[i]] = 1 }
     { key = $0; sub(/=.*/, "", key); if (!(key in managed)) print }
@@ -190,7 +197,7 @@ ensure_env() {
     printf 'PUBLIC_HOST=%s\n' "${PUBLIC_HOST}"
     printf 'WEB_ORIGIN=https://%s\n' "${PUBLIC_HOST}"
     printf 'APP_LINK_BASE=https://%s/\n' "${PUBLIC_HOST}"
-    [[ -z "${tag}" ]] || printf 'ON_BIKE_TAG=%s\n' "${tag}"
+    [[ -z "${tag}" ]] || printf 'POKATIM_TAG=%s\n' "${tag}"
     # одинарные кавычки — без подстановки ${…} в compose (в регулярке бывает «$»)
     printf "MAIL_RELAY_RECIPIENTS='%s'\n" "${RELAY_RECIPIENTS}"
     printf "MAILPIT_RELAY_MATCHING='%s'\n" "${RELAY_ACTIVE_MATCHING}"
@@ -205,7 +212,7 @@ ensure_env() {
   } >>"${tmp}"
   chmod 600 "${tmp}"
   mv -f "${tmp}" "${ENV_FILE}"
-  log ".env: PUBLIC_HOST=${PUBLIC_HOST}${tag:+, ON_BIKE_TAG=${tag}} (секреты не выводятся)"
+  log ".env: PUBLIC_HOST=${PUBLIC_HOST}${tag:+, POKATIM_TAG=${tag}} (секреты не выводятся)"
 }
 
 # ---------- 2a. relay Mailpit → внешний SMTP (Amazon SES, Gmail) ----------
@@ -236,7 +243,7 @@ configure_mail_relay() {
   [[ -n "${username}" ]] || missing="${missing} MAIL_RELAY_USERNAME"
   [[ -n "${password}" ]] || missing="${missing} MAIL_RELAY_PASSWORD"
 
-  tmp="$(mktemp "${ON_BIKE_DIR}/.relay.XXXXXX")"
+  tmp="$(mktemp "${POKATIM_DIR}/.relay.XXXXXX")"
   if [[ -n "${missing}" ]]; then
     printf '# relay выключен: генерирует bootstrap.sh (нет%s в .env)\n' "${missing}" >"${tmp}"
     log "почта: relay выключен (нет${missing}) — письма только в Mailpit"
@@ -274,7 +281,7 @@ configure_mail_relay() {
   chmod 600 "${tmp}"
   mv -f "${tmp}" "${RELAY_FILE}"
   RELAY_REV="$(openssl dgst -sha256 -r <"${RELAY_FILE}" | cut -c1-16)"
-  echo "ONBIKE_MAIL_RELAY=${RELAY_MODE}"
+  echo "POKATIM_MAIL_RELAY=${RELAY_MODE}"
 }
 
 # ---------- 3–4. nginx и сертификат ----------
@@ -282,11 +289,11 @@ configure_mail_relay() {
 render_vhost() {
   local mode="$1"
   local cert_dir="/etc/letsencrypt/live/${PUBLIC_HOST}"
-  printf '# on-bike dev: генерирует infra/deploy/bootstrap.sh на каждом деплое — правки руками перезапишутся\n'
+  printf '# pokatim dev: генерирует infra/deploy/bootstrap.sh на каждом деплое — правки руками перезапишутся\n'
   if [[ "${mode}" == "https" ]]; then
     cat <<EOF
 # WebSocket UI Mailpit (/mail/api/events); имя переменной своё — map общий для http{} всех сайтов сервера
-map \$http_upgrade \$onbike_mail_connection {
+map \$http_upgrade \$pokatim_mail_connection {
     default upgrade;
     '' close;
 }
@@ -313,7 +320,7 @@ server {
     ssl_certificate ${cert_dir}/fullchain.pem;
     ssl_certificate_key ${cert_dir}/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_session_cache shared:onbike_ssl:10m;
+    ssl_session_cache shared:pokatim_ssl:10m;
     ssl_session_timeout 1d;
     # dev: короткий HSTS без includeSubDomains — не мешает смене домена
     add_header Strict-Transport-Security "max-age=86400" always;
@@ -378,7 +385,7 @@ EOF
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_set_header X-Forwarded-Host \$host;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \$onbike_mail_connection;
+        proxy_set_header Connection \$pokatim_mail_connection;
         # WebSocket событий открыт всё время, пока открыт UI
         proxy_read_timeout 1h;
     }
@@ -441,7 +448,7 @@ install_vhost() {
 }
 
 # Какой файл отвечает на :<port> по умолчанию (запросы без SNI или с чужим Host): server с default_server,
-# иначе первый по порядку включения (sites-enabled — по алфавиту). on-bike default быть не должен — иначе чужие
+# иначе первый по порядку включения (sites-enabled — по алфавиту). pokatim default быть не должен — иначе чужие
 # запросы получат его сертификат и сайт; при таком раскладе — предупреждение, сам деплой этого не меняет.
 default_vhost_file() {
   sudo nginx -T 2>/dev/null | awk -v port="$1" '
@@ -483,7 +490,7 @@ public_ip() {
 # HTTP-01 дойдёт до этого nginx: проба через webroot по имени хоста
 acme_probe() {
   local name value dir="${WEBROOT}/.well-known/acme-challenge" got=""
-  name="on-bike-probe-$(openssl rand -hex 8)"
+  name="pokatim-probe-$(openssl rand -hex 8)"
   value="$(openssl rand -hex 16)"
   sudo mkdir -p "${dir}"
   printf '%s' "${value}" | sudo tee "${dir}/${name}" >/dev/null
@@ -532,6 +539,32 @@ issue_cert() {
   return 1
 }
 
+# Переезд on-bike → pokatim: прежний vhost (тот же server_name) снимается, когда свой уже установлен. Только файл с
+# маркером прежнего bootstrap; nginx -t перед reload, ошибка — файл и ссылка возвращаются (деплой не падает).
+remove_legacy_vhost() {
+  local file="/etc/nginx/sites-available/${LEGACY_SITE_NAME}" link="/etc/nginx/sites-enabled/${LEGACY_SITE_NAME}"
+  local backup had_link=0
+  sudo test -e "${file}" || return 0
+  if [[ "$(sudo head -n 1 "${file}")" != "${LEGACY_SITE_MARKER}"* ]]; then
+    warn "nginx: ${file} без маркера прежнего bootstrap — не снимается (runbook «Переезд on-bike → pokatim»)"
+    return 0
+  fi
+  ! sudo test -L "${link}" || had_link=1
+  backup="$(mktemp)"
+  # shellcheck disable=SC2024 # копия читается от root во временный файл текущего пользователя — так и задумано
+  sudo cat "${file}" >"${backup}"
+  sudo rm -f "${link}" "${file}"
+  if sudo nginx -t -q; then
+    sudo systemctl reload nginx
+    log "nginx: прежний vhost ${LEGACY_SITE_NAME} снят (переезд on-bike → pokatim)"
+  else
+    sudo install -m 644 -o root -g root "${backup}" "${file}"
+    [[ "${had_link}" -eq 0 ]] || sudo ln -sfn "${file}" "${link}"
+    warn "nginx: без прежнего vhost ${LEGACY_SITE_NAME} nginx -t не проходит — он возвращён, снять вручную (runbook)"
+  fi
+  rm -f "${backup}"
+}
+
 configure_nginx() {
   command -v nginx >/dev/null 2>&1 || die "nginx на хосте не найден"
   if [[ -n "${PREVIOUS_HOST}" && "${PREVIOUS_HOST}" != "${PUBLIC_HOST}" ]]; then
@@ -552,15 +585,16 @@ configure_nginx() {
       tls=https
     fi
   fi
+  remove_legacy_vhost
   check_not_default
-  echo "ONBIKE_TLS=${tls}"
+  echo "POKATIM_TLS=${tls}"
 }
 
 PREVIOUS_HOST=""
 ensure_env
-if [[ "${ON_BIKE_SKIP_NGINX:-0}" == "1" ]]; then
-  log "ON_BIKE_SKIP_NGINX=1: nginx и сертификат пропущены"
-  echo "ONBIKE_TLS=skipped"
+if [[ "${POKATIM_SKIP_NGINX:-0}" == "1" ]]; then
+  log "POKATIM_SKIP_NGINX=1: nginx и сертификат пропущены"
+  echo "POKATIM_TLS=skipped"
 else
   configure_nginx
 fi

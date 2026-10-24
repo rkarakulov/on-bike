@@ -1,7 +1,7 @@
 # Бренд: «Покатим»
 
-Решение автора 2026-10-24: отображаемое название продукта — **«Покатим»** (кириллицей). Внутреннее имя проекта
-остаётся **on-bike**.
+Решение автора 2026-10-24: отображаемое название продукта — **«Покатим»** (кириллицей). Внутреннее имя проекта —
+**pokatim** (латиницей; до 2026-10-25 — on-bike, переименование — `docs/tasks/2026-10-25-rename-pokatim/task.md`).
 
 ## Где бренд
 
@@ -14,14 +14,14 @@
 - `apps/api/src/modules/identity/mail/*` — тексты писем («регистрацию в «Покатим»»);
 - `MAIL_FROM` — отображаемое имя отправителя (`apps/api/.env.example`, `infra/deploy/env.template`,
   `infra/.env.example`, таблица окружения в `docs/runbooks/local-dev.md`; на серверах — их `.env`: dev-стенд
-  заменяет прежнее умолчание `on-bike dev` сам, `infra/deploy/bootstrap.sh` → `migrate_mail_from`, ручное
+  заменяет прежние умолчания (`on-bike dev`, `@on-bike.by`) сам, `infra/deploy/bootstrap.sh` → `migrate_mail_from`, ручное
   значение не трогает).
 
-## Что не меняется (внутреннее имя on-bike)
+## Внутреннее имя pokatim (смена бренда его не трогает)
 
-Scope пакетов `@on-bike/*`, репозиторий, образы GHCR, compose project, БД, bundle id `by.onbike.app` и схема
-`onbike://`, `expo.slug`, имя cookie `__Secure-onbike_rt`, ключи хранилищ `onbike.*`, issuer/audience JWT, домен,
-пути и имена файлов, документы.
+Scope пакетов `@pokatim/*`, образы GHCR `pokatim-*`, compose project, БД, bundle id `by.pokatim.app` и схема
+`pokatim://`, `expo.slug`, имя cookie `__Secure-pokatim_rt`, ключи хранилищ `pokatim.*`, issuer/audience JWT,
+пути и имена файлов, документы. Репозиторий GitHub — `rkarakulov/pokatim` (до 2026-10-25 — `rkarakulov/on-bike`, переадресация работает).
 
 Смена бренда — правка мест выше и тестов, которые сверяют тексты (`public-metadata.test.ts`, `e2e/web.spec.ts`,
 `verification-email.test.ts`, `password-reset-email.test.ts`, `password-changed-email.test.ts`,

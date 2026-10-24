@@ -5,7 +5,7 @@ paths:
   - "apps/app/src/features/auth/**"
 ---
 
-# on-bike — зоны безопасности (дополняет `security.md`)
+# pokatim — зоны безопасности (дополняет `security.md`)
 
 Эти пути — зона `security.md`, но его `paths:` (шаблон) их не покрывают: **прочитай `.claude/rules/security.md`
 целиком** перед правкой. Security checklist (AuthN/AuthZ · входные данные · данные наружу · злоупотребления · секреты и

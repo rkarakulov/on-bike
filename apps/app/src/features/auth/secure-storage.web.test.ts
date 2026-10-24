@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 import { secureStorage } from './secure-storage';
 
-const KEY = 'onbike.registration';
+const KEY = 'pokatim.registration';
 
 beforeEach(() => {
   sessionStorage.clear();

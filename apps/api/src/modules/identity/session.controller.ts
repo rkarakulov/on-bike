@@ -8,7 +8,7 @@ import {
   SignInRequest,
   type SignInResponse,
   SignOutRequest,
-} from '@on-bike/contracts';
+} from '@pokatim/contracts';
 import { isDomainError, ZodValidationPipe } from '@rkarakulov/api-kit';
 
 import { domainError } from '../../error-messages';
