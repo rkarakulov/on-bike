@@ -16,9 +16,11 @@ ON_BIKE_PROJECT="${ON_BIKE_PROJECT:-on-bike-dev}"
 API_PORT="${ON_BIKE_API_PORT:-3100}"
 WEB_PORT="${ON_BIKE_WEB_PORT:-8180}"
 ADMIN_PORT="${ON_BIKE_ADMIN_PORT:-8181}"
+MAIL_PORT="${ON_BIKE_MAIL_UI_PORT:-8125}"
 MIN_FREE_MB="${MIN_FREE_MB:-1536}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export ON_BIKE_DIR ON_BIKE_API_PORT="${API_PORT}" ON_BIKE_WEB_PORT="${WEB_PORT}" ON_BIKE_ADMIN_PORT="${ADMIN_PORT}"
+export ON_BIKE_DIR ON_BIKE_API_PORT="${API_PORT}" ON_BIKE_WEB_PORT="${WEB_PORT}" ON_BIKE_ADMIN_PORT="${ADMIN_PORT}" \
+  ON_BIKE_MAIL_UI_PORT="${MAIL_PORT}"
 
 log() { printf '[deploy] %s\n' "$*"; }
 die() {
@@ -136,19 +138,52 @@ health="$(curl -fsS --max-time 10 "http://127.0.0.1:${API_PORT}/v1/health")" || 
 [[ "${health}" == *'"status":"ok"'* ]] || fail_smoke "/v1/health не ok: ${health}"
 curl -fsS --max-time 15 -o /dev/null "http://127.0.0.1:${WEB_PORT}/register" || fail_smoke "web /register не отвечает"
 curl -fsS --max-time 10 -o /dev/null "http://127.0.0.1:${ADMIN_PORT}/admin/" || fail_smoke "admin /admin/ не отвечает"
+
+# UI Mailpit под паролем: без пароля — 401, с паролем из .env — 200. Пароль — только в переменной этого процесса и
+# в stdin curl (-K -): не в argv (ps) и не в лог
+MAIL_UI_PASSWORD="$(awk 'index($0, "MAILPIT_UI_PASSWORD=") == 1 { sub(/^[^=]*=/, ""); v = $0 } END { print v }' \
+  "${ON_BIKE_DIR}/.env")"
+[[ -n "${MAIL_UI_PASSWORD}" ]] || fail_smoke "в .env нет MAILPIT_UI_PASSWORD"
+# HTTP-код ответа (000 — нет ответа); $1 — anon|auth, дальше — опции и URL curl
+http_code() {
+  local mode="$1"
+  shift
+  if [[ "${mode}" == "auth" ]]; then
+    printf 'user = "dev:%s"\n' "${MAIL_UI_PASSWORD}" |
+      curl -s -o /dev/null -w '%{http_code}' --max-time 10 -K - "$@" || true
+  else
+    curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$@" || true
+  fi
+}
+# $1 — подпись для лога, дальше — опции и URL curl
+check_mail_ui() {
+  local label="$1" anon auth
+  shift
+  anon="$(http_code anon "$@")"
+  auth="$(http_code auth "$@")"
+  [[ "${anon}" == "401" && "${auth}" == "200" ]] ||
+    fail_smoke "Mailpit ${label}: без пароля ${anon} (ждём 401), с паролем ${auth} (ждём 200)"
+}
+check_mail_ui "127.0.0.1:${MAIL_PORT}/mail/" "http://127.0.0.1:${MAIL_PORT}/mail/"
+
 # через vhost nginx хоста — тем же путём, что браузер (по https, если сертификат есть)
 case "${tls}" in
   https)
     curl -fsS --max-time 10 -o /dev/null --resolve "${PUBLIC_HOST}:443:127.0.0.1" "https://${PUBLIC_HOST}/v1/health" ||
       fail_smoke "https://${PUBLIC_HOST}/v1/health через nginx не отвечает"
+    check_mail_ui "https://${PUBLIC_HOST}/mail/" --resolve "${PUBLIC_HOST}:443:127.0.0.1" "https://${PUBLIC_HOST}/mail/"
     ;;
   http)
     curl -fsS --max-time 10 -o /dev/null -H "Host: ${PUBLIC_HOST}" "http://127.0.0.1/v1/health" ||
       fail_smoke "http://${PUBLIC_HOST}/v1/health через nginx не отвечает"
+    # без сертификата UI почты наружу не открывается (пароль шёл бы открытым текстом)
+    mail_http="$(http_code anon -H "Host: ${PUBLIC_HOST}" "http://127.0.0.1/mail/")"
+    [[ "${mail_http}" == "404" ]] || fail_smoke "http://${PUBLIC_HOST}/mail/ без https: ${mail_http} (ждём 404)"
     ;;
   *) log "vhost nginx не проверяется (ON_BIKE_SKIP_NGINX)" ;;
 esac
-log "health: ${health}"
+unset MAIL_UI_PASSWORD
+log "health: ${health}; UI Mailpit /mail/ — под паролем"
 
 trap - ERR
 # только образы on-bike без контейнеров (label из infra/docker/Dockerfile); чужие образы не трогаем

@@ -2,7 +2,8 @@
 # Кладётся деплоем в ${ON_BIKE_DIR:-~/on-bike}/docker-compose.yml; переменные — из .env рядом (bootstrap.sh,
 # секреты генерируются на сервере). Запуск — deploy.sh: compose project on-bike-dev, --env-file .env.
 # Наружу ничего: PostgreSQL, Redis, SMTP — только сеть проекта; api/web/admin и UI Mailpit — 127.0.0.1
-# (перед ними nginx хоста). Сервер общий: порты хоста выбраны свободными, перед сменой — `ss -ltnp`.
+# (перед ними nginx хоста; UI Mailpit — под паролем). Сервер общий: порты хоста выбраны свободными, перед
+# сменой — `ss -ltnp`.
 # общий диск: ротация логов каждого контейнера (на сервере нет log-opts в daemon.json)
 x-logging: &logging
   driver: json-file
@@ -71,11 +72,16 @@ services:
     restart: unless-stopped
     logging: *logging
 
-  # почта dev: письма не уходят наружу; UI — только 127.0.0.1 хоста (SSH-туннель, runbook)
+  # почта dev: письма не уходят наружу (relay/forward не настроены); UI — 127.0.0.1 хоста, снаружи — nginx
+  # https://<хост>/mail/ под basic-auth самого Mailpit (письма = ссылки подтверждения), runbook «Почта»
   mailpit:
     image: axllent/mailpit:v1.31@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
     environment:
       MP_MAX_MESSAGES: '500'
+      # UI и API под /mail/ (healthcheck образа /mailpit readyz учитывает webroot)
+      MP_WEBROOT: /mail/
+      # basic-auth UI и API: пользователь dev, пароль — секрет .env (bootstrap.sh, hex без ':' и пробелов)
+      MP_UI_AUTH: dev:${MAILPIT_UI_PASSWORD:?}
     ports: ['127.0.0.1:${ON_BIKE_MAIL_UI_PORT:-8125}:8025']
     deploy: { resources: { limits: { memory: 128m } } }
     restart: unless-stopped
