@@ -1,13 +1,14 @@
 import 'reflect-metadata';
 
-import { Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Controller, Get, HttpCode, Logger, Post } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import { ApiError } from '@on-bike/contracts';
 import { ApiExceptionFilter, createFastifyAdapter } from '@rkarakulov/api-kit';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { Env } from './config/env';
 import { configureHttp } from './http-app';
 
 @Controller('probe')
@@ -27,7 +28,10 @@ class ProbeController {
 const DEV_WEB = 'http://127.0.0.1:8081';
 let app: NestFastifyApplication | undefined;
 
-async function createApp(corsOrigins: string[]): Promise<NestFastifyApplication> {
+async function createApp(
+  corsOrigins: string[],
+  nodeEnv: Env['NODE_ENV'] = 'production',
+): Promise<NestFastifyApplication> {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProbeController],
     providers: [{ provide: APP_FILTER, useClass: ApiExceptionFilter }],
@@ -36,7 +40,7 @@ async function createApp(corsOrigins: string[]): Promise<NestFastifyApplication>
     createFastifyAdapter({ TRUST_PROXY: 0 }),
     { logger: false },
   );
-  configureHttp(app, { CORS_ORIGINS: corsOrigins });
+  configureHttp(app, { CORS_ORIGINS: corsOrigins, NODE_ENV: nodeEnv });
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
   return app;
@@ -45,6 +49,7 @@ async function createApp(corsOrigins: string[]): Promise<NestFastifyApplication>
 afterEach(async () => {
   await app?.close();
   app = undefined;
+  vi.restoreAllMocks();
 });
 
 const post = (target: NestFastifyApplication, headers: Record<string, string> = {}) =>
@@ -170,5 +175,28 @@ describe('configureHttp: CORS с credentials только для CORS_ORIGINS', 
     ).inject({ method: 'GET', url: '/v1/probe', headers: { origin: DEV_WEB } });
     expect(res.headers['access-control-allow-origin']).toBeUndefined();
     expect(res.headers['access-control-allow-credentials']).toBeUndefined();
+  });
+});
+
+describe('configureHttp: предупреждение о пустом CORS_ORIGINS вне production', () => {
+  const warnings = () => vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+
+  it('development, CORS_ORIGINS пуст → одна строка warn (web из браузера не достучится до API)', async () => {
+    const warn = warnings();
+    await createApp([], 'development');
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain('CORS_ORIGINS');
+  });
+
+  it('production, CORS_ORIGINS пуст → без предупреждения (web и API за одним origin)', async () => {
+    const warn = warnings();
+    await createApp([], 'production');
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('development, CORS_ORIGINS задан → без предупреждения', async () => {
+    const warn = warnings();
+    await createApp([DEV_WEB], 'development');
+    expect(warn).not.toHaveBeenCalled();
   });
 });
