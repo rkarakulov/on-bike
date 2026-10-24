@@ -86,8 +86,9 @@ export default function SignInScreen() {
   const toRegister = () => {
     const store = useRegistrationStore.getState();
     store.saveDraft({ ...store.draft, email: getValues('email') });
-    if (router.canGoBack()) router.back();
-    else router.replace('/register');
+    // явно к регистрации: к уже смонтированной в стеке (форма возьмёт e-mail из черновика), иначе — замена этого
+    // экрана; «назад» привёл бы на любой предыдущий экран (вход, «Подтвердите e-mail»)
+    router.dismissTo('/register');
   };
 
   const failure = signIn.error;

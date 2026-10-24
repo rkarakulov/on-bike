@@ -203,6 +203,34 @@ describe('регистрация ↔ вход: e-mail через чернови�
   });
 });
 
+describe('«Создать аккаунт» со входа — всегда регистрация', () => {
+  it('Регистрация → Вход → verificationRequired → «Подтвердите e-mail» → отказ poll → Войти → «Создать аккаунт» → регистрация', async () => {
+    signIn.mockResolvedValue({
+      state: 'verificationRequired',
+      registrationToken: REGISTRATION_TOKEN,
+      email: EMAIL,
+      resendAvailableInSec: 0,
+    });
+    jest.mocked(api.pollRegistration).mockRejectedValue(apiError(401, 'UNAUTHORIZED'));
+    const router = await renderRouter(appRoutes, { initialUrl: '/register' });
+    await screen.findByRole('header', { name: 'Создать аккаунт' });
+    await fireEvent.press(screen.getByRole('button', { name: 'Войти' }));
+    await screen.findByRole('header', { name: 'Вход' });
+    await fill();
+    await fireEvent.press(submitButton());
+    expect(await screen.findByRole('header', { name: 'Войдите в аккаунт' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/check-email');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Войти' }));
+    await screen.findByRole('header', { name: 'Вход' });
+    expect(router.getPathname()).toBe('/sign-in');
+    await fireEvent.press(screen.getByRole('button', { name: 'Создать аккаунт' }));
+
+    expect(await screen.findByRole('header', { name: 'Создать аккаунт' })).toBeOnTheScreen();
+    expect(router.getPathname()).toBe('/register');
+  });
+});
+
 describe('выход', () => {
   it('«Выйти» на Главной → сервер отзывает сессию, SecureStore и кеш запросов пусты, экран «Вход» (не регистрация)', async () => {
     const clear = jest.spyOn(QueryClient.prototype, 'clear');

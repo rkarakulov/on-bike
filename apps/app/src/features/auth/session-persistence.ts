@@ -1,4 +1,4 @@
-import { ApiHttpError, isNetworkError } from '@on-bike/api-client';
+import { ApiHttpError } from '@on-bike/api-client';
 import { type AnySession, type CookieSession, Session } from '@on-bike/contracts';
 
 import { api } from '@/lib/api';
@@ -60,12 +60,22 @@ async function forget(): Promise<void> {
 
 const isUnauthorized = (error: unknown) => error instanceof ApiHttpError && error.status === 401;
 
-/** Ротация с одной немедленной повторной попыткой при сетевой ошибке — в пределах окна повтора сервера (60 с). */
+/**
+ * Ответ сервера получен целиком: ошибка с HTTP-статусом (`ApiHttpError`). Всё прочее — запрос не дошёл или ответ
+ * не дочитан: обрыв при чтении тела 2xx клиент API отдаёт как ошибку разбора (тело `undefined`), а сервер мог уже
+ * ротировать refresh.
+ */
+const isResponseReceived = (error: unknown) => error instanceof ApiHttpError;
+
+/**
+ * Ротация с одной немедленной повторной попыткой, если корректный ответ не получен (сеть, обрыв тела) — в пределах
+ * окна повтора сервера (60 с) прежний refresh ещё действует.
+ */
 async function rotate(refreshToken: string) {
   try {
     return await api.refreshSession({ refreshToken });
   } catch (error) {
-    if (!isNetworkError(error)) throw error;
+    if (isResponseReceived(error)) throw error;
     return api.refreshSession({ refreshToken });
   }
 }
