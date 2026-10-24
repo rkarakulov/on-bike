@@ -1,0 +1,30 @@
+# Контекст образов деплоя (infra/docker/Dockerfile): исходники без артефактов, секретов и истории
+**/node_modules
+**/dist
+**/dist-dev
+**/.turbo
+**/.expo
+**/coverage
+**/test-results
+**/playwright-report
+**/*.tsbuildinfo
+**/*.log
+.git
+.github
+.claude
+.codex
+.agents
+.ai
+docs
+tools
+# env и ключи — никогда в образ
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.p12
+**/*.key
+**/key.json
+**/.npmrc.local
+apps/app/ios
+apps/app/android
