@@ -100,3 +100,35 @@ describe('инварианты без ограничений БД (R5)', () => {
     await expect(link('b')).resolves.toBeUndefined();
   });
 });
+
+describe('IdentityRepository.rotateSession (R3)', () => {
+  it('значения в pipeline — через $literal: строка на «$» сохраняется как есть, а не как путь поля', async () => {
+    const userId = await userWithRegistrationToken();
+    const id = uuidv7();
+    await transactions.run((session) =>
+      repository.insertSession(session, {
+        id,
+        userId,
+        refreshTokenHash: sha256('refresh'),
+        createdAt: now,
+        expiresAt: later,
+      }),
+    );
+
+    const rotated = await repository.rotateSession({
+      tokenHash: sha256('refresh'),
+      nextTokenHash: '$createdAt',
+      now,
+      graceMs: 60_000,
+      ttlMs: 3600_000,
+      absoluteTtlMs: 7200_000,
+    });
+
+    expect(rotated).toEqual({ id, userId, expiresAt: later });
+    expect(await collections(h).sessions.findOne({ _id: id })).toMatchObject({
+      refreshTokenHash: '$createdAt',
+      previousRefreshTokenHash: sha256('refresh'),
+      rotatedAt: now,
+    });
+  });
+});
