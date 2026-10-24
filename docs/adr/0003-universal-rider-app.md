@@ -69,15 +69,15 @@ Expo SDK 58 (Expo Router 58) собирает тот же проект под в
 
 ## Реализация (F5a + F5b, 2026-10-23)
 
-Каркас web/PWA/SSR — шаблон app-foundation `v0.2.0` (F5a); on-bike — `docs/tasks/2026-10-23-onbike-web/task.md` (F5b).
+Каркас web/PWA/SSR — шаблон app-foundation `v0.2.0` (F5a); pokatim — `docs/tasks/2026-10-23-onbike-web/task.md` (F5b).
 Уточнения к решению:
 
 - п. 1–2: приложение — `apps/app`; OG и `<title>` — `generateMetadata` маршрута (`expo-router/server`), `loader` —
   только посев SSR. Сервер — `apps/app/server` (Express + `expo-server`). Гарды сессии допускают «сессия неизвестна»:
   SSR отдаёт HTML публичных экранов, оболочка вкладок — скелетоном до гидрации.
-- п. 2, PWA: manifest — API-маршрут (имя из словаря, цвета из темы), иконки — марка on-bike, service worker кеширует
+- п. 2, PWA: manifest — API-маршрут (имя из словаря, цвета из темы), иконки — марка pokatim, service worker кеширует
   только статику с хешем. Вес JS начальной загрузки — 440–458 КБ gzip (оценка 300–500 КБ подтверждена).
-- п. 4 реализован: refresh — cookie `__Secure-onbike_rt` (`HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session`,
+- п. 4 реализован: refresh — cookie `__Secure-pokatim_rt` (`HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session`,
   без `Domain`, `Max-Age` — остаток срока сессии); тело ответа web — без refresh (`sessionTransport: 'cookie'`,
   `CookieSession`); `POST /v1/auth/session/refresh` (ротация, срок не продлевается) и `/sign-out`. Access — в памяти;
   перезагрузка восстанавливает сессию запросом refresh по cookie (refresh, poll регистрации и выход — под одним

@@ -3,16 +3,16 @@ paths:
   - "apps/api/**"
 ---
 
-# on-bike — backend (дополняет `backend.md`)
+# pokatim — backend (дополняет `backend.md`)
 
-Доменные правила on-bike поверх общего правила шаблона. Процесс — скил `app-dev-kit:backend-nest`.
+Доменные правила pokatim поверх общего правила шаблона. Процесс — скил `app-dev-kit:backend-nest`.
 
 ## Модули и reuse
 
 - Контексты `src/modules/<context>/`: identity, profile, routes, rides, calendar, races, results, disputes,
   seasons, gamification, sharing, notifications, moderation, media (по мере появления).
 - Код, нужный ≥2 приложениям (разбор трека для pre-check в приложении и на сервере), — в `packages/tracks`
-  (`@on-bike/tracks`): парсинг GPX/TCX/FIT/KML и геометрия; дубли разбора в модулях запрещены.
+  (`@pokatim/tracks`): парсинг GPX/TCX/FIT/KML и геометрия; дубли разбора в модулях запрещены.
 
 ## Авторитет сервера и история
 
@@ -33,9 +33,9 @@ paths:
 - Время — UTC в БД, Europe/Minsk — только на отображении (AGENTS.md §4.7).
 - Геометрия — PostGIS (индексы GIST); геозапросы проверяются интеграционными тестами на реальном PostgreSQL
   + PostGIS, моки БД для геозапросов запрещены.
-- Анонимизация при удалении аккаунта — «Удалённый участник» (см. `onbike-db.md`).
+- Анонимизация при удалении аккаунта — «Удалённый участник» (см. `pokatim-db.md`).
 
-## Красные флаги on-bike
+## Красные флаги pokatim
 
 Клиентское время в расчёте результата · UPDATE/DELETE аудита и споров · биометрия или e-mail в логах ·
 разбор трека или рендер в HTTP-обработчике.

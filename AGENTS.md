@@ -1,4 +1,4 @@
-# AGENTS.md — канон для всех агентов on-bike
+# AGENTS.md — канон для всех агентов pokatim
 
 Единственный источник правил для Claude Code, Codex и любого другого агента.
 `CLAUDE.md` — тонкий указатель сюда. Детали по зонам — в `.claude/rules/*.md`.
@@ -18,7 +18,7 @@
 
 ## 1. Проект кратко
 
-on-bike.by — геймифицированная платформа для велосипедистов Беларуси: гонки по GPS-коридору,
+«Покатим» (pokatim) — геймифицированная платформа для велосипедистов Беларуси: гонки по GPS-коридору,
 кофе-райды, библиотека маршрутов, календарь стартов, единый профиль райдера.
 Аудитория — только Беларусь, UI полностью на русском, формальное «вы».
 
@@ -48,7 +48,7 @@ tools/ai_review/  контракт независимого ревью + Codex-�
 .ai/dev-kit/  копия текстов плагина app-dev-kit для Codex (не править)
 ```
 
-Имена пакетов — `@on-bike/<name>`. Node 24 (`.nvmrc`), pnpm 11, Turborepo.
+Имена пакетов — `@pokatim/<name>`. Node 24 (`.nvmrc`), pnpm 11, Turborepo.
 
 Общий код — пакеты базы `@rkarakulov/*` (репозиторий `rkarakulov/app-foundation`, ADR-0004,
 GitHub Packages): компоненты дизайн-системы `@rkarakulov/ui`, инфраструктура API `@rkarakulov/api-kit` (env, БД,
@@ -65,22 +65,22 @@ outbox, очереди, лимитер, почта, HTTP, ошибки), тес�
 |---|---|
 | `pnpm install` | установка зависимостей (нужен `NODE_AUTH_TOKEN`, `docs/runbooks/local-dev.md`) |
 | `pnpm dev` | все приложения в dev через turbo (сначала собирает `packages/*`) |
-| `pnpm dev --filter=@on-bike/<app>` | одно приложение в dev (api / admin) |
-| `pnpm --filter @on-bike/app dev` | приложение Expo (Expo Go, симуляторы) |
+| `pnpm dev --filter=@pokatim/<app>` | одно приложение в dev (api / admin) |
+| `pnpm --filter @pokatim/app dev` | приложение Expo (Expo Go, симуляторы) |
 | `pnpm dev:worker` | воркер очередей BullMQ в dev |
 | `pnpm build` | production-сборка |
-| `pnpm --filter @on-bike/app build:preview` | EAS: сборки для внутренних тестеров |
+| `pnpm --filter @pokatim/app build:preview` | EAS: сборки для внутренних тестеров |
 | `pnpm build:web` | web-сборка приложения: SSR + PWA (`apps/app/dist`, service worker) |
-| `pnpm --filter @on-bike/app start:web` | production web-сервер на `dist` (env — `docs/runbooks/local-dev.md`, «Web») |
+| `pnpm --filter @pokatim/app start:web` | production web-сервер на `dist` (env — `docs/runbooks/local-dev.md`, «Web») |
 | `pnpm e2e:web` | Playwright-смоук web в браузере (сначала `build:web`; нужен Chrome или `PW_CHANNEL`); с API — `E2E_API=1` (регистрация → письмо → вход, runbook «Web») |
 | `pnpm infra:up` / `pnpm infra:down` | docker compose: PostgreSQL 18 + PostGIS, Redis, Mailpit |
 | `pnpm check` | **completion gate**: format:check + lint + arch:check + typecheck + test |
 | `pnpm lint` / `pnpm typecheck` / `pnpm test` | по отдельности |
 | `pnpm format` | prettier --write |
 | `pnpm arch:check` | dependency-cruiser |
-| `pnpm --filter @on-bike/api db:generate` | сгенерировать миграцию Drizzle |
-| `pnpm --filter @on-bike/api db:migrate` | применить миграции |
-| `pnpm --filter @on-bike/<pkg> <script>` | скрипт одного пакета |
+| `pnpm --filter @pokatim/api db:generate` | сгенерировать миграцию Drizzle |
+| `pnpm --filter @pokatim/api db:migrate` | применить миграции |
+| `pnpm --filter @pokatim/<pkg> <script>` | скрипт одного пакета |
 | `uvx copier update --defaults` | обновить проект до новой версии шаблона app-foundation |
 
 Не выдумывай команды. Нет скрипта — так и напиши.
@@ -88,7 +88,7 @@ outbox, очереди, лимитер, почта, HTTP, ошибки), тес�
 ## 4. Архитектурные инварианты
 
 1. **Серверный авторитет.** Итоговые и вычисляемые значения (статусы, суммы, рейтинги, права) считает и
-   проверяет только сервер. Клиент присылает намерение, а не результат. В on-bike: трек валидируется и
+   проверяет только сервер. Клиент присылает намерение, а не результат. В pokatim: трек валидируется и
    пересчитывается только на сервере; клиент отправляет файл, но не время, место или кластер.
 2. **Contracts-first.** Любое изменение API начинается со схемы в `packages/contracts`.
    NestJS валидирует по ней, клиенты потребляют её же. Ручные копии DTO запрещены.
@@ -105,9 +105,9 @@ outbox, очереди, лимитер, почта, HTTP, ошибки), тес�
 9. **Нет «на вырост».** Не добавляй возможности, внешние сервисы и абстракции вне рамок §1 без ADR
    (push, WebSocket, GPS-запись, внешние IdP и т.п.).
 10. **Append-only аудит** — если проект его ведёт: история решений и чувствительных действий только
-    вставкой новых записей; UPDATE/DELETE истории запрещены. on-bike ведёт: споры, исключения/восстановления
+    вставкой новых записей; UPDATE/DELETE истории запрещены. pokatim ведёт: споры, исключения/восстановления
     треков, пересчёты, решения модерации.
-11. **Всё UI — из дизайн-системы.** Любой экран, страница и элемент собирается из `@on-bike/design-tokens`
+11. **Всё UI — из дизайн-системы.** Любой экран, страница и элемент собирается из `@pokatim/design-tokens`
     (семантические роли, `.t-*` / `textStyle`, `space` / `inset` / `size` / `stroke` / `density`) и готовых
     компонентов (`@rkarakulov/ui`; веб — классы и переменные пакета). Нужного нет — **расширяй систему**:
     общий компонент или токен — задачей и релизом в app-foundation (с тестом и примером на витрине `UiKit`);
@@ -181,7 +181,7 @@ finishing-a-development-branch). Если его нет — выполни ту 
 | `.claude/rules/web.md` | `apps/admin/**` |
 | `.claude/rules/tests.md` | все тесты |
 | `.claude/rules/security.md` | конфиг и инфраструктура API, CI, реестр пакетов, секреты |
-| `.claude/rules/onbike-*.md` | домен on-bike поверх правил шаблона: `onbike-backend`, `onbike-db`, `onbike-contracts`, `onbike-app`, `onbike-web` (admin), `onbike-security` (identity, media, удаление аккаунта), `onbike-tests` |
+| `.claude/rules/pokatim-*.md` | домен pokatim поверх правил шаблона: `pokatim-backend`, `pokatim-db`, `pokatim-contracts`, `pokatim-app`, `pokatim-web` (admin), `pokatim-security` (identity, media, удаление аккаунта), `pokatim-tests` |
 
 Команды, агенты и скилы зон (`backend-nest`, `mobile-expo`, `web-ui`) — плагин `app-dev-kit`
 (`.claude/settings.json`). Codex: адаптеры `.agents/skills/`, роли `.codex/agents/`, тексты — `.ai/dev-kit/`;

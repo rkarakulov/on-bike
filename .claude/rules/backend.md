@@ -20,7 +20,7 @@ paths:
 
 ## Правила
 
-- DTO не пишутся руками: zod-схема из `@on-bike/contracts` → pipe валидации.
+- DTO не пишутся руками: zod-схема из `@pokatim/contracts` → pipe валидации.
 - Ошибки — коды из contracts (`ErrorCode`), тексты — `error-messages.ts`; без утечки стека и SQL наружу.
 - Итоговые и вычисляемые значения (статусы, суммы, рейтинги) считает только сервер; клиентским — не доверяем.
 - Тяжёлая и асинхронная работа — в `src/worker.ts` через BullMQ (`queues.ts`). HTTP-обработчик только ставит задачу.
@@ -33,5 +33,5 @@ paths:
 
 ## Проверка
 
-`pnpm --filter @on-bike/api test`, затем `pnpm check`. Интеграционные тесты репозиториев — на
+`pnpm --filter @pokatim/api test`, затем `pnpm check`. Интеграционные тесты репозиториев — на
 реальном PostgreSQL и Redis (`pnpm infra:up`, стенд `@rkarakulov/test-kit`), не на моках.

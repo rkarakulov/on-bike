@@ -15,25 +15,25 @@ workflow и сервер позже (не настроен; `infra/docker-compos
 push develop ─► deploy-dev.yml
                  ├─ preflight   environment dev: секреты DEV_SSH_*, DEV_PUBLIC_HOST, тег sha-<7>
                  ├─ ci          ci.yml (reusable): format, lint, arch, typecheck, test, сборка, web-смоук
-                 ├─ build       infra/docker/Dockerfile → GHCR: on-bike-api, on-bike-web, on-bike-admin
+                 ├─ build       infra/docker/Dockerfile → GHCR: pokatim-api, pokatim-web, pokatim-admin
                  │              теги sha-<7> и develop, linux/amd64
-                 └─ deploy      environment dev; SSH: файлы стека → ~/on-bike, deploy.sh (токен GHCR — stdin)
+                 └─ deploy      environment dev; SSH: файлы стека → ~/pokatim, deploy.sh (токен GHCR — stdin)
 
 Сервер — общий (на нём живут другие проекты: их сайты, контейнеры, тома и порты не трогаем):
-  nginx хоста :80/:443 ─ /etc/nginx/sites-available/on-bike (server_name = <хост>)
+  nginx хоста :80/:443 ─ /etc/nginx/sites-available/pokatim (server_name = <хост>)
      /v1/*     → 127.0.0.1:3100  api      (NestJS)
      /admin/*  → 127.0.0.1:8181  admin    (статика, nginx без root)
      /mail/*   → 127.0.0.1:8125  mailpit  (UI писем, basic-auth; только при https)
      /         → 127.0.0.1:8180  web      (SSR, expo-server)
-  compose project on-bike-dev (~/on-bike/docker-compose.yml, .env):
+  compose project pokatim-dev (~/pokatim/docker-compose.yml, .env):
      worker, postgres (PostGIS), redis — без портов хоста; mailpit — UI 127.0.0.1:8125, SMTP только внутри
 ```
 
 `deploy.sh` на каждом деплое: `bootstrap.sh` (каталог, `.env`, vhost, сертификат) → pull → postgres/redis/mailpit →
 **миграции одноразовым контейнером** (`compose run --rm migrate`) → api/worker/web/admin с ожиданием healthcheck →
 smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 401 и с паролем 200, `/v1/health` и `/mail/`
-через vhost nginx) → прочистка образов on-bike без
-контейнеров (по label `by.on-bike.project=on-bike`, чужие образы не трогаются).
+через vhost nginx) → прочистка образов pokatim без
+контейнеров (по label `by.pokatim.project=pokatim`, чужие образы не трогаются).
 
 Свои порты хоста — 3100, 8180, 8181, 8125, только `127.0.0.1`; выбраны свободными. Менять — после `sudo ss -ltnp` на
 сервере. Лимиты памяти контейнеров — в `infra/deploy/docker-compose.yml` (всего ≤ 2,5 ГБ), логи контейнеров
@@ -44,8 +44,8 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 4
 1. **SSH-ключ деплоя** — отдельная пара, публичная часть — в `~ubuntu/.ssh/authorized_keys` сервера:
 
    ```bash
-   ssh-keygen -t ed25519 -N '' -C on-bike-deploy -f ~/.ssh/on-bike-deploy
-   ssh-copy-id -i ~/.ssh/on-bike-deploy.pub ubuntu@<сервер>
+   ssh-keygen -t ed25519 -N '' -C pokatim-deploy -f ~/.ssh/pokatim-deploy
+   ssh-copy-id -i ~/.ssh/pokatim-deploy.pub ubuntu@<сервер>
    ```
 
 2. **GitHub Environment `dev`** — секреты деплоя получают только джобы `environment: dev` на ветке `develop`:
@@ -63,10 +63,10 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 4
 
    ```bash
    printf '%s' '<сервер>' | gh secret set DEV_SSH_HOST --env dev
-   gh secret set DEV_SSH_KEY --env dev < ~/.ssh/on-bike-deploy
-   ssh-keyscan -t ed25519 <сервер> > /tmp/on-bike-known-hosts   # сверить отпечаток с сервером:
+   gh secret set DEV_SSH_KEY --env dev < ~/.ssh/pokatim-deploy
+   ssh-keyscan -t ed25519 <сервер> > /tmp/pokatim-known-hosts   # сверить отпечаток с сервером:
    #   ssh ubuntu@<сервер> ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
-   gh secret set DEV_SSH_KNOWN_HOSTS --env dev < /tmp/on-bike-known-hosts
+   gh secret set DEV_SSH_KNOWN_HOSTS --env dev < /tmp/pokatim-known-hosts
    gh variable set DEV_PUBLIC_HOST --env dev --body '<хост>'
    # необязательно: e-mail для Let's Encrypt (уведомления об истечении); пользователь SSH, если не ubuntu
    gh variable set DEV_CERTBOT_EMAIL --env dev --body '<e-mail>'
@@ -88,12 +88,12 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 4
    ```
 
 5. **Пакеты `@rkarakulov/*`** уже открыты репозиторию для CI (local-dev.md, «CI и сборки») — сборка образов читает их
-   тем же `GITHUB_TOKEN` (build secret, в слои не попадает). Образы `on-bike-*` в GHCR создаются первым деплоем,
+   тем же `GITHUB_TOKEN` (build secret, в слои не попадает). Образы `pokatim-*` в GHCR создаются первым деплоем,
    приватные, привязаны к репозиторию (label `org.opencontainers.image.source`) — отдельного доступа не нужно.
 6. **DNS.** Временный хост — `pokatim-dev.<IP сервера через дефисы>.sslip.io`: wildcard-DNS sslip.io сам резолвит его в
    IP. Постоянный домен `pokatim-dev.limedolphin.com` — A-запись на IP сервера, затем «Смена домена».
 
-На сервере вручную ничего не готовится: каталог `~/on-bike`, `.env` с секретами, vhost и сертификат создаёт первый
+На сервере вручную ничего не готовится: каталог `~/pokatim`, `.env` с секретами, vhost и сертификат создаёт первый
 деплой. Предусловия (уже есть): Docker + Compose v2 (системный плагин), nginx, certbot, `ubuntu` в группе `docker` и
 с sudo без пароля.
 
@@ -110,7 +110,7 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 4
 
 ## `.env` сервера
 
-`~/on-bike/.env` (600) создаёт `bootstrap.sh` по `infra/deploy/env.template`:
+`~/pokatim/.env` (600) создаёт `bootstrap.sh` по `infra/deploy/env.template`:
 
 - `POSTGRES_PASSWORD`, `JWT_SECRET`, `EMAIL_TOKEN_SECRET`, `MAILPIT_UI_PASSWORD` — генерируются на сервере
   (`openssl rand -hex 32`) при первом деплое (новый ключ — при первом деплое после его появления в шаблоне); в лог,
@@ -122,9 +122,9 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 4
 - `MAIL_RELAY_HOST`/`MAIL_RELAY_PORT` (умолчание — SES `email-smtp.eu-north-1.amazonaws.com:587`),
   `MAIL_RELAY_USERNAME`/`MAIL_RELAY_PASSWORD` (пусто) — relay почты, вписываются руками (раздел «Почта»).
 - `MAIL_RELAY_RECIPIENTS` (адреса или `*`) — из секрета `DEV_MAIL_RELAY_RECIPIENTS` каждого деплоя (нет — очищается);
-  `MAILPIT_RELAY_*` и файл `~/on-bike/mailpit-relay.yml` (600) вычисляет `bootstrap.sh` —
+  `MAILPIT_RELAY_*` и файл `~/pokatim/mailpit-relay.yml` (600) вычисляет `bootstrap.sh` —
   руками не править.
-- `PUBLIC_HOST`, `WEB_ORIGIN` (`https://<хост>`), `APP_LINK_BASE` (`https://<хост>/`), `ON_BIKE_TAG` — **всегда** из
+- `PUBLIC_HOST`, `WEB_ORIGIN` (`https://<хост>`), `APP_LINK_BASE` (`https://<хост>/`), `POKATIM_TAG` — **всегда** из
   деплоя (переменная окружения `dev` и тег).
 - `CORS_ORIGINS` пусто (web и API — один origin за nginx), `TRUST_PROXY=1` (один прокси — nginx хоста; он
   перезаписывает `X-Forwarded-For` адресом клиента).
@@ -134,19 +134,19 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 4
 
 ## nginx
 
-Свой файл `/etc/nginx/sites-available/on-bike` + ссылка в `sites-enabled`; перед reload — `nginx -t`, при ошибке
+Свой файл `/etc/nginx/sites-available/pokatim` + ссылка в `sites-enabled`; перед reload — `nginx -t`, при ошибке
 откатывается только свой файл. Чужие сайты не меняются:
 
 - `listen 443 ssl;` без `http2` и без `default_server`: в nginx 1.24 (Ubuntu 24.04) параметры `listen` действуют на
   весь сокет `*:443` — `http2` включил бы HTTP/2 соседним сайтам.
 - Сервер по умолчанию для порта (запросы без SNI/с чужим `Host`) — блок с `default_server`, иначе первый по порядку
   включения (`sites-enabled` — по алфавиту). `bootstrap.sh` после установки проверяет `nginx -T`: если по умолчанию для
-  :80 или :443 оказался `on-bike` — `::warning::` в логе (деплой ничего не меняет у соседей). Проверить вручную:
+  :80 или :443 оказался `pokatim` — `::warning::` в логе (деплой ничего не меняет у соседей). Проверить вручную:
   `sudo nginx -T | grep -nE '^# configuration file|listen'` — первым с `listen 443`/`listen 80` (или с
-  `default_server`) должен быть не `on-bike`. Если всё же он — согласовать с владельцами сервера явный
+  `default_server`) должен быть не `pokatim`. Если всё же он — согласовать с владельцами сервера явный
   `default_server` у их сайта; переименовывать свой файл «в конец алфавита» — крайняя мера (имя меняет и откат).
 - Dev-стенд отдаёт `X-Robots-Tag: noindex, nofollow` — поисковики его не индексируют.
-- `/mail/` (UI Mailpit) — только в https-блоке, с WebSocket (`map $http_upgrade $onbike_mail_connection` — своё имя
+- `/mail/` (UI Mailpit) — только в https-блоке, с WebSocket (`map $http_upgrade $pokatim_mail_connection` — своё имя
   переменной: `map` общий для всех сайтов сервера). Без сертификата `/mail/` → 404.
 
 ## TLS
@@ -158,7 +158,7 @@ webroot, что у соседних сайтов), только если дом�
 
 Нет DNS, лимит Let's Encrypt (sslip.io — общий домен), ошибка certbot — **деплой не падает**: vhost только на :80,
 `::warning::` в логе и строка в Summary; следующий деплой пробует снова. Адреса в лог не выводятся; сверить DNS —
-`dig +short <хост>` против IP сервера. **До сертификата web-сессия не работает:** refresh-cookie `__Secure-onbike_rt`
+`dig +short <хост>` против IP сервера. **До сертификата web-сессия не работает:** refresh-cookie `__Secure-pokatim_rt`
 браузер принимает только по https, клиентский бандл ходит на `https://<хост>` (`EXPO_PUBLIC_API_URL` вшит при
 сборке). API (`/v1/health`) и админка открываются и по http.
 
@@ -168,7 +168,7 @@ webroot, что у соседних сайтов), только если дом�
 2. `gh variable set DEV_PUBLIC_HOST --env dev --body 'pokatim-dev.limedolphin.com'`.
 3. Деплой (push в `develop` или ручной запуск **без** `image_tag`: образ web пересобирается — адрес API вшит в бандл).
 
-Деплой перепишет vhost `on-bike` на новый `server_name`, выпустит сертификат, выставит `PUBLIC_HOST`/`WEB_ORIGIN`/
+Деплой перепишет vhost `pokatim` на новый `server_name`, выпустит сертификат, выставит `PUBLIC_HOST`/`WEB_ORIGIN`/
 `APP_LINK_BASE`; секреты и данные не меняются. Старый сертификат остаётся (предупреждение в логе) — удалить:
 `ssh ubuntu@<сервер> sudo certbot delete --cert-name <старый хост>`. Ссылки из уже отправленных писем ведут на
 старый хост.
@@ -177,12 +177,12 @@ webroot, что у соседних сайтов), только если дом�
 
 В лог Actions деплой при сбое выводит только состояние контейнеров (`compose ps`) и коды выхода — логи приложений
 могут содержать персональные данные тестировщиков, их смотрят только по SSH. Вывод миграций каждого деплоя —
-в `~/on-bike/migrate.log` на сервере (права 600, перезаписывается), в Actions — только код выхода:
+в `~/pokatim/migrate.log` на сервере (права 600, перезаписывается), в Actions — только код выхода:
 
 ```bash
 ssh ubuntu@<сервер>
-cd ~/on-bike
-alias dc='docker compose -p on-bike-dev -f docker-compose.yml --env-file .env'
+cd ~/pokatim
+alias dc='docker compose -p pokatim-dev -f docker-compose.yml --env-file .env'
 dc ps -a
 dc logs -f --tail 200 api worker
 dc logs --tail 200 web admin
@@ -191,7 +191,7 @@ dc run --rm migrate                          # повторить миграци
 curl -s http://127.0.0.1:3100/v1/health      # version = развёрнутый тег
 ```
 
-PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U on_bike on_bike`, `dc exec redis redis-cli`.
+PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U pokatim pokatim`, `dc exec redis redis-cli`.
 
 ## Почта
 
@@ -204,7 +204,7 @@ PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U on_b
 - **Пароль** — `MAILPIT_UI_PASSWORD` в `.env` сервера (генерирует деплой, в git/GitHub/лог не попадает):
 
   ```bash
-  ssh ubuntu@<сервер> 'grep ^MAILPIT_UI_PASSWORD= ~/on-bike/.env'
+  ssh ubuntu@<сервер> 'grep ^MAILPIT_UI_PASSWORD= ~/pokatim/.env'
   ```
 
   Передавать тестировщикам — личным сообщением, не в общие каналы и не в issue/PR (репозиторий публичный).
@@ -212,7 +212,7 @@ PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U on_b
   `image_tag` или push в `develop`): деплой сгенерирует новый и пересоздаст контейнер mailpit.
 
   ```bash
-  ssh ubuntu@<сервер> "sed -i '/^MAILPIT_UI_PASSWORD=/d' ~/on-bike/.env"
+  ssh ubuntu@<сервер> "sed -i '/^MAILPIT_UI_PASSWORD=/d' ~/pokatim/.env"
   ```
 
   Свой пароль — вписать `MAILPIT_UI_PASSWORD=<значение>` в `.env` (только `[A-Za-z0-9]`: значение уходит в
@@ -228,7 +228,7 @@ PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U on_b
 ### Реальная доставка (relay)
 
 Включён, когда заданы все три: секрет `DEV_MAIL_RELAY_RECIPIENTS` (окружение `dev`) и `MAIL_RELAY_USERNAME` +
-`MAIL_RELAY_PASSWORD` в `~/on-bike/.env`. Чего-то нет — relay выключен, деплой не падает, в логе — строка
+`MAIL_RELAY_PASSWORD` в `~/pokatim/.env`. Чего-то нет — relay выключен, деплой не падает, в логе — строка
 `почта: relay выключен (нет …)` (имена ключей, без значений).
 
 Два режима — по значению секрета:
@@ -243,7 +243,7 @@ PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U on_b
   - Список — auto-relay по регулярке (`MP_SMTP_RELAY_MATCHING`): `bootstrap.sh` собирает из адресов якорную
     `(?i)^(a@x\.com|b@y\.org)$`; она же — `allowed-recipients` для ручного «Release» из UI.
   - Всем — `MP_SMTP_RELAY_ALL=true` («relay all»), без ограничения адресатов (и для «Release» тоже).
-  - Хост, порт, логин и пароль — в `~/on-bike/mailpit-relay.yml` (600, генерирует `bootstrap.sh`), не в env
+  - Хост, порт, логин и пароль — в `~/pokatim/mailpit-relay.yml` (600, генерирует `bootstrap.sh`), не в env
     контейнера. STARTTLS обязателен, сертификат сервера проверяется.
   - Ошибка внешнего SMTP (лимит, sandbox, неверный пароль) — только в логе mailpit; API письмо всё равно отправлено
     (в Mailpit оно есть).
@@ -270,7 +270,7 @@ PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U on_b
 
   ```bash
   ssh ubuntu@<сервер>
-  nano ~/on-bike/.env   # MAIL_RELAY_USERNAME='…', MAIL_RELAY_PASSWORD='…' (и при необходимости MAIL_RELAY_HOST/PORT, MAIL_FROM)
+  nano ~/pokatim/.env   # MAIL_RELAY_USERNAME='…', MAIL_RELAY_PASSWORD='…' (и при необходимости MAIL_RELAY_HOST/PORT, MAIL_FROM)
   ```
 
   Смена любого значения пересоздаёт контейнер mailpit — уже пойманные письма при этом теряются (хранилище без тома).
@@ -316,13 +316,44 @@ PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U on_b
 **Выключить:** `gh secret delete DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/on-bike --env dev` и деплой — relay
 выключен, логин и пароль остаются в `.env`. Насовсем — ещё очистить `MAIL_RELAY_USERNAME`/`MAIL_RELAY_PASSWORD` в
 `.env` (и удалить SMTP credentials в SES / пароль приложения Google). Без деплоя (срочно) — очистить
-`MAIL_RELAY_PASSWORD` в `.env` и `bash ~/on-bike/bootstrap.sh` с `PUBLIC_HOST=<хост> ON_BIKE_SKIP_NGINX=1`, затем
+`MAIL_RELAY_PASSWORD` в `.env` и `bash ~/pokatim/bootstrap.sh` с `PUBLIC_HOST=<хост> POKATIM_SKIP_NGINX=1`, затем
 `dc up -d mailpit`.
+
+## Переезд on-bike → pokatim
+
+Первый деплой после переименования (2026-10-25) переносит стенд сам (`deploy.sh` → `migrate_legacy_env`,
+`stop_legacy_stack`; `bootstrap.sh` → `remove_legacy_vhost`), повторные деплои — ничего не делают:
+
+1. Нет `~/pokatim/.env`, есть `~/on-bike/.env` → копия `.env` и `mailpit-relay.yml` (600): пароль БД, `JWT_SECRET`,
+   `EMAIL_TOKEN_SECRET`, пароль Mailpit, логин/пароль relay SMTP и `MAIL_FROM` — прежние. Ключ `ON_BIKE_TAG` bootstrap
+   убирает, вместо него — `POKATIM_TAG`.
+2. После pull новых образов — `docker compose -p on-bike-dev down --remove-orphans` **без `-v`** (порты хоста те же).
+3. Свой vhost `pokatim` ставится, затем прежний `/etc/nginx/sites-{available,enabled}/on-bike` снимается — только если
+   его первая строка — маркер прежнего bootstrap (`nginx -t` перед reload; ошибка — файл возвращается, `::warning::`).
+   Сертификат `live/<хост>` от имени сайта не зависит — переиспользуется, certbot не вызывается.
+4. Образы прочищаются и по прежнему label `by.on-bike.project=on-bike`.
+
+**Данные не переносятся:** новая БД `pokatim` (том `pokatim-dev_pgdata`) стартует пустой — тестовые аккаунты
+регистрируются заново; войти прежними сессиями нельзя (cookie, issuer JWT и ключи хранилищ — новые). Письма Mailpit
+не переносятся (хранилище без тома).
+
+**Ручная уборка после проверки стенда** (только с согласия автора, данные прежней БД удаляются навсегда):
+
+```bash
+ssh ubuntu@<сервер>
+docker volume rm on-bike-dev_pgdata on-bike-dev_redisdata
+rm -rf ~/on-bike        # прежние .env (секреты), migrate.log, файлы стека
+```
+
+**Откат на тег до переименования** невозможен через `image_tag`: образов `pokatim-*` с прежними тегами нет. Вернуть
+прежний стенд — `docker compose -p pokatim-dev down` (без `-v`), затем в `~/on-bike`:
+`docker compose -p on-bike-dev -f docker-compose.yml --env-file .env up -d` и vhost — из прежнего bootstrap
+(`git show <коммит до переименования>:infra/deploy/bootstrap.sh`).
 
 ## Откат
 
 Actions → `deploy-dev` → Run workflow, `image_tag` = прошлый тег `sha-<7>` (теги — в Summary прошлых прогонов или
-GHCR → Packages → `on-bike-api`). CI и сборка пропускаются, разворачиваются образы этого тега (из GHCR; локальные
+GHCR → Packages → `pokatim-api`). CI и сборка пропускаются, разворачиваются образы этого тега (из GHCR; локальные
 старые образы прочищаются).
 
 - Миграции не откатываются (в Drizzle нет down): откат кода на версию до миграции работает, только если миграция
@@ -333,7 +364,7 @@ GHCR → Packages → `on-bike-api`). CI и сборка пропускаютс�
 ## Диск
 
 Порог деплоя — 1,5 ГБ свободно (`MIN_FREE_MB`), иначе `::error::` без изменений на сервере. Освобождать только своё:
-`docker image prune -af --filter label=by.on-bike.project=on-bike`. Чужие образы, тома и `docker system prune` —
+`docker image prune -af --filter label=by.pokatim.project=pokatim`. Чужие образы, тома и `docker system prune` —
 нельзя (общий сервер).
 
 ## Проверка
@@ -346,6 +377,6 @@ GHCR → Packages → `on-bike-api`). CI и сборка пропускаютс�
 
 ## Убрать стенд
 
-Только с согласия автора: `dc down -v` (тома данных удаляются), `sudo rm /etc/nginx/sites-enabled/on-bike
-/etc/nginx/sites-available/on-bike && sudo nginx -t && sudo systemctl reload nginx`, `sudo certbot delete --cert-name
-<хост>`, `rm -rf ~/on-bike`.
+Только с согласия автора: `dc down -v` (тома данных удаляются), `sudo rm /etc/nginx/sites-enabled/pokatim
+/etc/nginx/sites-available/pokatim && sudo nginx -t && sudo systemctl reload nginx`, `sudo certbot delete --cert-name
+<хост>`, `rm -rf ~/pokatim`.

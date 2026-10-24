@@ -1,4 +1,4 @@
-# Архитектура on-bike
+# Архитектура pokatim
 
 Текущее состояние системы. Решения и их обоснование — в [`../adr/`](../adr/README.md).
 
@@ -59,7 +59,7 @@ worker: identity-maintenance, 03:00 Europe/Minsk ─► удаление неп�
         ─► подтверждён: SessionService.issue ─► сессия по транспорту (web: прежняя cookie → superseded)
 native: poll / sign-in / refresh ─ тело { refreshToken } ─► Session в теле ─► SecureStore
 web:    poll / sign-in { sessionTransport: 'cookie' } ─► CookieSession в теле (без refresh)
-        + Set-Cookie __Secure-onbike_rt (HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session)
+        + Set-Cookie __Secure-pokatim_rt (HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/session)
 web, загрузка страницы: POST /v1/auth/session/refresh (cookie, Web Lock между вкладками)
         ─► ротация ─► новый access в память | 401 → не вошли
         | 429 / сеть / 5xx → повтор, затем «не удалось» с кнопкой повтора (не выход)
