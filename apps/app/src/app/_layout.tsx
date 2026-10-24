@@ -25,6 +25,8 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontAssets);
   const sessionStatus = useSessionStore((state) => state.status);
   const signedIn = useSessionStore((state) => isSignedIn(state));
+  // на устройстве уже входили (выход, отзыв сессии сервером) — без сессии ведём на «Вход», а не «Регистрацию»
+  const returning = useSessionStore((state) => state.returning);
   const registrationHydrated = useRegistrationStore((state) => state.hydrated);
   const fontsReady = fontsLoaded || fontError !== null;
   const hydrated = sessionStatus !== 'unknown' && registrationHydrated;
@@ -56,7 +58,10 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: theme.surface.default },
         }}
       >
-        <Stack.Protected guard={isSessionPending(sessionStatus) || signedIn} redirectTo="/register">
+        <Stack.Protected
+          guard={isSessionPending(sessionStatus) || signedIn}
+          redirectTo={returning ? '/sign-in' : '/register'}
+        >
           <Stack.Screen name="(tabs)" />
         </Stack.Protected>
         <Stack.Protected guard={!signedIn} redirectTo="/">

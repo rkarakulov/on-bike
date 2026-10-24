@@ -2,6 +2,8 @@ import type {
   RegisterRequest,
   RegistrationPollResponse,
   ResendVerificationRequest,
+  SignInRequest,
+  SignInResponse,
 } from '@on-bike/contracts';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
@@ -24,6 +26,21 @@ export const isRegistrationRejected = (error: unknown) => apiErrorCode(error) ==
 
 export function useRegister() {
   return useMutation({ mutationFn: (body: RegisterRequest) => api.register(body) });
+}
+
+/** Данные формы входа: транспорт сессии подмешивает клиент платформы. */
+export type SignInCredentials = Omit<SignInRequest, 'sessionTransport'>;
+
+/**
+ * Вход по паролю. Ответ на web выставляет cookie сессии (и отзывает прежнюю) — поэтому под замком сессии, как
+ * refresh и выход; на native — под замком приложения (одна сессионная операция за раз).
+ */
+export function requestSignIn(body: SignInCredentials): Promise<SignInResponse> {
+  return withSessionLock(() => api.signIn(body));
+}
+
+export function useSignIn() {
+  return useMutation({ mutationFn: requestSignIn });
 }
 
 /** Чтение ссылки из письма — без побочных эффектов на сервере (C2). */

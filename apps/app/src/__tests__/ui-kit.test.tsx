@@ -4,6 +4,7 @@ import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import UiKitScreen from '../app/ui-kit';
 import { tabRoutes } from './app-routes';
 import { signInForTest } from './auth-fixtures';
+import { createQueryWrapper } from './query-wrapper';
 
 const app = { ...tabRoutes, 'ui-kit': UiKitScreen };
 
@@ -18,7 +19,7 @@ describe('витрина компонентов', () => {
   afterEach(() => setDev(devFlag));
 
   it('в dev открывается с Главной и показывает все разделы', async () => {
-    await renderRouter(app);
+    await renderRouter(app, { wrapper: createQueryWrapper() });
 
     await fireEvent.press(screen.getByRole('button', { name: 'Витрина компонентов' }));
 
@@ -52,7 +53,7 @@ describe('витрина компонентов', () => {
 
   it('в production ссылки нет, а маршрут ведёт на Главную', async () => {
     setDev(false);
-    await renderRouter(app, { initialUrl: '/ui-kit' });
+    await renderRouter(app, { initialUrl: '/ui-kit', wrapper: createQueryWrapper() });
 
     expect(await screen.findByRole('header', { name: 'Главная' })).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Витрина компонентов' })).toBeNull();

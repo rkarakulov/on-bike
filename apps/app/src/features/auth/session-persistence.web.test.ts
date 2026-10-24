@@ -4,16 +4,22 @@ import type { CookieSession } from '@on-bike/contracts';
 
 import { api } from '@/lib/api';
 
-import { fetchRegistrationPoll } from './queries';
+import { fetchRegistrationPoll, requestSignIn } from './queries';
 import { resetSessionStore, useSessionStore } from './session-store';
 
 jest.mock('@/lib/api', () => ({
-  api: { refreshSession: jest.fn(), signOut: jest.fn(), pollRegistration: jest.fn() },
+  api: {
+    refreshSession: jest.fn(),
+    signOut: jest.fn(),
+    pollRegistration: jest.fn(),
+    signIn: jest.fn(),
+  },
 }));
 
 const refresh = jest.mocked(api.refreshSession);
 const signOut = jest.mocked(api.signOut);
 const pollRegistration = jest.mocked(api.pollRegistration);
+const signIn = jest.mocked(api.signIn);
 const NOW = new Date('2026-10-22T10:00:00Z').getTime();
 
 const cookieSession: CookieSession = {
@@ -268,5 +274,48 @@ describe('сессия web: refresh в httpOnly cookie, access в памяти',
     expect(signOut).toHaveBeenCalledWith();
     expect(useSessionStore.getState()).toMatchObject({ status: 'signedOut', session: null });
     warn.mockRestore();
+  });
+
+  it('вход по паролю — под тем же Web Lock (ответ меняет cookie); в памяти — CookieSession без refresh', async () => {
+    const locks = queueLocks();
+    setLocks(locks);
+    const refreshing = deferred<CookieSession>();
+    refresh.mockReturnValue(refreshing.promise);
+    signIn.mockResolvedValue({
+      state: 'signedIn',
+      session: { ...cookieSession, refreshToken: 'r'.repeat(43) },
+    });
+
+    const hydrating = useSessionStore.getState().hydrate(NOW);
+    const signingIn = requestSignIn({ email: 'rider@example.com', password: 'velo-secret' });
+    await Promise.resolve();
+    // вход ждёт идущий refresh: ответы не переписывают cookie друг другу
+    expect(signIn).not.toHaveBeenCalled();
+
+    refreshing.reject(unauthorized());
+    await hydrating;
+    const result = await signingIn;
+    expect(locks.request.mock.calls.map(([name]) => name)).toEqual([
+      'onbike.session-refresh',
+      'onbike.session-refresh',
+    ]);
+    if (result.state !== 'signedIn') throw new Error('expected signedIn');
+    await useSessionStore.getState().signIn(result.session);
+    expect(useSessionStore.getState().session).toEqual(cookieSession);
+    expect(sessionStorage.length).toBe(0);
+    expect(localStorage.length).toBe(0);
+  });
+
+  it('фоновая проверка после восстановления на web — без второй ротации (восстановление уже было refresh)', async () => {
+    refresh.mockResolvedValue(cookieSession);
+
+    await useSessionStore.getState().hydrate(NOW);
+    await useSessionStore.getState().revalidate(NOW);
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState()).toMatchObject({
+      status: 'signedIn',
+      session: cookieSession,
+    });
   });
 });

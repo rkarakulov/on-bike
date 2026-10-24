@@ -3,6 +3,7 @@ import { t } from '@on-bike/i18n';
 import { Banner, Button, keepTogether, TextAction } from '@rkarakulov/ui';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 
 import { isRegistrationRejected } from './queries';
 
@@ -21,34 +22,68 @@ export function VerifiedSigningIn({ email }: { email: string }) {
   );
 }
 
-/** Подтверждено, но токена регистрации здесь нет (другое устройство) — вход по паролю (слайс 2). */
+/** Для экрана входа: e-mail — через память (черновик), не через URL (история браузера, логи web-сервера). */
+function prefillSignInEmail(email: string) {
+  const store = useRegistrationStore.getState();
+  store.saveDraft({ ...store.draft, email });
+}
+
+/** Подтверждено, но токена регистрации здесь нет (другое устройство) — вход по паролю здесь же. */
 export function VerifiedElsewhere({ email }: { email: string }) {
   const router = useRouter();
+  const signIn = () => {
+    prefillSignInEmail(email);
+    router.replace('/sign-in');
+  };
   return (
     <>
       <AuthTitle>{t('auth.verified.title')}</AuthTitle>
       <AuthText>{t('auth.verified.otherDevice', { email: keepTogether(email) })}</AuthText>
       <AuthActions>
-        <Button label={t('auth.signIn.action')} onPress={() => router.replace('/sign-in')} />
+        <Button label={t('auth.signIn.action')} onPress={signIn} />
       </AuthActions>
     </>
   );
 }
 
-/** Токен регистрации отклонён (401): истёк или уже обменян (потерянный ответ опроса) — только вход. */
+/** Регистрация этого устройства и не истёк ли её токен по оценке клиента (`expiresAt`). */
+function snapshotRegistration() {
+  const { pending } = useRegistrationStore.getState();
+  return { pending, verified: pending !== null && pending.expiresAt > Date.now() };
+}
+
+/**
+ * Токен регистрации отклонён (401). Сервер не различает «обменян» и «истёк» (без оракула, R7), а клиент знает свою
+ * оценку срока: не истёк — значит, обменян (ответ опроса потерялся), адрес подтверждён → «Войдите с паролем»;
+ * истёк — «Регистрация устарела»: вход или регистрация заново.
+ */
 export function SignInRequired() {
   const router = useRouter();
-  const signIn = () => {
-    router.replace('/sign-in');
+  // снимок на момент отказа: дальше регистрация очищается
+  const [{ pending, verified }] = useState(snapshotRegistration);
+
+  const leave = (path: '/sign-in' | '/register') => {
+    if (pending) prefillSignInEmail(pending.email);
+    router.replace(path);
     void useRegistrationStore.getState().clear();
   };
 
   return (
     <>
-      <AuthTitle>{t('auth.signInRequired.title')}</AuthTitle>
-      <AuthText>{t('auth.signInRequired.message')}</AuthText>
+      <AuthTitle>
+        {t(verified ? 'auth.signInRequired.title' : 'auth.signInRequired.expiredTitle')}
+      </AuthTitle>
+      <AuthText>
+        {t(verified ? 'auth.signInRequired.verifiedMessage' : 'auth.signInRequired.expiredMessage')}
+      </AuthText>
       <AuthActions>
-        <Button label={t('auth.signIn.action')} onPress={signIn} />
+        <Button label={t('auth.signIn.action')} onPress={() => leave('/sign-in')} />
+        {verified ? null : (
+          <TextAction
+            label={t('auth.signInRequired.toRegister')}
+            onPress={() => leave('/register')}
+          />
+        )}
       </AuthActions>
     </>
   );

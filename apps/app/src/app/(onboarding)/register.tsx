@@ -54,6 +54,7 @@ export default function RegisterScreen() {
   const {
     control,
     handleSubmit,
+    getValues,
     setError,
     setValue,
     formState: { errors },
@@ -100,6 +101,13 @@ export default function RegisterScreen() {
     }
   });
 
+  // e-mail для экрана входа — через память (черновик), не через URL
+  const toSignIn = () => {
+    const store = useRegistrationStore.getState();
+    store.saveDraft({ ...store.draft, email: getValues('email') });
+    router.push('/sign-in');
+  };
+
   const failure = register.error;
   const failureCode = apiErrorCode(failure);
   const showBanner =
@@ -130,7 +138,7 @@ export default function RegisterScreen() {
       />
       {/* «Войти» — только у занятого адреса; у адреса удалённого аккаунта — нейтральный отказ (D-07) */}
       {emailCode === 'EMAIL_TAKEN' ? (
-        <TextAction label={t('auth.signIn.action')} onPress={() => router.push('/sign-in')} />
+        <TextAction label={t('auth.signIn.action')} onPress={toSignIn} />
       ) : null}
       <Controller
         control={control}
@@ -188,7 +196,7 @@ export default function RegisterScreen() {
         />
         <AuthInline>
           <AuthMeta>{t('auth.register.haveAccount')}</AuthMeta>
-          <TextAction label={t('auth.signIn.action')} onPress={() => router.push('/sign-in')} />
+          <TextAction label={t('auth.signIn.action')} onPress={toSignIn} />
         </AuthInline>
       </AuthActions>
     </AuthScreen>

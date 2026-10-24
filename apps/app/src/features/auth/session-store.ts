@@ -1,8 +1,13 @@
-import type { AnySession, CookieSession } from '@on-bike/contracts';
+import { type AnySession, CookieSession } from '@on-bike/contracts';
 import { create } from 'zustand';
 
 import { isSessionAlive } from './session-expiry';
-import { clearSession, persistSession, restoreSession } from './session-persistence';
+import {
+  clearSession,
+  persistSession,
+  restoreSession,
+  revalidateSession,
+} from './session-persistence';
 
 /**
  * `unknown` — до восстановления сессии при запуске (native: SecureStore; web: refresh по cookie);
@@ -16,7 +21,11 @@ interface SessionState {
   session: CookieSession | null;
   /** причина `unavailable` — «Нет соединения» или «Не удалось загрузить» */
   restoreError: unknown;
+  /** на устройстве уже входили (явный выход или отзыв сессии сервером): гард ведёт на «Вход», а не «Регистрацию» */
+  returning: boolean;
   hydrate: (now?: number) => Promise<void>;
+  /** фоновая проверка сессии сервером (native: ротация refresh; web — уже при восстановлении) */
+  revalidate: (now?: number) => Promise<void>;
   signIn: (session: AnySession) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -43,10 +52,11 @@ async function restore(now: number): Promise<Restored> {
   }
 }
 
-export const useSessionStore = create<SessionState>()((set) => ({
+export const useSessionStore = create<SessionState>()((set, get) => ({
   status: 'unknown',
   session: null,
   restoreError: null,
+  returning: false,
   hydrate: async (now = Date.now()) => {
     // повтор после «не удалось» — снова «неизвестно» (скелетон)
     set((state) =>
@@ -55,18 +65,38 @@ export const useSessionStore = create<SessionState>()((set) => ({
     const restored = await restore(now);
     // вход, случившийся пока шло восстановление (web: refresh — сетевой запрос), ответ не затирает
     set((state) => (state.status !== 'unknown' ? state : restored));
+    // native: сессия восстановлена локально — сервер проверяет её в фоне (офлайн-старт остаётся в аккаунте)
+    if (restored.status === 'signedIn') void get().revalidate(now);
+  },
+  revalidate: async (now = Date.now()) => {
+    const checked = get().session;
+    const result = await revalidateSession(now);
+    // ответ относится только к проверенной сессии: выход или новый вход за это время не затираем
+    set((state) => {
+      if (state.session !== checked || state.status !== 'signedIn') return state;
+      if (result.status === 'rotated') return { session: result.session };
+      if (result.status === 'signedOut')
+        return { status: 'signedOut', session: null, returning: true };
+      return state;
+    });
   },
   // сначала память (вход состоялся), затем хранилище — сбой записи вход не отменяет
   signIn: async (session) => {
-    set({ status: 'signedIn', session });
+    // в памяти — без refresh (web: его и не должно быть; native: он в SecureStore)
+    set({ status: 'signedIn', session: CookieSession.parse(session) });
     await persistSession(session);
   },
   signOut: async () => {
     await clearSession();
-    set({ status: 'signedOut', session: null });
+    set({ status: 'signedOut', session: null, returning: true });
   },
 }));
 
 /** Для тестов: состояние «только что запущено». */
 export const resetSessionStore = () =>
-  useSessionStore.setState({ status: 'unknown', session: null, restoreError: null });
+  useSessionStore.setState({
+    status: 'unknown',
+    session: null,
+    restoreError: null,
+    returning: false,
+  });

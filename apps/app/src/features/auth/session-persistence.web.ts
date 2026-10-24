@@ -4,6 +4,7 @@ import { type AnySession, CookieSession } from '@on-bike/contracts';
 import { api } from '@/lib/api';
 
 import { apiErrorCode, retryAfterSec } from './error-messages';
+import type { Revalidation } from './session-revalidation';
 import { withSessionLock } from './session-lock';
 
 /**
@@ -48,6 +49,11 @@ export async function restoreSession(_now: number): Promise<CookieSession | unde
       await sleep(waitSec * 1000);
     }
   }
+}
+
+/** Web: восстановление уже было ротацией по cookie (`restoreSession`) — проверять нечего. */
+export async function revalidateSession(_now: number): Promise<Revalidation> {
+  return { status: 'unchanged' };
 }
 
 /** Cookie уже выставил сервер (ответ poll/refresh), сохранять на клиенте нечего. */

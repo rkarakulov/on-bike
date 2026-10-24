@@ -4,8 +4,8 @@ import './src/theme/design-system';
 // Моки нативных модулей для всех тестов: в jest нет ни NetInfo, ни нативного пикера.
 import { onlineManager } from '@tanstack/react-query';
 
-import { resetRegistrationStore } from './src/features/auth/registration-store';
-import { resetSessionStore } from './src/features/auth/session-store';
+import type * as RegistrationStore from './src/features/auth/registration-store';
+import type * as SessionStore from './src/features/auth/session-store';
 
 // в jest нет Keychain: in-memory хранилище; тесты читают его через jest.requireMock('expo-secure-store').__store
 jest.mock('expo-secure-store', () => {
@@ -62,6 +62,10 @@ beforeEach(() => {
   // сторы сессии и регистрации — тоже синглтоны; сброс до теста, а не после: в afterEach экраны
   // прошлого теста ещё смонтированы (сброс стора вне act)
   jest.requireMock<{ __store: Map<string, string> }>('expo-secure-store').__store.clear();
-  resetSessionStore();
-  resetRegistrationStore();
+  // сторы — из реестра модулей теста, а не при загрузке setup: стор сессии тянет `@/lib/api`, и импорт здесь
+  // закешировал бы настоящий клиент раньше `jest.mock('@/lib/api')` тестового файла
+  jest.requireActual<typeof SessionStore>('./src/features/auth/session-store').resetSessionStore();
+  jest
+    .requireActual<typeof RegistrationStore>('./src/features/auth/registration-store')
+    .resetRegistrationStore();
 });

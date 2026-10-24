@@ -45,6 +45,12 @@ export function actionErrorMessage(error: unknown): string {
   return t('auth.error.unknown');
 }
 
+/** Текст отказа входа (кроме 429 — у него отсчёт): неверные данные — один нейтральный текст (без оракула). */
+export function signInErrorMessage(error: unknown): string {
+  if (apiErrorCode(error) === 'INVALID_CREDENTIALS') return t('auth.signIn.invalidCredentials');
+  return actionErrorMessage(error);
+}
+
 /** Пауза из ответа 429 (`details.retryAfterSec`). */
 export function retryAfterSec(error: unknown): number | undefined {
   const apiError = apiErrorOf(error);
