@@ -8,8 +8,9 @@
 #      ошибка — откат своего файла; чужие сайты не трогаются;
 #   4. сертификат Let's Encrypt (certbot --webroot /var/www/html) — только если домен ведёт на этот сервер;
 #      иначе (или certbot не смог) vhost только на :80 и предупреждение, деплой не падает.
+#      UI Mailpit /mail/ — только в https-vhost (пароль basic-auth не идёт открытым текстом).
 # Env: PUBLIC_HOST (обязательно), ON_BIKE_TAG, ON_BIKE_DIR (~/on-bike), CERTBOT_EMAIL (необязательно),
-#      ON_BIKE_{API,WEB,ADMIN}_PORT, ON_BIKE_SKIP_NGINX=1 — без шагов 3–4 (локальная проверка).
+#      ON_BIKE_{API,WEB,ADMIN,MAIL_UI}_PORT, ON_BIKE_SKIP_NGINX=1 — без шагов 3–4 (локальная проверка).
 # Пишет строку `ONBIKE_TLS=https|http` для сводки деплоя; `::warning::` — аннотации GitHub Actions.
 set -euo pipefail
 umask 077
@@ -20,6 +21,7 @@ TEMPLATE="${ON_BIKE_DIR}/env.template"
 API_PORT="${ON_BIKE_API_PORT:-3100}"
 WEB_PORT="${ON_BIKE_WEB_PORT:-8180}"
 ADMIN_PORT="${ON_BIKE_ADMIN_PORT:-8181}"
+MAIL_PORT="${ON_BIKE_MAIL_UI_PORT:-8125}"
 SITE_NAME="on-bike"
 SITE_FILE="/etc/nginx/sites-available/${SITE_NAME}"
 SITE_LINK="/etc/nginx/sites-enabled/${SITE_NAME}"
@@ -39,7 +41,7 @@ PUBLIC_HOST="${PUBLIC_HOST:-}"
 ON_BIKE_TAG="${ON_BIKE_TAG:-}"
 [[ -z "${ON_BIKE_TAG}" || "${ON_BIKE_TAG}" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$ ]] ||
   die "ON_BIKE_TAG не похож на тег образа: '${ON_BIKE_TAG}'"
-for port in "${API_PORT}" "${WEB_PORT}" "${ADMIN_PORT}"; do
+for port in "${API_PORT}" "${WEB_PORT}" "${ADMIN_PORT}" "${MAIL_PORT}"; do
   [[ "${port}" =~ ^[0-9]{2,5}$ ]] || die "порт не число: '${port}'"
 done
 
@@ -108,6 +110,12 @@ render_vhost() {
   printf '# on-bike dev: генерирует infra/deploy/bootstrap.sh на каждом деплое — правки руками перезапишутся\n'
   if [[ "${mode}" == "https" ]]; then
     cat <<EOF
+# WebSocket UI Mailpit (/mail/api/events); имя переменной своё — map общий для http{} всех сайтов сервера
+map \$http_upgrade \$onbike_mail_connection {
+    default upgrade;
+    '' close;
+}
+
 server {
     listen 80;
     server_name ${PUBLIC_HOST};
@@ -177,6 +185,43 @@ EOF
     location /admin/ {
         proxy_pass http://127.0.0.1:${ADMIN_PORT};
     }
+EOF
+  if [[ "${mode}" == "https" ]]; then
+    cat <<EOF
+
+    # UI Mailpit (webroot /mail/, basic-auth самого Mailpit): письма стенда без SSH, наружу они не уходят
+    location = /mail {
+        return 301 /mail/;
+    }
+
+    location /mail/ {
+        proxy_pass http://127.0.0.1:${MAIL_PORT};
+        # proxy_set_header в location отменяет наследование заголовков server — они повторены
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-For \$remote_addr;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Host \$host;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$onbike_mail_connection;
+        # WebSocket событий открыт всё время, пока открыт UI
+        proxy_read_timeout 1h;
+    }
+EOF
+  else
+    cat <<EOF
+
+    # без https пароль basic-auth шёл бы открытым текстом: UI Mailpit — только SSH-туннель (runbook «Почта»)
+    location = /mail {
+        return 404;
+    }
+
+    location /mail/ {
+        return 404;
+    }
+EOF
+  fi
+  cat <<EOF
 
     location / {
         proxy_pass http://127.0.0.1:${WEB_PORT};

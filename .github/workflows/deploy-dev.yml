@@ -240,6 +240,9 @@ jobs:
             echo "- Запуск: ${{ github.event_name }} (${{ github.actor }}), коммит \`${GITHUB_SHA::7}\`"
             echo "- Тег образов: \`${TAG}\`${deployed:+ (развёрнут)}"
             echo "- Сайт: ${scheme}://${DEV_PUBLIC_HOST}/ · админка: ${scheme}://${DEV_PUBLIC_HOST}/admin/ · API: ${scheme}://${DEV_PUBLIC_HOST}/v1/health"
+            if [ "${tls:-}" = "https" ]; then
+              echo "- Письма (Mailpit): https://${DEV_PUBLIC_HOST}/mail/ — логин \`dev\`, пароль на сервере (runbook «Почта»)"
+            fi
             if [ "${tls:-}" = "http" ]; then
               echo "- **Внимание:** сертификата нет — сайт только по http, web-сессия (cookie \`__Secure-\`) не работает. Причина — в логе шага «Деплой» (runbook «TLS»)."
             fi
