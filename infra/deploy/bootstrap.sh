@@ -3,20 +3,21 @@
 #   1. каталог стека ${ON_BIKE_DIR} (700);
 #   2. .env (600): недостающие ключи из env.template дописываются, @secret генерируется здесь же
 #      (openssl rand) — значения не печатаются и не покидают сервер; существующие значения не меняются,
-#      кроме управляемых деплоем PUBLIC_HOST, WEB_ORIGIN, APP_LINK_BASE, ON_BIKE_TAG, MAIL_RELAY_MATCHING,
+#      кроме управляемых деплоем PUBLIC_HOST, WEB_ORIGIN, APP_LINK_BASE, ON_BIKE_TAG, MAIL_RELAY_RECIPIENTS,
 #      MAILPIT_RELAY_* и MAIL_FROM, равного прежнему умолчанию шаблона (migrate_mail_from);
 #   2a. relay Mailpit → внешний SMTP (Amazon SES, Gmail): ${ON_BIKE_DIR}/mailpit-relay.yml (600) из MAIL_RELAY_*
-#      .env и MAIL_RELAY_MATCHING; без логина, пароля или регулярки — relay выключен (письма только в Mailpit);
+#      .env; получатели MAIL_RELAY_RECIPIENTS — точные адреса (регулярку для Mailpit собирает этот скрипт) или «*»
+#      (relay всех писем); без логина, пароля или получателей — relay выключен (письма только в Mailpit);
 #   3. vhost nginx хоста /etc/nginx/sites-available/on-bike (+ ссылка в sites-enabled): nginx -t перед reload,
 #      ошибка — откат своего файла; чужие сайты не трогаются;
 #   4. сертификат Let's Encrypt (certbot --webroot /var/www/html) — только если домен ведёт на этот сервер;
 #      иначе (или certbot не смог) vhost только на :80 и предупреждение, деплой не падает.
 #      UI Mailpit /mail/ — только в https-vhost (пароль basic-auth не идёт открытым текстом).
 # Env: PUBLIC_HOST (обязательно), ON_BIKE_TAG, ON_BIKE_DIR (~/on-bike), CERTBOT_EMAIL (необязательно),
-#      MAIL_RELAY_MATCHING (регулярка получателей relay; задана, даже пустая, — пишется в .env, не задана — остаётся
-#      прежняя),
+#      MAIL_RELAY_RECIPIENTS_STDIN=1 — получатели relay (адреса через запятую или «*») первой строкой stdin: в .env,
+#      пустая строка выключает relay; без флага — прежние из .env,
 #      ON_BIKE_{API,WEB,ADMIN,MAIL_UI}_PORT, ON_BIKE_SKIP_NGINX=1 — без шагов 3–4 (локальная проверка).
-# Пишет строки `ONBIKE_TLS=https|http` и `ONBIKE_MAIL_RELAY=on|off` для сводки деплоя; `::warning::` — аннотации
+# Пишет строки `ONBIKE_TLS=https|http` и `ONBIKE_MAIL_RELAY=list|all|off` для сводки деплоя; `::warning::` — аннотации
 # GitHub Actions.
 set -euo pipefail
 umask 077
@@ -33,7 +34,8 @@ SITE_FILE="/etc/nginx/sites-available/${SITE_NAME}"
 SITE_LINK="/etc/nginx/sites-enabled/${SITE_NAME}"
 WEBROOT="/var/www/html"
 RELAY_FILE="${ON_BIKE_DIR}/mailpit-relay.yml"
-MANAGED_KEYS="PUBLIC_HOST WEB_ORIGIN APP_LINK_BASE ON_BIKE_TAG MAIL_RELAY_MATCHING MAILPIT_RELAY_MATCHING MAILPIT_RELAY_REV"
+MANAGED_KEYS="PUBLIC_HOST WEB_ORIGIN APP_LINK_BASE ON_BIKE_TAG MAIL_RELAY_RECIPIENTS"
+MANAGED_KEYS="${MANAGED_KEYS} MAILPIT_RELAY_CONFIG MAILPIT_RELAY_ALL MAILPIT_RELAY_MATCHING MAILPIT_RELAY_REV"
 
 log() { printf '[bootstrap] %s\n' "$*"; }
 warn() { printf '::warning::%s\n' "$*"; }
@@ -52,14 +54,58 @@ for port in "${API_PORT}" "${WEB_PORT}" "${ADMIN_PORT}" "${MAIL_PORT}"; do
   [[ "${port}" =~ ^[0-9]{2,5}$ ]] || die "порт не число: '${port}'"
 done
 
-# регулярка получателей relay (RE2 Mailpit): пусто или ≤ 512 символов с «@», без кавычек, пробелов и управляющих
-# символов — значение пишется в .env и YAML в одинарных кавычках. Та же проверка — preflight deploy-dev.yml.
-RELAY_MATCHING_BAD="[\"'\`[:space:][:cntrl:]]"
-valid_matching() {
-  [[ -z "$1" ]] || [[ ${#1} -le 512 && "$1" == *@* && ! "$1" =~ ${RELAY_MATCHING_BAD} ]]
+# Получатели relay (секрет DEV_MAIL_RELAY_RECIPIENTS): ровно «*» — relay всех писем, иначе точные адреса через
+# запятую: не больше 20, каждый — простой e-mail из безопасного набора символов (пробелы по краям и пустые элементы
+# отбрасываются). Та же проверка — preflight deploy-dev.yml. parse_recipients задаёт RELAY_RECIPIENTS («*» или
+# нормализованный список) или падает с номером элемента — без значений (адреса тестировщиков не попадают в лог).
+RELAY_EMAIL_RE='^[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})+$'
+RELAY_MAX_RECIPIENTS=20
+parse_recipients() {
+  local raw="$1" item n=0 items=()
+  RELAY_RECIPIENTS=""
+  [[ ! "${raw}" =~ [[:cntrl:]] ]] || die "получатели relay: управляющие символы (перевод строки?)"
+  item="${raw#"${raw%%[![:space:]]*}"}"
+  if [[ "${item%"${item##*[![:space:]]}"}" == "*" ]]; then
+    RELAY_RECIPIENTS="*"
+    return 0
+  fi
+  IFS=, read -r -a items <<<"${raw}"
+  for item in "${items[@]+"${items[@]}"}"; do
+    item="${item#"${item%%[![:space:]]*}"}"
+    item="${item%"${item##*[![:space:]]}"}"
+    [[ -n "${item}" ]] || continue
+    n=$((n + 1))
+    [[ ${#item} -le 254 && "${item}" =~ ${RELAY_EMAIL_RE} ]] ||
+      die "получатели relay: элемент ${n} — не простой e-mail (латиница, цифры, . _ + -; без пробелов и кавычек)"
+    RELAY_RECIPIENTS="${RELAY_RECIPIENTS:+${RELAY_RECIPIENTS},}${item}"
+  done
+  [[ ${n} -le ${RELAY_MAX_RECIPIENTS} ]] || die "получатели relay: ${n} адресов, допустимо не больше ${RELAY_MAX_RECIPIENTS}"
 }
-valid_matching "${MAIL_RELAY_MATCHING:-}" ||
-  die "MAIL_RELAY_MATCHING: нужна регулярка адресов (с «@», без кавычек, пробелов и переводов строк, ≤ 512)"
+
+# Якорная регулярка RE2 для Mailpit из точных адресов: (?i)^(a@x\.com|b@y\.org)$ — «.» и «+» экранируются (другие
+# спецсимволы RE2 parse_recipients не пропускает), регистр не важен (домен e-mail регистронезависим).
+recipients_regex() {
+  local list="$1" out="" c i
+  for ((i = 0; i < ${#list}; i++)); do
+    c="${list:i:1}"
+    case "${c}" in
+      [.+]) out="${out}\\${c}" ;;
+      ,) out="${out}|" ;;
+      *) out="${out}${c}" ;;
+    esac
+  done
+  printf '(?i)^(%s)$' "${out}"
+}
+
+if [[ "${MAIL_RELAY_RECIPIENTS_STDIN:-0}" == "1" ]]; then
+  relay_input=""
+  IFS= read -r relay_input || true
+  parse_recipients "${relay_input}"
+  unset relay_input
+  RELAY_RECIPIENTS_GIVEN=1
+else
+  RELAY_RECIPIENTS_GIVEN=0
+fi
 
 # ---------- 1–2. каталог и .env ----------
 
@@ -146,8 +192,15 @@ ensure_env() {
     printf 'APP_LINK_BASE=https://%s/\n' "${PUBLIC_HOST}"
     [[ -z "${tag}" ]] || printf 'ON_BIKE_TAG=%s\n' "${tag}"
     # одинарные кавычки — без подстановки ${…} в compose (в регулярке бывает «$»)
-    printf "MAIL_RELAY_MATCHING='%s'\n" "${RELAY_MATCHING}"
+    printf "MAIL_RELAY_RECIPIENTS='%s'\n" "${RELAY_RECIPIENTS}"
     printf "MAILPIT_RELAY_MATCHING='%s'\n" "${RELAY_ACTIVE_MATCHING}"
+    # конфиг relay — только при включённом relay: matching/all без конфига Mailpit не принимает
+    if [[ "${RELAY_MODE}" == "off" ]]; then
+      printf 'MAILPIT_RELAY_CONFIG=\nMAILPIT_RELAY_ALL=false\n'
+    else
+      printf 'MAILPIT_RELAY_CONFIG=/etc/mailpit/relay.yml\nMAILPIT_RELAY_ALL=%s\n' \
+        "$([[ "${RELAY_MODE}" == "all" ]] && echo true || echo false)"
+    fi
     printf 'MAILPIT_RELAY_REV=%s\n' "${RELAY_REV}"
   } >>"${tmp}"
   chmod 600 "${tmp}"
@@ -163,23 +216,23 @@ yaml_quote() {
   printf "'%s'" "${1//${q}/${q}${q}}"
 }
 
-# Пишет ${RELAY_FILE} (всегда: compose монтирует файл) и задаёт RELAY_MATCHING (для .env), RELAY_ACTIVE_MATCHING
-# (регулярка, если relay включён, иначе пусто) и RELAY_REV (хеш файла: смена логина/пароля пересоздаёт mailpit).
+# Пишет ${RELAY_FILE} (всегда: compose монтирует файл) и задаёт RELAY_RECIPIENTS (для .env), RELAY_MODE
+# (off|list|all), RELAY_ACTIVE_MATCHING (регулярка в режиме list, иначе пусто) и RELAY_REV (хеш файла: смена
+# логина/пароля/получателей пересоздаёт mailpit).
 # Логин и пароль — только в переменных этого процесса и в файле 600: не в argv, не в лог, не в env контейнера.
+# Набор символов логина и пароля ограничен: значение безопасно в .env (с кавычками и без) и в YAML.
+RELAY_CRED_RE='^[A-Za-z0-9._@+/=-]+$'
 configure_mail_relay() {
-  if [[ -n "${MAIL_RELAY_MATCHING+set}" ]]; then
-    RELAY_MATCHING="${MAIL_RELAY_MATCHING}"
-  else
-    RELAY_MATCHING="$(env_value MAIL_RELAY_MATCHING)"
-    valid_matching "${RELAY_MATCHING}" || die "MAIL_RELAY_MATCHING в .env некорректна (см. проверку выше)"
-  fi
+  # без флага stdin — прежний список из .env (ручной запуск deploy.sh)
+  [[ "${RELAY_RECIPIENTS_GIVEN}" == "1" ]] || parse_recipients "$(env_value MAIL_RELAY_RECIPIENTS)"
   RELAY_ACTIVE_MATCHING=""
-  local host port username password missing="" tmp
+  RELAY_MODE=off
+  local host port username password missing="" tmp matching=""
   host="$(env_value MAIL_RELAY_HOST)"
   port="$(env_value MAIL_RELAY_PORT)"
   username="$(env_value MAIL_RELAY_USERNAME)"
   password="$(env_value MAIL_RELAY_PASSWORD)"
-  [[ -n "${RELAY_MATCHING}" ]] || missing="${missing} MAIL_RELAY_MATCHING"
+  [[ -n "${RELAY_RECIPIENTS}" ]] || missing="${missing} MAIL_RELAY_RECIPIENTS"
   [[ -n "${username}" ]] || missing="${missing} MAIL_RELAY_USERNAME"
   [[ -n "${password}" ]] || missing="${missing} MAIL_RELAY_PASSWORD"
 
@@ -191,25 +244,37 @@ configure_mail_relay() {
     [[ "${host}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] ||
       die "MAIL_RELAY_HOST в .env не похож на имя хоста"
     [[ "${port}" =~ ^[1-9][0-9]{0,4}$ && "${port}" -le 65535 ]] || die "MAIL_RELAY_PORT в .env не порт"
-    [[ ! "${username}${password}" =~ [[:space:][:cntrl:]] ]] ||
-      die "MAIL_RELAY_USERNAME/MAIL_RELAY_PASSWORD в .env: пробелы или управляющие символы"
-    # STARTTLS обязателен, сертификат проверяется (allow-insecure: false); allowed-recipients ограничивает и
-    # ручной «Release» из UI той же регуляркой
+    [[ "${username}" =~ ${RELAY_CRED_RE} ]] ||
+      die "MAIL_RELAY_USERNAME в .env: допустимы латиница, цифры и . _ @ + / = - (без пробелов и кавычек внутри)"
+    [[ "${password}" =~ ${RELAY_CRED_RE} ]] ||
+      die "MAIL_RELAY_PASSWORD в .env: допустимы латиница, цифры и . _ @ + / = - (без пробелов и кавычек внутри)"
+    if [[ "${RELAY_RECIPIENTS}" == "*" ]]; then
+      RELAY_MODE=all
+    else
+      RELAY_MODE=list
+      matching="$(recipients_regex "${RELAY_RECIPIENTS}")"
+    fi
+    # STARTTLS обязателен, сертификат проверяется (allow-insecure: false); в режиме list allowed-recipients
+    # ограничивает и ручной «Release» из UI той же регуляркой (в режиме all не задаётся — наружу уходит всё)
     {
       printf '# relay Mailpit: генерирует bootstrap.sh из .env (MAIL_RELAY_*) — правки руками перезапишутся\n'
       printf 'host: %s\nport: %s\nstarttls: true\ntls: false\nallow-insecure: false\nauth: plain\n' \
         "$(yaml_quote "${host}")" "${port}"
       printf 'username: %s\n' "$(yaml_quote "${username}")"
       printf 'password: %s\n' "$(yaml_quote "${password}")"
-      printf 'allowed-recipients: %s\n' "$(yaml_quote "${RELAY_MATCHING}")"
+      [[ -z "${matching}" ]] || printf 'allowed-recipients: %s\n' "$(yaml_quote "${matching}")"
     } >"${tmp}"
-    RELAY_ACTIVE_MATCHING="${RELAY_MATCHING}"
-    log "почта: relay включён через ${host}:${port} (STARTTLS) — получателям по MAIL_RELAY_MATCHING, копия в Mailpit"
+    RELAY_ACTIVE_MATCHING="${matching}"
+    if [[ "${RELAY_MODE}" == "all" ]]; then
+      log "почта: relay включён через ${host}:${port} (STARTTLS) — ВСЕМ получателям, копия в Mailpit"
+    else
+      log "почта: relay включён через ${host}:${port} (STARTTLS) — только адресам из MAIL_RELAY_RECIPIENTS, копия в Mailpit"
+    fi
   fi
   chmod 600 "${tmp}"
   mv -f "${tmp}" "${RELAY_FILE}"
   RELAY_REV="$(openssl dgst -sha256 -r <"${RELAY_FILE}" | cut -c1-16)"
-  echo "ONBIKE_MAIL_RELAY=$([[ -n "${RELAY_ACTIVE_MATCHING}" ]] && echo on || echo off)"
+  echo "ONBIKE_MAIL_RELAY=${RELAY_MODE}"
 }
 
 # ---------- 3–4. nginx и сертификат ----------

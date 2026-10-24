@@ -7,8 +7,8 @@
 # Env: ON_BIKE_TAG (тег образов, обязательно), PUBLIC_HOST (обязательно), ON_BIKE_DIR (~/on-bike),
 #      ON_BIKE_PROJECT (compose project, on-bike-dev), GHCR_USER + GHCR_TOKEN_STDIN=1 — токен чтения GHCR
 #      первой строкой stdin (логин во временный DOCKER_CONFIG, удаляется сразу после pull);
-#      MAIL_RELAY_MATCHING — регулярка получателей relay Mailpit → внешний SMTP (bootstrap.sh; не задана — прежняя
-#      из .env);
+#      MAIL_RELAY_RECIPIENTS_STDIN=1 — получатели relay Mailpit → внешний SMTP (адреса через запятую или «*») следующей
+#      строкой stdin (после токена GHCR); передаются bootstrap.sh тоже через stdin; без флага — прежние из .env;
 #      ON_BIKE_SKIP_PULL=1 / ON_BIKE_SKIP_NGINX=1 — локальная проверка без registry и nginx;
 #      MIN_FREE_MB (1536) — минимум свободного места на диске Docker.
 set -Eeuo pipefail
@@ -40,6 +40,13 @@ if [[ "${GHCR_TOKEN_STDIN:-0}" == "1" ]]; then
   IFS= read -r GHCR_TOKEN || true
   [[ -n "${GHCR_TOKEN}" && -n "${GHCR_USER:-}" ]] || die "GHCR_TOKEN_STDIN=1, но токен или GHCR_USER пусты"
 fi
+# получатели relay — не в argv и не в env (адреса тестировщиков); пустая строка — relay выключен
+RELAY_RECIPIENTS_STDIN="${MAIL_RELAY_RECIPIENTS_STDIN:-0}"
+unset MAIL_RELAY_RECIPIENTS_STDIN
+RELAY_RECIPIENTS=""
+if [[ "${RELAY_RECIPIENTS_STDIN}" == "1" ]]; then
+  IFS= read -r RELAY_RECIPIENTS || true
+fi
 
 mkdir -p "${ON_BIKE_DIR}"
 chmod 700 "${ON_BIKE_DIR}"
@@ -61,7 +68,9 @@ log "свободно на диске Docker: ${free_mb} МБ"
   die "мало места: ${free_mb} МБ < ${MIN_FREE_MB} МБ — освободите диск (runbook «Диск»), чужие образы не трогаем"
 
 bootstrap_log="$(mktemp)"
-bash "${ON_BIKE_DIR}/bootstrap.sh" | tee "${bootstrap_log}"
+printf '%s\n' "${RELAY_RECIPIENTS}" |
+  MAIL_RELAY_RECIPIENTS_STDIN="${RELAY_RECIPIENTS_STDIN}" bash "${ON_BIKE_DIR}/bootstrap.sh" | tee "${bootstrap_log}"
+RELAY_RECIPIENTS=""
 tls="$(sed -n 's/^ONBIKE_TLS=//p' "${bootstrap_log}" | tail -1)"
 mail_relay="$(sed -n 's/^ONBIKE_MAIL_RELAY=//p' "${bootstrap_log}" | tail -1)"
 rm -f "${bootstrap_log}"
@@ -171,7 +180,7 @@ check_mail_ui "127.0.0.1:${MAIL_PORT}/mail/" "http://127.0.0.1:${MAIL_PORT}/mail
 
 # relay Mailpit в том состоянии, что выбрал bootstrap (ответ API в лог не выводится: в нём регулярка получателей)
 relay_enabled=false
-[[ "${mail_relay}" != "on" ]] || relay_enabled=true
+[[ "${mail_relay}" != "list" && "${mail_relay}" != "all" ]] || relay_enabled=true
 relay_state="$(printf 'user = "dev:%s"\n' "${MAIL_UI_PASSWORD}" |
   curl -fsS --max-time 10 -K - "http://127.0.0.1:${MAIL_PORT}/mail/api/v1/webui" 2>/dev/null |
   grep -oE '"MessageRelay":\{"Enabled":(true|false)' | grep -oE '(true|false)$' || true)"

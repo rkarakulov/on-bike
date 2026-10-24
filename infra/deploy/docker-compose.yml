@@ -72,8 +72,9 @@ services:
     restart: unless-stopped
     logging: *logging
 
-  # почта dev: все письма — в Mailpit; наружу (relay через внешний SMTP: SES, Gmail) — только получателям по
-  # регулярке MAILPIT_RELAY_MATCHING, если bootstrap.sh включил relay (иначе пусто). UI — 127.0.0.1 хоста, снаружи — nginx
+  # почта dev: все письма — в Mailpit; наружу (relay через внешний SMTP: SES, Gmail) — по MAIL_RELAY_RECIPIENTS:
+  # точным адресам (bootstrap.sh собирает якорную регулярку MAILPIT_RELAY_MATCHING) или всем («*» →
+  # MAILPIT_RELAY_ALL=true); relay выключен — конфиг не передаётся. UI — 127.0.0.1 хоста, снаружи — nginx
   # https://<хост>/mail/ под basic-auth самого Mailpit (письма = ссылки подтверждения), runbook «Почта»
   mailpit:
     image: axllent/mailpit:v1.31@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
@@ -83,9 +84,10 @@ services:
       MP_WEBROOT: /mail/
       # basic-auth UI и API: пользователь dev, пароль — секрет .env (bootstrap.sh, hex без ':' и пробелов)
       MP_UI_AUTH: dev:${MAILPIT_UI_PASSWORD:?}
-      # relay: SMTP, логин и пароль — в файле (не в env контейнера); auto-relay только по регулярке, не «relay all».
-      # Пустая регулярка — relay выключен (конфиг не передаётся). REV — хеш файла: его смена пересоздаёт контейнер
-      MP_SMTP_RELAY_CONFIG: ${MAILPIT_RELAY_MATCHING:+/etc/mailpit/relay.yml}
+      # relay: SMTP, логин и пароль — в файле (не в env контейнера); значения ниже вычисляет bootstrap.sh.
+      # REV — хеш файла: его смена пересоздаёт контейнер
+      MP_SMTP_RELAY_CONFIG: ${MAILPIT_RELAY_CONFIG:-}
+      MP_SMTP_RELAY_ALL: ${MAILPIT_RELAY_ALL:-false}
       MP_SMTP_RELAY_MATCHING: ${MAILPIT_RELAY_MATCHING:-}
       ONBIKE_RELAY_REV: ${MAILPIT_RELAY_REV:-}
     volumes:
