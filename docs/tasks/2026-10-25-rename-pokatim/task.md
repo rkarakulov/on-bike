@@ -55,7 +55,11 @@
 - **GitHub repo URL не меняется** до переименования репозитория (см. Out of Scope).
 
 ## 8.2 Deviations from spec
-—
+- Тесты писем (`verification-email`, `password-reset-email`, `password-changed-email`): «внутреннее имя в письме не
+  видно» теперь — `/pokatim|on-?bike/i`, а ссылка в проверке verification — `https://…` (схема приложения теперь
+  совпадает с внутренним именем; в https-ссылках стенда имени нет). Смысл проверки прежний.
+- `AGENTS.md` §1: «on-bike.by — …» → ««Покатим» (pokatim) — …» (домен продукта не выбран; `pokatim.by` — только
+  пример в `infra/.env.example` и тесте метаданных).
 
 ## 8.3 Security checklist
 1. AuthN/AuthZ: логика не меняется; меняются имена cookie и issuer/audience JWT — проверка подписи и `aud`/`iss`
@@ -82,3 +86,39 @@
 `docs/product/brand.md` (внутреннее имя — pokatim), остальные документы — замена имени.
 
 ## 12. Outcome
+
+### Coder, 2026-10-25
+
+Сделано по §3/§5; коммиты: спецификация → пакеты/приложение/API/БД → инфраструктура и переезд стенда → документы.
+
+Проверки:
+- `pnpm install` — lockfile: 10 строк `@on-bike/*` → `@pokatim/*`.
+- `pnpm check` — EXIT 0 (api 176 тестов, интеграционные — на `pokatim_test`; app 209; пакеты, admin). Локально в
+  dev-postgres (`on-bike-dev-postgres-1`, не переименован) созданы роль `pokatim` и БД `pokatim`; `pokatim_test`
+  создал сам `pnpm test`.
+- `pnpm build:web` — ok; `pnpm e2e:web` — 10 passed / 1 skipped; с `E2E_API=1` (API из dist, миграции на `pokatim`,
+  env как job CI) — 11 passed.
+- `expo export -p android` — ok.
+- shellcheck (`koalaman/shellcheck:stable -x deploy.sh bootstrap.sh`) — 0; actionlint 1.7.7 — 0.
+- AC6, локальный переезд (временный HOME, `*_SKIP_PULL/SKIP_NGINX`, порты 131xx/18xxx, образы собраны локально,
+  «прежние» — те же слои с label `by.on-bike.project`): прежний `deploy.sh` из `origin/develop` поднял `~/on-bike`,
+  проект `rt-on-bike-dev` (relay `list` — логин/пароль relay в `.env`, маркер-таблица в БД). Новый `deploy.sh`
+  (`POKATIM_LEGACY_PROJECT=rt-on-bike-dev`, те же порты): `.env` и `mailpit-relay.yml` перенесены (600), хеш секретов
+  из env контейнеров (JWT, токен писем, пароль БД, `MAIL_FROM`, пароль Mailpit) совпал до/после, `ON_BIKE_TAG` в
+  `.env` нет; прежний стек остановлен (0 контейнеров), тома `rt-on-bike-dev_*` на месте (данные в томе есть); новый
+  стек healthy, smoke зелёный, relay `list` из перенесённого `.env`; «прежние» образы прочищены по label. Повторный
+  деплой — без шагов переезда. Тестовые стеки, тома и образы удалены.
+- `remove_legacy_vhost` — nginx 1.24 (alpine) в контейнере, `sudo`/`systemctl` — заглушки: файл с маркером снят;
+  чужой файл с тем же именем не тронут (`::warning::`); без файла — ничего; `nginx -t` без прежнего vhost падает
+  (сосед ссылается на его переменную) — файл и ссылка возвращены, nginx -t ok.
+- AC7: `copier update --vcs-ref v0.4.1 --defaults` в копии ветки — изменены только 5 PNG иконок; на копии
+  `develop` (до переименования) — те же 5 файлов: переименование ответов дифф не добавляет.
+
+Остатки `git grep -i -E 'on-bike|on_bike|onbike|on bike'` (кроме журнала `docs/tasks/*`, 38 файлов):
+- репозиторий GitHub `rkarakulov/on-bike`: `org.opencontainers.image.source` в `infra/docker/Dockerfile`,
+  `gh api repos/…`/`--repo` в `docs/runbooks/deploy.md` — до переименования репозитория (оркестратор);
+- переезд стенда: `deploy.sh` (`POKATIM_LEGACY_*` умолчания, прочистка по прежнему label), `bootstrap.sh`
+  (`ON_BIKE_TAG` в управляемых ключах, имя и маркер прежнего vhost, `LEGACY_MAIL_FROM`), runbooks deploy/local-dev
+  (разделы «Переезд»), `brand.md` (история имени);
+- ссылка ADR-0003 на `docs/tasks/2026-10-23-onbike-web/task.md` (каталог журнала);
+- тесты писем: регулярка `/pokatim|on-?bike/i`.
