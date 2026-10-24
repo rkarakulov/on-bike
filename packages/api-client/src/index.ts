@@ -1,18 +1,23 @@
 import {
   ApiError,
+  ConfirmPasswordResetResponse,
   ConfirmVerificationResponse,
   type ErrorCode,
   HealthResponse,
+  PasswordResetLinkInfo,
   RefreshSessionResponse,
   RegisterResponse,
   RegistrationPollResponse,
+  RequestPasswordResetResponse,
   ResendVerificationResponse,
   SignInResponse,
   VerificationLinkInfo,
+  type ConfirmPasswordResetRequest,
   type ConfirmVerificationRequest,
   type RefreshSessionRequest,
   type RegisterRequest,
   type RegistrationPollRequest,
+  type RequestPasswordResetRequest,
   type ResendVerificationRequest,
   type SessionTransport,
   type SignInRequest,
@@ -97,6 +102,15 @@ export function createApiClient({
       post('/v1/auth/session/refresh', RefreshSessionResponse, body),
     /** Выход: отзыв сессии (refresh из тела или cookie); ответ 204 без тела. */
     signOut: (body: SignOutRequest = {}) => post('/v1/auth/session/sign-out', z.undefined(), body),
+    /** Запрос ссылки сброса пароля: один ответ для любого адреса. Путь вне cookie сессии. */
+    requestPasswordReset: (body: RequestPasswordResetRequest) =>
+      post('/v1/auth/password-reset', RequestPasswordResetResponse, body),
+    /** Только чтение: открытие ссылки сброса ничего не меняет на сервере. */
+    getPasswordResetLink: (token: string) =>
+      get(`/v1/auth/password-reset/${encodeURIComponent(token)}`, PasswordResetLinkInfo),
+    /** Смена пароля по ссылке: отзывает все сессии аккаунта, свою не выдаёт. */
+    confirmPasswordReset: (body: ConfirmPasswordResetRequest) =>
+      post('/v1/auth/password-reset/confirm', ConfirmPasswordResetResponse, body),
   };
 }
 
