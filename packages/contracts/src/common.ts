@@ -18,6 +18,8 @@ export const { ErrorCode, ApiError } = defineErrorCodes([
   'EMAIL_TAKEN',
   'EMAIL_UNAVAILABLE',
   'LINK_EXPIRED',
+  // вход по паролю (слайс 2): неверный пароль, неизвестный и удалённый адрес — один код
+  'INVALID_CREDENTIALS',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 export type ApiError = z.infer<typeof ApiError>;

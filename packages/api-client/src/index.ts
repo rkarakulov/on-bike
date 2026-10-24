@@ -7,6 +7,7 @@ import {
   RegisterResponse,
   RegistrationPollResponse,
   ResendVerificationResponse,
+  SignInResponse,
   VerificationLinkInfo,
   type ConfirmVerificationRequest,
   type RefreshSessionRequest,
@@ -14,6 +15,7 @@ import {
   type RegistrationPollRequest,
   type ResendVerificationRequest,
   type SessionTransport,
+  type SignInRequest,
   type SignOutRequest,
 } from '@on-bike/contracts';
 import {
@@ -48,7 +50,7 @@ export interface ApiClientOptions {
   fetchImpl?: typeof fetch;
   /** `fetch` credentials каждого запроса; web — `include` (cookie сессии к API на другом origin в dev). */
   credentials?: RequestCredentials;
-  /** Как сервер выдаёт сессию (poll): web — `cookie`; не задан — `body` (native). */
+  /** Как сервер выдаёт сессию (poll, вход): web — `cookie`; не задан — `body` (native). */
   sessionTransport?: SessionTransport;
 }
 
@@ -71,6 +73,9 @@ export function createApiClient({
     request(path, schema, { method: 'GET', ...withCredentials });
   const post = <S extends z.ZodType>(path: string, schema: S, body: unknown) =>
     request(path, schema, { method: 'POST', body: JSON.stringify(body), ...withCredentials });
+  /** Транспорт сессии платформы — в тело запросов, которые выдают сессию. */
+  const withTransport = <B extends object>(body: B) =>
+    sessionTransport ? { sessionTransport, ...body } : body;
 
   return {
     health: () => get('/v1/health', HealthResponse),
@@ -83,11 +88,10 @@ export function createApiClient({
     resendVerification: (body: ResendVerificationRequest) =>
       post('/v1/auth/verification/resend', ResendVerificationResponse, body),
     pollRegistration: (body: RegistrationPollRequest) =>
-      post(
-        '/v1/auth/registration/poll',
-        RegistrationPollResponse,
-        sessionTransport ? { sessionTransport, ...body } : body,
-      ),
+      post('/v1/auth/registration/poll', RegistrationPollResponse, withTransport(body)),
+    /** Вход по паролю: сессия по транспорту платформы или `verificationRequired` (e-mail не подтверждён). */
+    signIn: (body: Omit<SignInRequest, 'sessionTransport'>) =>
+      post('/v1/auth/session/sign-in', SignInResponse, withTransport(body)),
     /** Ротация сессии: без `refreshToken` — refresh из cookie (web), ответ без него. */
     refreshSession: (body: RefreshSessionRequest = {}) =>
       post('/v1/auth/session/refresh', RefreshSessionResponse, body),

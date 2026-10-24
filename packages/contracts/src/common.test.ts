@@ -11,6 +11,10 @@ import {
 import { LinkExpiredDetails } from './auth/verification.schema.ts';
 
 describe('коды ошибок', () => {
+  it('вход: INVALID_CREDENTIALS — последним (установленные клиенты знают прежний состав)', () => {
+    expect(ErrorCode.options.at(-1)).toBe('INVALID_CREDENTIALS');
+  });
+
   it('содержат коды регистрации', () => {
     for (const code of ['EMAIL_TAKEN', 'EMAIL_UNAVAILABLE', 'LINK_EXPIRED'] as const) {
       expect(ErrorCode.parse(code)).toBe(code);
@@ -30,6 +34,7 @@ describe('коды ошибок', () => {
       'EMAIL_TAKEN',
       'EMAIL_UNAVAILABLE',
       'LINK_EXPIRED',
+      'INVALID_CREDENTIALS',
     ]);
     expect(FieldErrorCode.options).toEqual([
       'REQUIRED',

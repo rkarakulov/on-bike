@@ -108,3 +108,45 @@ describe('api-client: refreshSession и signOut', () => {
     expect(calls[0]?.body).toEqual({ refreshToken: token });
   });
 });
+
+describe('api-client: signIn', () => {
+  const credentials = { email: 'rider@example.com', password: 'velo-secret' };
+
+  it('web: POST /v1/auth/session/sign-in, транспорт cookie подмешан, credentials в fetch; ответ без refresh', async () => {
+    const { calls, api } = client(
+      200,
+      { state: 'signedIn', session: cookieSession },
+      { credentials: 'include', sessionTransport: 'cookie' },
+    );
+    await expect(api.signIn(credentials)).resolves.toEqual({
+      state: 'signedIn',
+      session: cookieSession,
+    });
+    expect(calls).toEqual([
+      {
+        url: 'https://api.test/v1/auth/session/sign-in',
+        method: 'POST',
+        credentials: 'include',
+        body: { sessionTransport: 'cookie', ...credentials },
+      },
+    ]);
+  });
+
+  it('native: тело без транспорта (по умолчанию body), ответ — полный Session', async () => {
+    const { calls, api } = client(200, { state: 'signedIn', session });
+    await expect(api.signIn(credentials)).resolves.toEqual({ state: 'signedIn', session });
+    expect(calls[0]?.body).toEqual(credentials);
+    expect(calls[0]?.credentials).toBeUndefined();
+  });
+
+  it('verificationRequired — токен регистрации для «Подтвердите e-mail»', async () => {
+    const body = {
+      state: 'verificationRequired',
+      registrationToken: token,
+      email: 'rider@example.com',
+      resendAvailableInSec: 60,
+    };
+    const { api } = client(200, body);
+    await expect(api.signIn(credentials)).resolves.toEqual(body);
+  });
+});
