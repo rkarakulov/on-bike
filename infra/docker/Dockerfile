@@ -49,7 +49,7 @@ RUN pnpm turbo run build --filter=@pokatim/api \
     && cp -r apps/api/dist apps/api/drizzle apps/api/drizzle.config.ts apps/api/package.json /out/apps/api/
 
 FROM ${NODE_IMAGE} AS api
-LABEL org.opencontainers.image.source="https://github.com/rkarakulov/on-bike" \
+LABEL org.opencontainers.image.source="https://github.com/rkarakulov/pokatim" \
       org.opencontainers.image.description="pokatim API, worker и миграции" \
       by.pokatim.project="pokatim"
 ENV NODE_ENV=production
@@ -72,7 +72,7 @@ RUN test -n "$EXPO_PUBLIC_API_URL" || { echo 'нужен --build-arg EXPO_PUBLIC
     && cp apps/app/server/main.ts apps/app/server/web-server.ts apps/app/server/package.json /out/apps/app/server/
 
 FROM ${NODE_IMAGE} AS web
-LABEL org.opencontainers.image.source="https://github.com/rkarakulov/on-bike" \
+LABEL org.opencontainers.image.source="https://github.com/rkarakulov/pokatim" \
       org.opencontainers.image.description="pokatim web/PWA (SSR)" \
       by.pokatim.project="pokatim"
 ENV NODE_ENV=production \
@@ -90,7 +90,7 @@ ARG ADMIN_BASE=/admin/
 RUN ADMIN_BASE="$ADMIN_BASE" pnpm --filter @pokatim/admin build
 
 FROM ${NGINX_IMAGE} AS admin
-LABEL org.opencontainers.image.source="https://github.com/rkarakulov/on-bike" \
+LABEL org.opencontainers.image.source="https://github.com/rkarakulov/pokatim" \
       org.opencontainers.image.description="pokatim admin (статика)" \
       by.pokatim.project="pokatim"
 COPY infra/docker/admin-nginx.conf /etc/nginx/conf.d/default.conf

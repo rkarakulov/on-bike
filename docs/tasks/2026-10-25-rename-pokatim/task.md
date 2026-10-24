@@ -115,8 +115,9 @@
   `develop` (до переименования) — те же 5 файлов: переименование ответов дифф не добавляет.
 
 Остатки `git grep -i -E 'on-bike|on_bike|onbike|on bike'` (кроме журнала `docs/tasks/*`, 38 файлов):
-- репозиторий GitHub `rkarakulov/on-bike`: `org.opencontainers.image.source` в `infra/docker/Dockerfile`,
-  `gh api repos/…`/`--repo` в `docs/runbooks/deploy.md` — до переименования репозитория (оркестратор);
+- репозиторий GitHub: оркестратор переименовал `rkarakulov/on-bike` → `rkarakulov/pokatim` — label
+  `org.opencontainers.image.source`, `gh api repos/…`/`--repo` в runbook и `origin` обновлены (остаётся только
+  историческое упоминание в `brand.md`);
 - переезд стенда: `deploy.sh` (`POKATIM_LEGACY_*` умолчания, прочистка по прежнему label), `bootstrap.sh`
   (`ON_BIKE_TAG` в управляемых ключах, имя и маркер прежнего vhost, `LEGACY_MAIL_FROM`), runbooks deploy/local-dev
   (разделы «Переезд»), `brand.md` (история имени);

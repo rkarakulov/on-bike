@@ -21,7 +21,7 @@
 
 Scope пакетов `@pokatim/*`, образы GHCR `pokatim-*`, compose project, БД, bundle id `by.pokatim.app` и схема
 `pokatim://`, `expo.slug`, имя cookie `__Secure-pokatim_rt`, ключи хранилищ `pokatim.*`, issuer/audience JWT,
-пути и имена файлов, документы. Репозиторий GitHub переименовывается отдельно (до этого — `rkarakulov/on-bike`).
+пути и имена файлов, документы. Репозиторий GitHub — `rkarakulov/pokatim` (до 2026-10-25 — `rkarakulov/on-bike`, переадресация работает).
 
 Смена бренда — правка мест выше и тестов, которые сверяют тексты (`public-metadata.test.ts`, `e2e/web.spec.ts`,
 `verification-email.test.ts`, `password-reset-email.test.ts`, `password-changed-email.test.ts`,

@@ -52,9 +52,9 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 4
 
    ```bash
    # окружение с правилом Deployment branches = develop
-   gh api -X PUT repos/rkarakulov/on-bike/environments/dev \
+   gh api -X PUT repos/rkarakulov/pokatim/environments/dev \
      -F 'deployment_branch_policy[protected_branches]=false' -F 'deployment_branch_policy[custom_branch_policies]=true'
-   gh api -X POST repos/rkarakulov/on-bike/environments/dev/deployment-branch-policies -f name=develop -f type=branch
+   gh api -X POST repos/rkarakulov/pokatim/environments/dev/deployment-branch-policies -f name=develop -f type=branch
    ```
 
    (то же в UI: Settings → Environments → New environment `dev` → Deployment branches and tags → Selected → `develop`.)
@@ -72,7 +72,7 @@ smoke (`/v1/health` = ok, `/register`, `/admin/`, `/mail/` без пароля 4
    gh variable set DEV_CERTBOT_EMAIL --env dev --body '<e-mail>'
    gh variable set DEV_SSH_USER --env dev --body 'ubuntu'
    # необязательно: реальная доставка писем разрешённым адресам (раздел «Почта»)
-   gh secret set DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/on-bike --env dev --body '<адрес>,<адрес>'   # или '*'
+   gh secret set DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/pokatim --env dev --body '<адрес>,<адрес>'   # или '*'
    ```
 
    Все четыре — `DEV_SSH_HOST`, `DEV_SSH_KEY`, `DEV_SSH_KNOWN_HOSTS`, `DEV_PUBLIC_HOST` — обязательны: без них preflight
@@ -252,8 +252,8 @@ PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U poka
   preflight падает с номером элемента. Секрет — источник истины: удалить его — relay выключится на следующем деплое.
 
   ```bash
-  gh secret set DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/on-bike --env dev --body 'alice@example.com,bob+test@example.org'
-  gh secret set DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/on-bike --env dev --body '*'   # всем
+  gh secret set DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/pokatim --env dev --body 'alice@example.com,bob+test@example.org'
+  gh secret set DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/pokatim --env dev --body '*'   # всем
   ```
 
 - **Риски режима «всем».** Письмо уходит на любой адрес, введённый при регистрации, — в т. ч. на чужой или выдуманный
@@ -313,7 +313,7 @@ PostgreSQL/Redis — только изнутри: `dc exec postgres psql -U poka
 - Ошибки отправки — `dc logs --tail 200 mailpit | grep relay` (по SSH; в логе есть адреса — не копировать в публичные
   места).
 
-**Выключить:** `gh secret delete DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/on-bike --env dev` и деплой — relay
+**Выключить:** `gh secret delete DEV_MAIL_RELAY_RECIPIENTS --repo rkarakulov/pokatim --env dev` и деплой — relay
 выключен, логин и пароль остаются в `.env`. Насовсем — ещё очистить `MAIL_RELAY_USERNAME`/`MAIL_RELAY_PASSWORD` в
 `.env` (и удалить SMTP credentials в SES / пароль приложения Google). Без деплоя (срочно) — очистить
 `MAIL_RELAY_PASSWORD` в `.env` и `bash ~/pokatim/bootstrap.sh` с `PUBLIC_HOST=<хост> POKATIM_SKIP_NGINX=1`, затем
